@@ -1,5 +1,5 @@
-import React from 'react';
-import { Alert, Card, Tree, Button, Space, Typography, Tag, Tooltip } from 'antd';
+import React, { useState } from 'react';
+import { Alert, Card, Tree, Button, Space, Typography, Tag, Tooltip, message } from 'antd';
 import { CheckOutlined, CloseOutlined, MessageOutlined, EditOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -13,6 +13,40 @@ interface SchemaEditorProps {
 
 export default function SchemaEditor({ taskId, schemaData, onNext, onOpenDrawer }: SchemaEditorProps) {
   
+  const [loading, setLoading] = useState(false);
+
+  const handleReject = async () => {
+    if (!taskId) return;
+    setLoading(true);
+    await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/reject_schema`, { method: 'POST' });
+    message.success('已通知 Orchestrator 重新生成 Schema');
+    setLoading(false);
+  };
+
+  const handleSaveDraft = async () => {
+    if (!taskId) return;
+    setLoading(true);
+    await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/schema`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dynamic_schema: schemaData || {} })
+    });
+    message.success('已保存为草稿');
+    setLoading(false);
+  };
+
+  const handleSaveAndContinue = async () => {
+    if (!taskId) {
+      onNext();
+      return;
+    }
+    setLoading(true);
+    await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/resume`, { method: 'POST' });
+    message.success('已放行，进入采集与分析阶段');
+    setLoading(false);
+    onNext();
+  };
+
   const treeData = [
     {
       title: <span style={{ fontWeight: 600 }}>🔒 核心基础信息 (系统强制)</span>,
@@ -106,9 +140,9 @@ export default function SchemaEditor({ taskId, schemaData, onNext, onOpenDrawer 
         </Space>
         
         <Space>
-          <Button danger>拒绝并重新生成</Button>
-          <Button>保存为草稿</Button>
-          <Button type="primary" onClick={onNext}>保存并继续 (放行) →</Button>
+          <Button danger loading={loading} onClick={handleReject}>拒绝并重新生成</Button>
+          <Button loading={loading} onClick={handleSaveDraft}>保存为草稿</Button>
+          <Button type="primary" loading={loading} onClick={handleSaveAndContinue}>保存并继续 (放行) →</Button>
         </Space>
       </div>
     </div>
