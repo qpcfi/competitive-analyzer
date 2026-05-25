@@ -1,0 +1,163 @@
+:root {
+  /* 间距变量定义 */
+  --spacing-unit: clamp(4px, 1vw, 8px);
+  
+  /* 字体大小阶梯 */
+  --font-h1: clamp(24px, 4vw, 32px);
+  --font-h2: clamp(20px, 3vw, 24px);
+  --font-h3: clamp(18px, 2.5vw, 20px);
+  --font-body: clamp(14px, 1.5vw, 16px);
+  --font-caption: clamp(12px, 1vw, 13px);
+
+  /* 尺寸单位规范 */
+  --sidebar-width: clamp(240px, 16vw, 320px);
+  --sidebar-collapsed-width: clamp(56px, 5vw, 80px);
+  --drawer-width: clamp(360px, 30vw, 480px);
+  --middle-gap: clamp(16px, 2vw, 32px);
+  
+  /* 其他基础变量 */
+  --bg-color: #f5f7fa;
+  --panel-bg: #ffffff;
+  --border-color: #e5e6eb;
+  --primary-color: #1677ff;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: var(--font-body);
+  background-color: var(--bg-color);
+  color: #333;
+  overflow: hidden; /* 防止全局滚动，由内部组件处理滚动 */
+}
+
+h1 { font-size: var(--font-h1); font-weight: 600; margin-bottom: calc(var(--spacing-unit) * 2); }
+h2 { font-size: var(--font-h2); font-weight: 600; margin-bottom: calc(var(--spacing-unit) * 2); }
+h3 { font-size: var(--font-h3); font-weight: 500; margin-bottom: calc(var(--spacing-unit) * 2); }
+
+/* 三栏布局容器 */
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+}
+
+/* 左侧导航栏 */
+.sidebar {
+  width: var(--sidebar-width);
+  background: var(--panel-bg);
+  border-right: 1px solid var(--border-color);
+  transition: width 0.2s ease, left 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.sidebar.collapsed {
+  width: var(--sidebar-collapsed-width);
+}
+
+/* 中栏工作区 */
+.main-workspace {
+  flex: 1;
+  min-width: 0; /* 防止溢出 */
+  padding: calc(var(--spacing-unit) * 3);
+  overflow-y: auto;
+  position: relative;
+  scroll-behavior: smooth;
+}
+
+.main-content-inner {
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+  background: var(--panel-bg);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  min-height: calc(100vh - var(--spacing-unit) * 6);
+  padding: calc(var(--spacing-unit) * 4);
+}
+
+/* 右侧抽屉 */
+.right-drawer {
+  width: var(--drawer-width);
+  background: var(--panel-bg);
+  border-left: 1px solid var(--border-color);
+  position: fixed;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 100;
+  box-shadow: -2px 0 8px rgba(0,0,0,0.1);
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.right-drawer.open {
+  transform: translateX(0);
+}
+
+/* SWOT四象限网格 */
+.swot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: calc(var(--spacing-unit) * 2.5);
+}
+
+/* 卡片平铺模式 */
+.competitor-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: calc(var(--spacing-unit) * 2.5);
+}
+
+/* 响应式断点 (Medium) */
+@media (max-width: 1024px) {
+  .sidebar { width: 200px; }
+  .right-drawer { width: 40%; }
+}
+
+/* 响应式断点 (Small) */
+@media (max-width: 768px) {
+  .sidebar {
+    position: fixed;
+    left: -200px;
+    height: 100vh;
+  }
+  .sidebar.open {
+    left: 0;
+    width: 260px;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+  }
+  .swot-grid { grid-template-columns: 1fr; gap: 16px; }
+  .right-drawer { width: 70%; max-width: 400px; }
+}
+
+/* 响应式断点 (Extra Small) */
+@media (max-width: 640px) {
+  .sidebar.open { width: 100%; max-width: none; }
+  .right-drawer { width: 100%; }
+  .competitor-tiles { grid-template-columns: 1fr; }
+}
+
+/* 触控友好 */
+button, .clickable {
+  min-height: clamp(36px, 8vw, 44px);
+  min-width: clamp(36px, 8vw, 44px);
+  padding: clamp(6px, 1.5vw, 10px) clamp(10px, 2vw, 16px);
+  cursor: pointer;
+}
+
+input, select, textarea {
+  min-height: clamp(34px, 7vw, 40px);
+  font-size: clamp(14px, 3vw, 16px);
+}
