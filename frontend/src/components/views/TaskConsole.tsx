@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Steps, Input, Button, Radio, Card, Space, Tag, Table, Checkbox } from 'antd';
+import { Steps, Input, Button, Radio, Card, Space, Tag, Table, Checkbox, App } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, BulbOutlined } from '@ant-design/icons';
 
 const { Search } = Input;
@@ -9,6 +9,7 @@ interface TaskConsoleProps {
 }
 
 export default function TaskConsole({ onNext }: TaskConsoleProps) {
+  const { message } = App.useApp();
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [domain, setDomain] = useState("AI大模型");
