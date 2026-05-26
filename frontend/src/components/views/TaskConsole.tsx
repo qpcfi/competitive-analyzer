@@ -1,11 +1,60 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Steps, Input, Button, Radio, Card, Space, Tag, Table, Checkbox, App } from 'antd';
+import { Steps, Input, Button, Radio, Card, Space, Tag, Table, Checkbox, App, Modal, Form, Select } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, BulbOutlined } from '@ant-design/icons';
 
 const { Search } = Input;
 
 interface TaskConsoleProps {
   onNext: (taskId: string) => void;
+}
+
+interface PredefinedSchemaField {
+  key: string;
+  name: string;
+  type: string;
+  source: string;
+}
+
+function formatApiErrorDetail(detail: unknown, fallback: string): string {
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail;
+  }
+
+  if (Array.isArray(detail)) {
+    const messages = detail
+      .map((item) => {
+        if (typeof item === 'string') {
+          return item;
+        }
+        if (item && typeof item === 'object') {
+          const typedItem = item as { msg?: unknown; loc?: unknown };
+          if (typeof typedItem.msg === 'string' && typedItem.msg.trim()) {
+            const location = Array.isArray(typedItem.loc)
+              ? typedItem.loc.filter((part) => part !== null && part !== undefined).join('.')
+              : '';
+            return location ? `${location}: ${typedItem.msg}` : typedItem.msg;
+          }
+        }
+        return '';
+      })
+      .filter(Boolean);
+
+    if (messages.length) {
+      return messages.join('；');
+    }
+  }
+
+  if (detail && typeof detail === 'object') {
+    const typedDetail = detail as { msg?: unknown; detail?: unknown };
+    if (typeof typedDetail.msg === 'string' && typedDetail.msg.trim()) {
+      return typedDetail.msg;
+    }
+    if (typedDetail.detail !== undefined) {
+      return formatApiErrorDetail(typedDetail.detail, fallback);
+    }
+  }
+
+  return fallback;
 }
 
 export default function TaskConsole({ onNext }: TaskConsoleProps) {
@@ -16,10 +65,50 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
   const [taskName, setTaskName] = useState('');
   const [executionMode, setExecutionMode] = useState('step');
   const [competitors, setCompetitors] = useState<string[]>([]);
+  const [schemaData, setSchemaData] = useState<PredefinedSchemaField[]>([]);
+  const [schemaModalOpen, setSchemaModalOpen] = useState(false);
+  const [editingSchemaKey, setEditingSchemaKey] = useState<string | null>(null);
+  const [schemaForm] = Form.useForm<Omit<PredefinedSchemaField, 'key'>>();
   const domainInputRef = useRef<any>(null);
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
 
-  const schemaData: Array<{ key: string; name: string; type: string; source: string }> = [];
+  const openAddSchemaField = () => {
+    setEditingSchemaKey(null);
+    schemaForm.setFieldsValue({ name: '', type: 'text', source: 'public_web' });
+    setSchemaModalOpen(true);
+  };
+
+  const openEditSchemaField = (field: PredefinedSchemaField) => {
+    setEditingSchemaKey(field.key);
+    schemaForm.setFieldsValue({ name: field.name, type: field.type, source: field.source });
+    setSchemaModalOpen(true);
+  };
+
+  const handleSaveSchemaField = async () => {
+    const values = await schemaForm.validateFields();
+    const normalizedField = {
+      name: values.name.trim(),
+      type: values.type,
+      source: values.source.trim(),
+    };
+
+    if (editingSchemaKey) {
+      setSchemaData(prev =>
+        prev.map(item => (item.key === editingSchemaKey ? { ...item, ...normalizedField } : item))
+      );
+    } else {
+      setSchemaData(prev => [
+        ...prev,
+        {
+          key: `custom_${Date.now()}_${prev.length}`,
+          ...normalizedField,
+        },
+      ]);
+    }
+
+    setSchemaModalOpen(false);
+    schemaForm.resetFields();
+  };
 
   const handleCreateTask = async () => {
     const submittedDomain = domain.trim() || String(domainInputRef.current?.input?.value || '').trim();
@@ -47,7 +136,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
         message.success('任务创建成功');
         onNext(data.task_id);
       } else {
-        message.error(data.detail || '创建失败');
+        message.error(formatApiErrorDetail(data.detail, '创建失败'));
       }
     } catch (err) {
       console.error(err);
@@ -76,10 +165,10 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
     {
       title: '操作',
       key: 'action',
-      render: () => (
+      render: (_: unknown, record: PredefinedSchemaField) => (
         <Space size="middle">
-          <Button type="text" icon={<EditOutlined />} />
-          <Button type="text" danger icon={<DeleteOutlined />} />
+          <Button type="text" aria-label={`编辑${record.name}`} icon={<EditOutlined />} onClick={() => openEditSchemaField(record)} />
+          <Button type="text" danger aria-label={`删除${record.name}`} icon={<DeleteOutlined />} onClick={() => setSchemaData(prev => prev.filter(item => item.key !== record.key))} />
         </Space>
       ),
     },
@@ -155,7 +244,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
 
         <Card title="预定义分析维度(可选)" style={{ marginBottom: 24 }} extra={<Button type="link">折叠</Button>}>
           <Table columns={schemaColumns} dataSource={schemaData} pagination={false} size="middle" style={{ marginBottom: 16 }} />
-          <Button type="dashed" icon={<PlusOutlined />} block>添加自定义维度</Button>
+          <Button type="dashed" icon={<PlusOutlined />} block onClick={openAddSchemaField}>添加自定义维度</Button>
           <div style={{ marginTop: 24 }}>
             <Checkbox checked>让Agent根据我的预定义补充其他相关维度</Checkbox><br />
             <Checkbox>仅使用我预定义的维度（不启用Agent补充）</Checkbox>
@@ -183,6 +272,55 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
           </button>
         </div>
       </div>
+
+      <Modal
+        title={editingSchemaKey ? '编辑自定义维度' : '添加自定义维度'}
+        open={schemaModalOpen}
+        onCancel={() => setSchemaModalOpen(false)}
+        onOk={handleSaveSchemaField}
+        okText="保存维度"
+        cancelText="取消"
+        destroyOnHidden
+      >
+        <Form form={schemaForm} layout="vertical" initialValues={{ type: 'text', source: 'public_web' }}>
+          <Form.Item
+            label="维度名称"
+            name="name"
+            rules={[
+              { required: true, whitespace: true, message: '请输入维度名称' },
+              {
+                validator: (_, value) => {
+                  const normalizedValue = String(value || '').trim().toLowerCase();
+                  const duplicated = schemaData.some(item =>
+                    item.key !== editingSchemaKey && item.name.trim().toLowerCase() === normalizedValue
+                  );
+                  return duplicated ? Promise.reject(new Error('维度名称不能重复')) : Promise.resolve();
+                },
+              },
+            ]}
+          >
+            <Input placeholder="例如：部署方式、API限制、合规认证" />
+          </Form.Item>
+          <Form.Item label="类型" name="type" rules={[{ required: true, message: '请选择类型' }]}>
+            <Select
+              options={[
+                { value: 'text', label: '文本' },
+                { value: 'list', label: '列表' },
+                { value: 'number', label: '数值' },
+                { value: 'boolean', label: '布尔值' },
+                { value: 'url', label: '链接' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item
+            label="预期数据来源"
+            name="source"
+            rules={[{ required: true, whitespace: true, message: '请输入预期数据来源' }]}
+          >
+            <Input placeholder="例如：official、public_web、公开文档" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   );
 }
