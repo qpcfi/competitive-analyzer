@@ -1,3 +1,4 @@
+import asyncio
 import os
 import uuid
 from datetime import datetime
@@ -137,7 +138,11 @@ async def process_graph_events(task_id: str, graph, initial_state, config):
                 if node_name == "orchestrator":
                     schema_json = state.get("dynamic_schema") or {}
                     schema_version = state.get("schema_version", 1)
+                    discovered_competitors = (state.get("task_context") or {}).get("competitors") or []
                     async with async_session() as session:
+                        task = await get_task(session, task_id)
+                        if task and discovered_competitors:
+                            task.competitors = discovered_competitors
                         await save_schema(session, task_id, schema_json, created_by="agent", status="active")
                         await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
                         await session.commit()
@@ -335,13 +340,13 @@ async def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks)
         await session.commit()
 
     config = {"configurable": {"thread_id": task_id}}
-    background_tasks.add_task(publish_event, task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "previous_state": "INITIALIZING", "progress": 10})
-    background_tasks.add_task(publish_event, task_id, "progress_update", {"progress": 10, "stage": "SCHEMA_GENERATING"})
-    background_tasks.add_task(publish_event, task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Starting schema generation"})
+    asyncio.create_task(publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "previous_state": "INITIALIZING", "progress": 10}))
+    asyncio.create_task(publish_event(task_id, "progress_update", {"progress": 10, "stage": "SCHEMA_GENERATING"}))
+    asyncio.create_task(publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Starting schema generation"}))
     if req.execution_mode == "step_by_step":
-        background_tasks.add_task(regenerate_schema, task_id)
+        asyncio.create_task(regenerate_schema(task_id))
     else:
-        background_tasks.add_task(process_graph_events, task_id, app_auto, make_initial_state(req, task_id), config)
+        asyncio.create_task(process_graph_events(task_id, app_auto, make_initial_state(req, task_id), config))
 
     return {"task_id": task_id, "state": "INITIALIZING", "stream_url": f"/api/v1/tasks/{task_id}/stream"}
 
@@ -790,7 +795,11 @@ async def regenerate_schema(task_id: str):
         }
     updated_state = await orchestrator_node(state)
     schema_json = updated_state.get("dynamic_schema") or {}
+    discovered_competitors = (updated_state.get("task_context") or {}).get("competitors") or []
     async with async_session() as session:
+        db_task = await get_task(session, task_id)
+        if db_task and discovered_competitors:
+            db_task.competitors = discovered_competitors
         record = await save_schema(session, task_id, schema_json, created_by="agent", status="active")
         await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
         await session.commit()
@@ -812,7 +821,7 @@ async def reject_schema(task_id: str, background_tasks: BackgroundTasks):
 
     await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "progress": 10})
     await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Regenerating schema after user rejection"})
-    background_tasks.add_task(regenerate_schema, task_id)
+    asyncio.create_task(regenerate_schema(task_id))
     return {"status": "regenerating", "state": "SCHEMA_GENERATING"}
 
 
@@ -831,7 +840,7 @@ async def resume_task(task_id: str, background_tasks: BackgroundTasks):
 
     await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "previous_state": "SCHEMA_REVIEW", "progress": 40})
     await publish_event(task_id, "progress_update", {"progress": 40, "stage": "COLLECTING"})
-    background_tasks.add_task(process_agent_pipeline, task_id)
+    asyncio.create_task(process_agent_pipeline(task_id))
     return {"status": "resumed", "state": "COLLECTING"}
 
 

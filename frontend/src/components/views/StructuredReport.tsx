@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Typography, Divider, Button, Space, Tag, message } from 'antd';
+import { Card, Typography, Divider, Button, Space, Tag, App } from 'antd';
 import { FilePdfOutlined, FileMarkdownOutlined, CodeOutlined, ShareAltOutlined } from '@ant-design/icons';
 
 const { Title, Paragraph, Text } = Typography;
@@ -10,6 +10,7 @@ interface StructuredReportProps {
 }
 
 export default function StructuredReport({ taskId, analysisResults }: StructuredReportProps) {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState<string | null>(null);
   const report = analysisResults?.report || {};
   const findings = Array.isArray(report.findings) ? report.findings : [];

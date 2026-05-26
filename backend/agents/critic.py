@@ -9,8 +9,10 @@ except ImportError:
 from .state import AgentState
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
+base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+model_name = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
 llm = (
-    ChatOpenAI(api_key=api_key, base_url="https://api.deepseek.com", model="deepseek-v4-pro")
+    ChatOpenAI(api_key=api_key, base_url=base_url, model=model_name, timeout=90)
     if api_key and ChatOpenAI is not None
     else None
 )

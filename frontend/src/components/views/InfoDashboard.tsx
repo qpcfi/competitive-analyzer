@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Progress, Row, Col, Typography, Space, Button, Tag, Collapse, Timeline, message } from 'antd';
+import { Card, Progress, Row, Col, Typography, Space, Button, Tag, Collapse, Timeline, App } from 'antd';
 import { PauseCircleOutlined, RightCircleOutlined, CheckCircleOutlined, SyncOutlined, WarningOutlined, CloseCircleOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -16,6 +16,7 @@ interface InfoDashboardProps {
 }
 
 export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs = [], collectionProgress = null }: InfoDashboardProps) {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState<string | null>(null);
   const accepted = rawMaterials.filter(item => item.validation_status === 'accepted').length;
   const degraded = rawMaterials.filter(item => item.validation_status === 'degraded').length;

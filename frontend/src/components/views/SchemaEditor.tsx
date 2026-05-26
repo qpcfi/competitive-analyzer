@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Alert, Card, Tree, Button, Space, Typography, Tag, Tooltip, message } from 'antd';
+import { Alert, Card, Tree, Button, Space, Typography, Tag, Tooltip, App } from 'antd';
 import { CheckOutlined, CloseOutlined, MessageOutlined, EditOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
 
 const { Text } = Typography;
@@ -12,6 +12,7 @@ interface SchemaEditorProps {
 }
 
 export default function SchemaEditor({ taskId, schemaData, onNext, onOpenDrawer }: SchemaEditorProps) {
+  const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const hasSchema = !!schemaData && Object.keys(schemaData).length > 0;
 

@@ -9,8 +9,10 @@ except ImportError:
 from .state import AgentState
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
+base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+model_name = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
 llm = (
-    ChatOpenAI(api_key=api_key, base_url="https://api.deepseek.com", model="deepseek-v4-pro")
+    ChatOpenAI(api_key=api_key, base_url=base_url, model=model_name, timeout=90)
     if api_key and ChatOpenAI is not None
     else None
 )
@@ -23,11 +25,49 @@ async def analyzer_node(state: AgentState):
         return state
     
     prompt = f"""
-    Analyze the following competitors based on the schema and provided raw materials.
+    You are the Analyzer Agent for a real competitive intelligence workflow.
+    Use only the supplied raw materials. Every factual cell, SWOT point, finding,
+    and recommendation must include evidence_refs from source material ids, or a
+    degraded status with a reason when evidence is insufficient.
+
+    Return ONLY JSON with this shape:
+    {{
+      "discovered_competitors": ["name"],
+      "schema_dimensions": [{{"id": "field_id", "name": "field_name", "group": "group"}}],
+      "comparison_rows": [
+        {{
+          "key": "field_id",
+          "dimension_id": "field_id",
+          "dimension": "field_name",
+          "values": {{
+            "Competitor": {{
+              "value": "concise extracted fact or short synthesized answer",
+              "status": "accepted|degraded",
+              "source_url": "url if accepted",
+              "evidence_refs": ["source_id"],
+              "degraded_reason": "reason if degraded"
+            }}
+          }}
+        }}
+      ],
+      "comparison": [{{"competitor": "name", "summary": "evidence-backed competitive position", "status": "accepted|degraded", "evidence_refs": ["source_id"]}}],
+      "swot": {{
+        "strengths": [{{"text": "competitor-specific insight", "evidence_refs": ["source_id"]}}],
+        "weaknesses": [{{"text": "competitor-specific insight", "evidence_refs": ["source_id"]}}],
+        "opportunities": [{{"text": "market/action insight", "evidence_refs": ["source_id"]}}],
+        "threats": [{{"text": "risk insight", "evidence_refs": ["source_id"]}}]
+      }},
+      "report": {{
+        "summary": "deep comparative executive summary",
+        "findings": [{{"title": "finding", "detail": "analysis", "evidence_refs": ["source_id"]}}],
+        "recommendations": [{{"text": "actionable recommendation", "evidence_refs": ["source_id"]}}],
+        "source_appendix": []
+      }},
+      "evidence_refs": ["source_id"]
+    }}
+
     Schema: {json.dumps(schema, ensure_ascii=False)}
     Raw Materials: {json.dumps(materials, ensure_ascii=False)}
-    
-    Output a structured JSON containing the comparison and a SWOT analysis.
     """
     res = await llm.ainvoke([HumanMessage(content=prompt)])
     try:

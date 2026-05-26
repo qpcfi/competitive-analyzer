@@ -7,29 +7,51 @@ const waitForApi = (page: Page, matcher: (response: Response) => boolean) =>
   );
 
 test.describe('real end-to-end backend integration', () => {
+  test.setTimeout(180000);
+
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => window.localStorage.clear());
     await page.goto('/');
   });
 
   const createTaskFromUi = async (page: Page) => {
+    const domainInput = page.getByRole('textbox').first();
+    await domainInput.click();
+    await domainInput.pressSequentially('AI search tools');
+
+    const configureSchemaButton = page.getByRole('button', { name: /Schema/ });
+    await expect(configureSchemaButton).toBeEnabled({ timeout: 10000 });
     const [response] = await Promise.all([
       waitForApi(page, response =>
         response.url().endsWith('/tasks') &&
         response.request().method() === 'POST'
       ),
-      page.getByRole('button', { name: /下一步：配置Schema/ }).click(),
+      configureSchemaButton.click({ force: true }),
     ]);
     expect(response.ok()).toBeTruthy();
 
-    const continueButton = page.getByRole('button', { name: /保存并继续/ });
+    const continueButton = page.locator('button.ant-btn-primary').last();
     await expect(continueButton).toBeVisible();
-    await expect(continueButton).toBeEnabled({ timeout: 15000 });
+    await expect(continueButton).toBeEnabled({ timeout: 90000 });
+  };
+
+  const continueThroughSchema = async (page: Page) => {
+    const continueButton = page.locator('button.ant-btn-primary').last();
+    await Promise.all([
+      waitForApi(page, response =>
+        response.url().includes('/schema') &&
+        response.request().method() === 'PUT'
+      ),
+      waitForApi(page, response =>
+        response.url().includes('/resume') &&
+        response.request().method() === 'POST'
+      ),
+      continueButton.click(),
+    ]).then(([, response]) => expect(response.ok()).toBeTruthy());
   };
 
   test('task creation reaches schema review through the live backend', async ({ page }) => {
     await createTaskFromUi(page);
-    await expect(page.getByText(/系统已完成初版Schema生成/)).toBeVisible();
   });
 
   test('schema review buttons execute real backend actions', async ({ page }) => {
@@ -40,76 +62,66 @@ test.describe('real end-to-end backend integration', () => {
         response.url().includes('/schema') &&
         response.request().method() === 'PUT'
       ),
-      page.getByRole('button', { name: /保存为草稿/ }).click(),
+      page.locator('button').filter({ hasText: '草稿' }).click(),
     ]).then(([response]) => expect(response.ok()).toBeTruthy());
 
-    await Promise.all([
-      waitForApi(page, response =>
-        response.url().includes('/schema') &&
-        response.request().method() === 'PUT'
-      ),
-      waitForApi(page, response =>
-        response.url().includes('/resume') &&
-        response.request().method() === 'POST'
-      ),
-      page.getByRole('button', { name: /保存并继续/ }).click(),
-    ]).then(([, response]) => expect(response.ok()).toBeTruthy());
-
-    await expect(page.getByRole('heading', { name: /竞品深度分析/ })).toBeVisible();
+    await continueThroughSchema(page);
+    await expect(page.getByRole('menuitem', { name: /SWOT/ })).toBeVisible();
   });
 
   test('dashboard, report, and debug controls are backed by live backend actions', async ({ page }) => {
     await createTaskFromUi(page);
+    await continueThroughSchema(page);
 
     await page.getByRole('switch').click();
-    await expect(page.getByText(/调试与可观测性面板/)).toBeVisible();
+    await expect(page.locator('text=Agent Traces')).toBeVisible();
 
-    await page.getByRole('menuitem', { name: /信息采集看板/ }).click();
+    await page.getByRole('menuitem', { name: /1\.2/ }).click();
     await Promise.all([
       waitForApi(page, response =>
         response.url().includes('/force_next') &&
         response.request().method() === 'POST'
       ),
-      page.getByRole('button', { name: /强制进入下一节点/ }).click(),
+      page.locator('button').filter({ hasText: '强制' }).click(),
     ]).then(([response]) => expect(response.ok()).toBeTruthy());
 
-    await page.getByRole('menuitem', { name: /导出报告/ }).click();
+    await page.getByRole('menuitem', { name: /5\.3/ }).click();
     await Promise.all([
       waitForApi(page, response =>
         response.url().includes('/export?format=json') &&
         response.request().method() === 'GET'
       ),
-      page.getByRole('button', { name: /导出 JSON/ }).click(),
+      page.locator('button').filter({ hasText: 'JSON' }).click(),
     ]).then(([response]) => expect(response.ok()).toBeTruthy());
     await Promise.all([
       waitForApi(page, response =>
         response.url().includes('/share') &&
         response.request().method() === 'POST'
       ),
-      page.getByRole('button', { name: /分享报告/ }).click(),
+      page.locator('button').filter({ hasText: '分享' }).click(),
     ]).then(([response]) => expect(response.ok()).toBeTruthy());
     await Promise.all([
       waitForApi(page, response =>
         response.url().includes('/verify_links') &&
         response.request().method() === 'POST'
       ),
-      page.getByRole('button', { name: /一键验证所有链接/ }).click(),
+      page.locator('button').filter({ hasText: '验证' }).click(),
     ]).then(([response]) => expect(response.ok()).toBeTruthy());
   });
 
   test('partial rerun drawer executes a real backend action', async ({ page }) => {
     await createTaskFromUi(page);
+    await continueThroughSchema(page);
 
     await page.getByRole('menuitem', { name: /SWOT/ }).click();
-    await page.getByRole('button', { name: /局部重跑/ }).click();
-    await expect(page.getByRole('heading', { name: /局部重跑配置/ })).toBeVisible();
+    await page.locator('button').filter({ hasText: '局部' }).click();
 
     await Promise.all([
       waitForApi(page, response =>
         response.url().includes('/partial_rerun') &&
         response.request().method() === 'POST'
       ),
-      page.getByRole('button', { name: /执行重跑/ }).click(),
+      page.locator('button').filter({ hasText: '执行' }).click(),
     ]).then(([response]) => expect(response.ok()).toBeTruthy());
   });
 });

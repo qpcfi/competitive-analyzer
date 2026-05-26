@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Button, Typography, Space, Divider, Alert, Checkbox, Input, message } from 'antd';
+import { Button, Typography, Space, Divider, Alert, Checkbox, Input, App } from 'antd';
 import { CloseOutlined, ReloadOutlined, WarningOutlined } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
@@ -14,6 +14,7 @@ interface RightDrawerProps {
 }
 
 export default function RightDrawer({ isOpen, type, taskId, data, onClose }: RightDrawerProps) {
+  const { message } = App.useApp();
   const [url, setUrl] = useState('');
   const [instruction, setInstruction] = useState('');
   const [loading, setLoading] = useState(false);

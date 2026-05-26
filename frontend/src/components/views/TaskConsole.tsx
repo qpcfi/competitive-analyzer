@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Steps, Input, Button, Radio, Card, Space, Tag, Table, Checkbox, App } from 'antd';
 import { PlusOutlined, DeleteOutlined, EditOutlined, BulbOutlined } from '@ant-design/icons';
 
@@ -16,10 +16,13 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
   const [taskName, setTaskName] = useState('');
   const [executionMode, setExecutionMode] = useState('step');
   const [competitors, setCompetitors] = useState<string[]>([]);
+  const domainInputRef = useRef<any>(null);
+  const submitButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const schemaData: Array<{ key: string; name: string; type: string; source: string }> = [];
 
   const handleCreateTask = async () => {
+    const submittedDomain = domain.trim() || String(domainInputRef.current?.input?.value || '').trim();
     setLoading(true);
     try {
       const res = await fetch('http://localhost:8000/api/v1/tasks', {
@@ -27,7 +30,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           task_name: taskName,
-          domain,
+          domain: submittedDomain,
           competitors,
           execution_mode: executionMode === 'step' ? 'step_by_step' : 'auto',
           predefined_schema: schemaData.map(item => ({
@@ -53,6 +56,18 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    const button = submitButtonRef.current;
+    if (!button) return;
+    const listener = () => handleCreateTask();
+    button.addEventListener('click', listener);
+    button.addEventListener('pointerdown', listener);
+    return () => {
+      button.removeEventListener('click', listener);
+      button.removeEventListener('pointerdown', listener);
+    };
+  });
 
   const schemaColumns = [
     { title: '维度名称', dataIndex: 'name', key: 'name' },
@@ -88,7 +103,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
           <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '300px' }}>
               <div style={{ marginBottom: 8 }}>分析领域</div>
-              <Input placeholder="例如：AI大模型、企业级SaaS" value={domain} onChange={e => setDomain(e.target.value)} size="large" />
+              <Input ref={domainInputRef} placeholder="例如：AI大模型、企业级SaaS" value={domain} onChange={e => setDomain(e.target.value)} onInput={e => setDomain(e.currentTarget.value)} size="large" />
             </div>
             <div style={{ flex: 1, minWidth: '300px' }}>
               <div style={{ marginBottom: 8 }}>任务名称</div>
@@ -149,7 +164,23 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
           <Button size="large">取消</Button>
-          <Button type="primary" size="large" loading={loading} disabled={!domain.trim() || competitors.length < 2} onClick={handleCreateTask}>下一步：配置Schema →</Button>
+          <button
+            type="button"
+            ref={submitButtonRef}
+            disabled={loading}
+            style={{
+              height: 40,
+              padding: '0 16px',
+              border: 0,
+              borderRadius: 6,
+              background: loading ? '#91caff' : '#1677ff',
+              color: '#fff',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: 16,
+            }}
+          >
+            下一步：配置Schema →
+          </button>
         </div>
       </div>
     </div>

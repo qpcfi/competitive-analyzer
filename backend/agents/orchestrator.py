@@ -14,8 +14,10 @@ from services.web_search import SearchResult, search_public_web
 from .state import AgentState
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
+base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+model_name = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
 llm = (
-    ChatOpenAI(api_key=api_key, base_url="https://api.deepseek.com", model="deepseek-v4-pro")
+    ChatOpenAI(api_key=api_key, base_url=base_url, model=model_name)
     if api_key and ChatOpenAI is not None
     else None
 )
@@ -23,6 +25,11 @@ llm = (
 
 async def orchestrator_node(state: AgentState):
     context = state.get("task_context", {})
+    competitors = [str(item).strip() for item in context.get("competitors", []) if str(item).strip()]
+    if not competitors:
+        competitors = await discover_competitors(context.get("domain", ""))
+        context["competitors"] = competitors
+        state["task_context"] = context
     if llm is None:
         schema = build_schema_from_context(context)
     else:
@@ -53,6 +60,56 @@ async def orchestrator_node(state: AgentState):
     return state
 
 
+async def discover_competitors(domain: str) -> list[str]:
+    domain = str(domain or "").strip()
+    if not domain:
+        return []
+    if llm is not None:
+        prompt = f"""
+        Identify 3 real competitors or representative products for this analysis domain: {domain}.
+        Return ONLY a JSON array of short product/company names, with no prose.
+        """
+        try:
+            res = await llm.ainvoke([HumanMessage(content=prompt)])
+            parsed = json.loads(extract_json_array(str(res.content)))
+            names = normalize_competitor_names(parsed)
+            if len(names) >= 2:
+                return names[:3]
+        except Exception:
+            pass
+
+    try:
+        results = await search_public_web(f"{domain} competitors products", limit=5)
+    except Exception:
+        return []
+    names = []
+    for result in results:
+        title = (result.title or "").split("|")[0].split("-")[0].strip()
+        if title:
+            names.append(title)
+    return normalize_competitor_names(names)[:3]
+
+
+def extract_json_array(content: str) -> str:
+    start = content.find("[")
+    end = content.rfind("]")
+    if start >= 0 and end > start:
+        return content[start : end + 1]
+    return content
+
+
+def normalize_competitor_names(values: Iterable[object]) -> list[str]:
+    normalized: list[str] = []
+    seen = set()
+    for value in values:
+        name = str(value).strip().strip('"').strip("'")
+        if not name or name.lower() in seen:
+            continue
+        seen.add(name.lower())
+        normalized.append(name[:80])
+    return normalized
+
+
 def build_schema_from_context(context: dict) -> dict:
     predefined = context.get("predefined_schema") or []
     base_fields = [
@@ -71,11 +128,15 @@ def build_schema_from_context(context: dict) -> dict:
 
 def ensure_schema_metadata(schema: dict) -> dict:
     normalized = {}
+    total_fields = 0
+    max_fields = 8
     for group_name, fields in schema.items():
         if not isinstance(fields, list):
             continue
         normalized[group_name] = []
         for index, field in enumerate(fields):
+            if total_fields >= max_fields:
+                break
             if not isinstance(field, dict):
                 continue
             field_name = str(field.get("name") or f"field_{index + 1}")
@@ -92,6 +153,11 @@ def ensure_schema_metadata(schema: dict) -> dict:
                     "feasibility": field.get("feasibility") or "medium",
                 }
             )
+            total_fields += 1
+        if not normalized[group_name]:
+            normalized.pop(group_name, None)
+        if total_fields >= max_fields:
+            break
     if not normalized:
         return {
             "Core Profile": [

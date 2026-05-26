@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 class TaskCreateRequest(BaseModel):
     task_name: str | None = None
     domain: str
-    competitors: list[str]
+    competitors: list[str] = []
     execution_mode: Literal["step_by_step", "auto"] = "step_by_step"
     predefined_schema: list[dict[str, Any]] | None = None
 
@@ -20,16 +20,14 @@ class TaskCreateRequest(BaseModel):
 
     @field_validator("competitors")
     @classmethod
-    def at_least_two_competitors(cls, value: list[str]) -> list[str]:
+    def normalize_competitors(cls, value: list[str]) -> list[str]:
         normalized = []
         seen = set()
-        for item in value:
+        for item in value or []:
             name = item.strip()
             if name and name.lower() not in seen:
                 seen.add(name.lower())
                 normalized.append(name)
-        if len(normalized) < 2:
-            raise ValueError("at least two competitors are required")
         return normalized
 
 
