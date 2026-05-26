@@ -15,6 +15,92 @@ interface PredefinedSchemaField {
   source: string;
 }
 
+interface SchemaFieldModalProps {
+  open: boolean;
+  editingSchemaKey: string | null;
+  schemaData: PredefinedSchemaField[];
+  onClose: () => void;
+  onSave: (values: Omit<PredefinedSchemaField, 'key'>) => void;
+}
+
+function SchemaFieldModal({ open, editingSchemaKey, schemaData, onClose, onSave }: SchemaFieldModalProps) {
+  const [form] = Form.useForm<Omit<PredefinedSchemaField, 'key'>>();
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    form.setFieldsValue({ name: '', type: 'text', source: 'public_web' });
+  }, [form, open]);
+
+  useEffect(() => {
+    if (!open || !editingSchemaKey) {
+      return;
+    }
+    const currentField = schemaData.find(item => item.key === editingSchemaKey);
+    if (currentField) {
+      form.setFieldsValue({ name: currentField.name, type: currentField.type, source: currentField.source });
+    }
+  }, [editingSchemaKey, form, open, schemaData]);
+
+  const handleOk = async () => {
+    const values = await form.validateFields();
+    onSave(values);
+    form.resetFields();
+  };
+
+  return (
+    <Modal
+      title={editingSchemaKey ? '编辑自定义维度' : '添加自定义维度'}
+      open={open}
+      onCancel={onClose}
+      onOk={handleOk}
+      okText="保存维度"
+      cancelText="取消"
+      destroyOnHidden
+    >
+      <Form form={form} layout="vertical" initialValues={{ type: 'text', source: 'public_web' }}>
+        <Form.Item
+          label="维度名称"
+          name="name"
+          rules={[
+            { required: true, whitespace: true, message: '请输入维度名称' },
+            {
+              validator: (_, value) => {
+                const normalizedValue = String(value || '').trim().toLowerCase();
+                const duplicated = schemaData.some(item =>
+                  item.key !== editingSchemaKey && item.name.trim().toLowerCase() === normalizedValue
+                );
+                return duplicated ? Promise.reject(new Error('维度名称不能重复')) : Promise.resolve();
+              },
+            },
+          ]}
+        >
+          <Input placeholder="例如：部署方式、API限制、合规认证" />
+        </Form.Item>
+        <Form.Item label="类型" name="type" rules={[{ required: true, message: '请选择类型' }]}>
+          <Select
+            options={[
+              { value: 'text', label: '文本' },
+              { value: 'list', label: '列表' },
+              { value: 'number', label: '数值' },
+              { value: 'boolean', label: '布尔值' },
+              { value: 'url', label: '链接' },
+            ]}
+          />
+        </Form.Item>
+        <Form.Item
+          label="预期数据来源"
+          name="source"
+          rules={[{ required: true, whitespace: true, message: '请输入预期数据来源' }]}
+        >
+          <Input placeholder="例如：official、public_web、公开文档" />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+}
+
 function formatApiErrorDetail(detail: unknown, fallback: string): string {
   if (typeof detail === 'string' && detail.trim()) {
     return detail;
@@ -68,24 +154,20 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
   const [schemaData, setSchemaData] = useState<PredefinedSchemaField[]>([]);
   const [schemaModalOpen, setSchemaModalOpen] = useState(false);
   const [editingSchemaKey, setEditingSchemaKey] = useState<string | null>(null);
-  const [schemaForm] = Form.useForm<Omit<PredefinedSchemaField, 'key'>>();
   const domainInputRef = useRef<any>(null);
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
 
   const openAddSchemaField = () => {
     setEditingSchemaKey(null);
-    schemaForm.setFieldsValue({ name: '', type: 'text', source: 'public_web' });
     setSchemaModalOpen(true);
   };
 
   const openEditSchemaField = (field: PredefinedSchemaField) => {
     setEditingSchemaKey(field.key);
-    schemaForm.setFieldsValue({ name: field.name, type: field.type, source: field.source });
     setSchemaModalOpen(true);
   };
 
-  const handleSaveSchemaField = async () => {
-    const values = await schemaForm.validateFields();
+  const handleSaveSchemaField = (values: Omit<PredefinedSchemaField, 'key'>) => {
     const normalizedField = {
       name: values.name.trim(),
       type: values.type,
@@ -107,7 +189,6 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
     }
 
     setSchemaModalOpen(false);
-    schemaForm.resetFields();
   };
 
   const handleCreateTask = async () => {
@@ -273,55 +354,15 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
         </div>
       </div>
 
-      <Modal
-        title={editingSchemaKey ? '编辑自定义维度' : '添加自定义维度'}
-        open={schemaModalOpen}
-        forceRender
-        onCancel={() => setSchemaModalOpen(false)}
-        onOk={handleSaveSchemaField}
-        okText="保存维度"
-        cancelText="取消"
-        destroyOnHidden
-      >
-        <Form form={schemaForm} layout="vertical" initialValues={{ type: 'text', source: 'public_web' }}>
-          <Form.Item
-            label="维度名称"
-            name="name"
-            rules={[
-              { required: true, whitespace: true, message: '请输入维度名称' },
-              {
-                validator: (_, value) => {
-                  const normalizedValue = String(value || '').trim().toLowerCase();
-                  const duplicated = schemaData.some(item =>
-                    item.key !== editingSchemaKey && item.name.trim().toLowerCase() === normalizedValue
-                  );
-                  return duplicated ? Promise.reject(new Error('维度名称不能重复')) : Promise.resolve();
-                },
-              },
-            ]}
-          >
-            <Input placeholder="例如：部署方式、API限制、合规认证" />
-          </Form.Item>
-          <Form.Item label="类型" name="type" rules={[{ required: true, message: '请选择类型' }]}>
-            <Select
-              options={[
-                { value: 'text', label: '文本' },
-                { value: 'list', label: '列表' },
-                { value: 'number', label: '数值' },
-                { value: 'boolean', label: '布尔值' },
-                { value: 'url', label: '链接' },
-              ]}
-            />
-          </Form.Item>
-          <Form.Item
-            label="预期数据来源"
-            name="source"
-            rules={[{ required: true, whitespace: true, message: '请输入预期数据来源' }]}
-          >
-            <Input placeholder="例如：official、public_web、公开文档" />
-          </Form.Item>
-        </Form>
-      </Modal>
+      {schemaModalOpen ? (
+        <SchemaFieldModal
+          open={schemaModalOpen}
+          editingSchemaKey={editingSchemaKey}
+          schemaData={schemaData}
+          onClose={() => setSchemaModalOpen(false)}
+          onSave={handleSaveSchemaField}
+        />
+      ) : null}
     </div>
   );
 }
