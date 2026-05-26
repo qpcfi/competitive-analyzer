@@ -1,12 +1,16 @@
 fastapi==0.111.0
 uvicorn[standard]
-pydantic==2.7.1
+pydantic>=2.7.4,<3.0.0  # 修改这里
 sqlalchemy==2.0.30
-aiosqlite
+asyncpg
+psycopg[binary,pool]
 langgraph
+langgraph-checkpoint-postgres
 langchain
 langchain-openai
-redis
 sse-starlette
+httpx
 beautifulsoup4
 playwright
+pytest
+pytest-asyncio

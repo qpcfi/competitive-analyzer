@@ -1,5 +1,5 @@
-import React from 'react';
-import { Button, Typography, Space, Divider, Alert, Checkbox, Input } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Button, Typography, Space, Divider, Alert, Checkbox, Input, App } from 'antd';
 import { CloseOutlined, ReloadOutlined, WarningOutlined } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
@@ -7,12 +7,65 @@ const { TextArea } = Input;
 
 interface RightDrawerProps {
   isOpen: boolean;
-  type: string; // 'source', 'intervention', 'schema-advice', 're-run'
+  type: string;
+  taskId?: string | null;
   data?: any;
   onClose: () => void;
 }
 
-export default function RightDrawer({ isOpen, type, data, onClose }: RightDrawerProps) {
+export default function RightDrawer({ isOpen, type, taskId, data, onClose }: RightDrawerProps) {
+  const { message } = App.useApp();
+  const [url, setUrl] = useState('');
+  const [instruction, setInstruction] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sourceData, setSourceData] = useState<any>(null);
+
+  useEffect(() => {
+    if (!isOpen || type !== 'source' || !taskId || !data?.sourceId) {
+      setSourceData(data || null);
+      return;
+    }
+    let cancelled = false;
+    const loadSource = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/source-materials/${data.sourceId}`);
+        if (!response.ok) throw new Error(await response.text());
+        const payload = await response.json();
+        if (!cancelled) setSourceData({ ...payload, sourceId: data.sourceId });
+      } catch (error) {
+        if (!cancelled) {
+          setSourceData(data);
+          message.error(error instanceof Error ? error.message : '来源加载失败');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadSource();
+    return () => {
+      cancelled = true;
+    };
+  }, [data, isOpen, taskId, type]);
+
+  const postJson = async (path: string, body?: any) => {
+    if (!taskId) return;
+    setLoading(true);
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!response.ok) throw new Error(await response.text());
+      message.success('操作已提交');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '操作失败');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderContent = () => {
     switch (type) {
       case 'source':
@@ -22,28 +75,21 @@ export default function RightDrawer({ isOpen, type, data, onClose }: RightDrawer
             <Divider />
             <Text type="secondary">原文切片 (Quote)</Text>
             <Paragraph style={{ backgroundColor: '#f0f2f5', padding: '12px', borderRadius: '4px', marginTop: '8px' }}>
-              <mark style={{ backgroundColor: '#e6f4ff', padding: '0 4px' }}>GPT-4o</mark> 的上下文长度支持最高 128K token。
+              {sourceData?.quote_text || '请选择一个真实来源查看证据切片。'}
             </Paragraph>
             <Space orientation="vertical" style={{ width: '100%', marginTop: '16px' }}>
               <div>
                 <Text type="secondary">来源链接：</Text>
                 <br />
-                <a href="https://openai.com/gpt-4o" target="_blank" rel="noreferrer">https://openai.com/gpt-4o</a>
+                {sourceData?.source_url ? <a href={sourceData.source_url} target="_blank" rel="noreferrer">{sourceData.source_url}</a> : <Text type="secondary">暂无</Text>}
               </div>
-              <div>
-                <Text type="secondary">抓取时间戳：</Text> <Text>2026-05-25 14:32:01</Text>
-              </div>
-              <div>
-                <Text type="secondary">负责节点：</Text> <Text>Collector-01</Text>
-              </div>
-              <div>
-                <Text type="secondary">数据可信度：</Text> <Text type="success">高 (95%)</Text>
-              </div>
+              <div><Text type="secondary">负责节点：</Text> <Text>{sourceData?.agent_node || 'Collector'}</Text></div>
+              <div><Text type="secondary">数据可信度：</Text> <Text type="success">{sourceData?.trust_status || '待确认'}</Text></div>
             </Space>
             <Divider />
             <Space>
-              <Button icon={<ReloadOutlined />}>重新抓取</Button>
-              <Button danger icon={<WarningOutlined />}>标记为不可信</Button>
+              <Button icon={<ReloadOutlined />} loading={loading} disabled={!taskId || !sourceData?.sourceId} onClick={() => postJson(`/source-materials/${sourceData.sourceId}/refetch`)}>重新抓取</Button>
+              <Button danger icon={<WarningOutlined />} loading={loading} disabled={!taskId || !sourceData?.sourceId} onClick={() => postJson(`/source-materials/${sourceData.sourceId}/trust`, { trust_status: 'untrusted', reason: '用户在抽屉中标记' })}>标记为不可信</Button>
             </Space>
           </>
         );
@@ -52,23 +98,15 @@ export default function RightDrawer({ isOpen, type, data, onClose }: RightDrawer
           <>
             <Title level={4}>底座干预视图</Title>
             <Divider />
-            <Alert title="⚠️ 步进确认模式已开启，允许人工介入数据清洗" type="warning" showIcon style={{ marginBottom: 16 }} />
-            
-            <Title level={5}>已抓取URL清单</Title>
-            <div style={{ marginBottom: 16 }}>
-              <Checkbox checked>https://openai.com/gpt-4o (23项数据)</Checkbox><br/>
-              <Checkbox checked>https://anthropic.com/claude-3-5 (19项数据)</Checkbox>
-            </div>
-            
+            <Alert title="步进确认模式已开启，允许人工介入数据清洗" type="warning" showIcon style={{ marginBottom: 16 }} />
             <Title level={5}>追加URL</Title>
             <Space.Compact style={{ width: '100%', marginBottom: 16 }}>
-              <Input placeholder="输入你想指定的来源URL" />
-              <Button type="primary">补录</Button>
+              <Input placeholder="输入你想指定的来源URL" value={url} onChange={e => setUrl(e.target.value)} />
+              <Button type="primary" loading={loading} disabled={!taskId || !url.trim()} onClick={() => postJson('/source-materials', { source_url: url })}>补录</Button>
             </Space.Compact>
-
             <Divider />
             <Space>
-              <Button type="primary">应用更改</Button>
+              <Button type="primary" loading={loading} disabled={!taskId} onClick={() => postJson('/interventions', { add_urls: url.trim() ? [url.trim()] : [], remove_source_ids: [], restore_noise_ids: [], reason: '人工数据干预' })}>应用更改</Button>
               <Button onClick={onClose}>取消</Button>
             </Space>
           </>
@@ -79,18 +117,10 @@ export default function RightDrawer({ isOpen, type, data, onClose }: RightDrawer
             <Title level={4}>Schema编辑辅助</Title>
             <Divider />
             <Title level={5}>Agent 生成理由</Title>
-            <Paragraph>该字段（企业合规认证）在企业级SaaS采购决策中权重极高，且在Claude 3.5和Gemini官网均有独立页面展示。</Paragraph>
-            
+            <Paragraph>该字段会从后端 Schema 元数据生成采集建议。</Paragraph>
             <Title level={5}>推荐搜索关键词</Title>
-            <Paragraph code>{"<Competitor> SOC2 compliance"}</Paragraph>
-            <Paragraph code>{"<Competitor> trust center data privacy"}</Paragraph>
-
-            <Title level={5}>行业常见值示例</Title>
-            <ul>
-              <li>SOC 2 Type II</li>
-              <li>ISO 27001</li>
-              <li>HIPAA 兼容</li>
-            </ul>
+            <Paragraph code>{'<Competitor> SOC2 compliance'}</Paragraph>
+            <Paragraph code>{'<Competitor> trust center data privacy'}</Paragraph>
           </>
         );
       case 're-run':
@@ -100,14 +130,12 @@ export default function RightDrawer({ isOpen, type, data, onClose }: RightDrawer
             <Divider />
             <Title level={5}>重跑范围</Title>
             <Alert title="仅重新生成当前象限内容" type="info" style={{ marginBottom: 16 }} />
-            
             <Title level={5}>补充指令 (可选)</Title>
-            <TextArea rows={4} placeholder="请输入修改要求，例如“增加对开源协议的分析”" style={{ marginBottom: 16 }} />
-            
+            <TextArea rows={4} placeholder="请输入修改要求，例如“增加对开源协议的分析”" value={instruction} onChange={e => setInstruction(e.target.value)} style={{ marginBottom: 16 }} />
             <Checkbox style={{ marginBottom: 16 }}>级联更新依赖模块</Checkbox>
             <Divider />
             <Space>
-              <Button type="primary">执行重跑</Button>
+              <Button type="primary" loading={loading} disabled={!taskId} onClick={() => postJson('/partial_rerun', { target_module: data?.moduleId || 'analysis', new_instruction: instruction, rerun_scope: 'current_only' })}>执行重跑</Button>
               <Button onClick={onClose}>取消</Button>
             </Space>
           </>

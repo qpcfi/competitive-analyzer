@@ -1,5 +1,5 @@
-import React from 'react';
-import { Card, Progress, Row, Col, Typography, Space, Button, Tag, Collapse, Timeline } from 'antd';
+import React, { useState } from 'react';
+import { Card, Progress, Row, Col, Typography, Space, Button, Tag, Collapse, Timeline, App } from 'antd';
 import { PauseCircleOutlined, RightCircleOutlined, CheckCircleOutlined, SyncOutlined, WarningOutlined, CloseCircleOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
@@ -7,9 +7,62 @@ const { Title, Text } = Typography;
 interface InfoDashboardProps {
   taskId?: string | null;
   rawMaterials?: any[];
+  collectorLogs?: any[];
+  collectionProgress?: {
+    completed?: number;
+    total?: number;
+    discovered_results?: number;
+  } | null;
 }
 
-export default function InfoDashboard({ taskId, rawMaterials }: InfoDashboardProps) {
+export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs = [], collectionProgress = null }: InfoDashboardProps) {
+  const { message } = App.useApp();
+  const [loading, setLoading] = useState<string | null>(null);
+  const accepted = rawMaterials.filter(item => item.validation_status === 'accepted').length;
+  const degraded = rawMaterials.filter(item => item.validation_status === 'degraded').length;
+  const blocked = rawMaterials.filter(item => ['blocked', 'failed'].includes(item.access_status)).length;
+  const progress = rawMaterials.length ? Math.round((accepted / rawMaterials.length) * 100) : 0;
+  const collectionTotal = collectionProgress?.total || rawMaterials.length || 0;
+  const collectionCompleted = collectionProgress?.completed || rawMaterials.length || 0;
+  const collectionPercent = collectionTotal ? Math.round((collectionCompleted / collectionTotal) * 100) : 0;
+
+  const postTaskAction = async (path: string, action: string, body?: any) => {
+    if (!taskId) return;
+    setLoading(action);
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!response.ok) throw new Error(await response.text());
+      message.success('操作已提交');
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : '操作失败');
+    } finally {
+      setLoading(null);
+    }
+  };
+
+  const timelineItems = collectorLogs.length ? collectorLogs.map((item, index) => ({
+    color: item.status === 'accepted' ? 'green' : item.access_status === 'failed' ? 'red' : 'orange',
+    content: (
+      <>
+        <Text type="secondary">[{index + 1}]</Text>{' '}
+        <Text strong>Collector:</Text>{' '}
+        {item.status === 'accepted' ? '已采集' : '采集降级'}{' '}
+        <Text code>{item.schema_field_name || item.schema_field_id || '字段'}</Text>
+        {item.competitor ? <Text> / {item.competitor}</Text> : null}
+        <br />
+        <Text type="secondary">查询：{item.query || '未知查询'}</Text>
+        <br />
+        {item.url ? <a href={item.url} target="_blank" rel="noreferrer">{item.url}</a> : <Text type="warning">{item.degraded_reason || '暂无可用 URL'}</Text>}
+      </>
+    ),
+  })) : [
+    { color: 'gray', content: <><Text type="secondary">等待后端采集事件...</Text></> },
+  ];
+
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -17,91 +70,64 @@ export default function InfoDashboard({ taskId, rawMaterials }: InfoDashboardPro
           <Title level={3} style={{ margin: 0 }}>任务: AI大模型分析_20260525</Title>
           <Space style={{ marginTop: 8 }}>
             <Tag color="processing" icon={<SyncOutlined spin />}>采集中</Tag>
-            <Text type="secondary">预计剩余时间: 2分30秒</Text>
+            <Text type="secondary">当前任务: {taskId || '未选择'}</Text>
           </Space>
         </div>
         <div style={{ width: '300px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
             <Text>整体进度</Text>
-            <Text>80% (8/10 节点完成)</Text>
+            <Text>{progress}% ({accepted}/{rawMaterials.length || 0} 来源通过)</Text>
           </div>
-          <Progress percent={80} status="active" />
+          <Progress percent={progress} status={degraded || blocked ? 'exception' : 'active'} />
         </div>
       </div>
 
       <Row gutter={24}>
         <Col span={14}>
-          <Card title="采集日志流 (SSE推送)" style={{ height: '600px', overflowY: 'auto' }}>
-            <Timeline
-              items={[
-                {
-                  color: 'green',
-                  content: (
-                    <><Text type="secondary">[14:32:01]</Text> <Text strong>Collector:</Text> 已抓取 OpenAI官网定价页</>
-                  ),
-                },
-                {
-                  color: 'blue',
-                  content: (
-                    <><Text type="secondary">[14:32:15]</Text> <Text strong>Collector:</Text> 正在解析 Claude 技术文档 <SyncOutlined spin /></>
-                  ),
-                },
-                {
-                  color: 'orange',
-                  content: (
-                    <><Text type="secondary">[14:32:33]</Text> <WarningOutlined style={{ color: '#faad14' }}/> <Text strong>L1质检:</Text> Gemini上下文长度字段缺失，触发重试</>
-                  ),
-                },
-                {
-                  color: 'red',
-                  content: (
-                    <><Text type="secondary">[14:33:02]</Text> <CloseCircleOutlined style={{ color: '#ff4d4f' }}/> <Text strong>Collector:</Text> 社交媒体抓取失败 (降级跳过)</>
-                  ),
-                },
-                {
-                  color: 'gray',
-                  content: (
-                    <><Text type="secondary">[14:33:10]</Text> 💰 <Text strong>Token消耗:</Text> 4,231 / 本次任务预算: 50,000</>
-                  ),
-                }
-              ]}
-            />
+          <Card title="采集日志流(SSE推送)" style={{ height: '600px', overflowY: 'auto' }}>
+            <Timeline items={timelineItems} />
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text>采集进度</Text>
+                <Text>
+                  已检索到 {collectionProgress?.discovered_results || 0} 个真实搜索结果，
+                  信息搜集 {collectionCompleted}/{collectionTotal}
+                </Text>
+              </div>
+              <Progress percent={collectionPercent} status={collectionPercent === 100 ? 'success' : 'active'} />
+            </div>
           </Card>
         </Col>
         <Col span={10}>
           <Card title="数据底座概览" style={{ marginBottom: 24 }}>
-            <div style={{ marginBottom: 16 }}>
-              <Space orientation="vertical" style={{ width: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Text>官网链接 (12条)</Text> <Tag icon={<CheckCircleOutlined />} color="success">已验证</Tag>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Text>技术文档 (8条)</Text> <Tag icon={<CheckCircleOutlined />} color="success">已验证</Tag>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Text>用户评测 (6条)</Text> <Tag icon={<SyncOutlined spin />} color="processing">解析中</Tag>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Text>社交媒体 (3条)</Text> <Tag icon={<CloseCircleOutlined />} color="error">降级跳过</Tag>
-                </div>
-              </Space>
-            </div>
+            <Space orientation="vertical" style={{ width: '100%' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text>已验证来源</Text> <Tag icon={<CheckCircleOutlined />} color="success">{accepted}</Tag>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text>降级来源</Text> <Tag icon={<WarningOutlined />} color="warning">{degraded}</Tag>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text>阻塞/失败来源</Text> <Tag icon={<CloseCircleOutlined />} color="error">{blocked}</Tag>
+              </div>
+            </Space>
           </Card>
-          
+
           <Card title="溯源数据快照">
             <Collapse
-              items={[
-                { key: '1', label: 'GPT-4o 原始数据 (23个字段)', children: <pre style={{ fontSize: 12 }}>{`{\n  "name": "GPT-4o",\n  "context_window": "128K",\n  "pricing": "$20/month"\n}`}</pre> },
-                { key: '2', label: 'Claude 3.5 原始数据 (19个字段)', children: <p>暂无</p> },
-              ]}
+              items={rawMaterials.map((item, index) => ({
+                key: item.id || String(index),
+                label: `${item.competitor || 'Source'} 原始数据`,
+                children: <pre style={{ fontSize: 12, whiteSpace: 'pre-wrap' }}>{JSON.stringify(item, null, 2)}</pre>,
+              }))}
             />
           </Card>
         </Col>
       </Row>
 
       <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', gap: 16 }}>
-        <Button size="large" icon={<PauseCircleOutlined />}>暂停采集</Button>
-        <Button size="large" danger icon={<RightCircleOutlined />}>强制进入下一节点</Button>
+        <Button size="large" icon={<PauseCircleOutlined />} loading={loading === 'pause'} disabled={!taskId} onClick={() => postTaskAction('/pause', 'pause')}>暂停采集</Button>
+        <Button size="large" danger icon={<RightCircleOutlined />} loading={loading === 'force'} disabled={!taskId} onClick={() => postTaskAction('/force_next', 'force', { reason: '用户接受当前状态并强制进入下一节点' })}>强制进入下一节点</Button>
       </div>
     </div>
   );

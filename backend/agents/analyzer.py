@@ -1,25 +1,73 @@
 import json
 import os
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage
+try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import HumanMessage
+except ImportError:
+    ChatOpenAI = None
+    HumanMessage = None
 from .state import AgentState
 
-llm = ChatOpenAI(
-    api_key=os.environ.get('DEEPSEEK_API_KEY', 'sk-1215aff0b7a548fd939746d863a945f8'),
-    base_url="https://api.deepseek.com",
-    model="deepseek-v4-pro"
+api_key = os.environ.get("DEEPSEEK_API_KEY")
+base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+model_name = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+llm = (
+    ChatOpenAI(api_key=api_key, base_url=base_url, model=model_name, timeout=90)
+    if api_key and ChatOpenAI is not None
+    else None
 )
 
 async def analyzer_node(state: AgentState):
     schema = state.get("dynamic_schema", {})
     materials = state.get("raw_materials", [])
+    if llm is None:
+        state["analysis_results"] = build_deterministic_analysis(state)
+        return state
     
     prompt = f"""
-    Analyze the following competitors based on the schema and provided raw materials.
+    You are the Analyzer Agent for a real competitive intelligence workflow.
+    Use only the supplied raw materials. Every factual cell, SWOT point, finding,
+    and recommendation must include evidence_refs from source material ids, or a
+    degraded status with a reason when evidence is insufficient.
+
+    Return ONLY JSON with this shape:
+    {{
+      "discovered_competitors": ["name"],
+      "schema_dimensions": [{{"id": "field_id", "name": "field_name", "group": "group"}}],
+      "comparison_rows": [
+        {{
+          "key": "field_id",
+          "dimension_id": "field_id",
+          "dimension": "field_name",
+          "values": {{
+            "Competitor": {{
+              "value": "concise extracted fact or short synthesized answer",
+              "status": "accepted|degraded",
+              "source_url": "url if accepted",
+              "evidence_refs": ["source_id"],
+              "degraded_reason": "reason if degraded"
+            }}
+          }}
+        }}
+      ],
+      "comparison": [{{"competitor": "name", "summary": "evidence-backed competitive position", "status": "accepted|degraded", "evidence_refs": ["source_id"]}}],
+      "swot": {{
+        "strengths": [{{"text": "competitor-specific insight", "evidence_refs": ["source_id"]}}],
+        "weaknesses": [{{"text": "competitor-specific insight", "evidence_refs": ["source_id"]}}],
+        "opportunities": [{{"text": "market/action insight", "evidence_refs": ["source_id"]}}],
+        "threats": [{{"text": "risk insight", "evidence_refs": ["source_id"]}}]
+      }},
+      "report": {{
+        "summary": "deep comparative executive summary",
+        "findings": [{{"title": "finding", "detail": "analysis", "evidence_refs": ["source_id"]}}],
+        "recommendations": [{{"text": "actionable recommendation", "evidence_refs": ["source_id"]}}],
+        "source_appendix": []
+      }},
+      "evidence_refs": ["source_id"]
+    }}
+
     Schema: {json.dumps(schema, ensure_ascii=False)}
     Raw Materials: {json.dumps(materials, ensure_ascii=False)}
-    
-    Output a structured JSON containing the comparison and a SWOT analysis.
     """
     res = await llm.ainvoke([HumanMessage(content=prompt)])
     try:
@@ -30,8 +78,133 @@ async def analyzer_node(state: AgentState):
             result = json.loads(match.group(0))
         else:
             result = json.loads(content)
-    except:
-        result = {"error": "Failed to parse LLM output"}
-        
+    except Exception:
+        result = build_deterministic_analysis(state)
+
+    if not isinstance(result, dict) or "comparison_rows" not in result:
+        result = build_deterministic_analysis(state)
+
     state["analysis_results"] = result
     return state
+
+
+def build_deterministic_analysis(state: AgentState) -> dict:
+    materials = state.get("raw_materials", [])
+    schema_dimensions = flatten_schema_dimensions(state.get("dynamic_schema", {}))
+    if not schema_dimensions and materials:
+        schema_dimensions = [{"id": "__collected_evidence", "name": "Collected Evidence", "group": "Evidence"}]
+    competitors = discovered_competitors(state)
+    comparison_rows = []
+    for dimension in schema_dimensions:
+        values = {}
+        for competitor in competitors:
+            evidence = [
+                item
+                for item in materials
+                if item.get("competitor") == competitor
+                and (dimension["id"] == "__collected_evidence" or item.get("schema_field_id") == dimension["id"])
+            ]
+            values[competitor] = build_cell(evidence)
+        comparison_rows.append(
+            {
+                "key": dimension["id"],
+                "dimension_id": dimension["id"],
+                "dimension": dimension["name"],
+                "values": values,
+            }
+        )
+    evidence_refs = [item.get("id") for item in materials if item.get("id")]
+    legacy_comparison = build_legacy_comparison(competitors, materials)
+    findings = [
+        {
+            "dimension": row["dimension"],
+            "covered_competitors": [
+                competitor
+                for competitor, cell in row["values"].items()
+                if cell.get("status") == "accepted"
+            ],
+        }
+        for row in comparison_rows
+    ]
+    return {
+        "discovered_competitors": competitors,
+        "schema_dimensions": schema_dimensions,
+        "comparison_rows": comparison_rows,
+        "comparison": legacy_comparison,
+        "swot": {
+            "strengths": [{"text": "Public information is available for comparison.", "evidence_refs": evidence_refs[:2]}],
+            "weaknesses": [{"text": "Some fields may require manual verification.", "evidence_refs": evidence_refs[:2]}],
+            "opportunities": [{"text": "Use verified sources to refine positioning.", "evidence_refs": evidence_refs[:2]}],
+            "threats": [{"text": "Source gaps can reduce confidence.", "evidence_refs": evidence_refs[:2]}],
+        },
+        "report": {
+            "summary": "Analysis generated from collected public source materials.",
+            "findings": findings,
+            "recommendations": ["Review degraded sources before publishing."],
+            "source_appendix": materials,
+        },
+        "evidence_refs": evidence_refs,
+    }
+
+
+def flatten_schema_dimensions(schema: dict) -> list[dict]:
+    dimensions = []
+    for group_name, fields in schema.items():
+        if not isinstance(fields, list):
+            continue
+        for index, field in enumerate(fields):
+            if not isinstance(field, dict):
+                continue
+            field_id = field.get("id") or f"{group_name}.{field.get('name', index)}"
+            dimensions.append({"id": field_id, "name": field.get("name") or field_id, "group": group_name})
+    return dimensions
+
+
+def discovered_competitors(state: AgentState) -> list[str]:
+    configured = [str(item) for item in state.get("task_context", {}).get("competitors", []) if str(item).strip()]
+    collected = [
+        str(item.get("competitor"))
+        for item in state.get("raw_materials", [])
+        if item.get("competitor")
+    ]
+    ordered = []
+    for name in configured + collected:
+        if name not in ordered:
+            ordered.append(name)
+    return ordered
+
+
+def build_cell(evidence: list[dict]) -> dict:
+    accepted = next((item for item in evidence if item.get("validation_status") == "accepted" and item.get("quote_text")), None)
+    if not accepted:
+        degraded = next((item for item in evidence if item.get("validation_status") == "degraded"), None)
+        return {
+            "value": "信息缺失",
+            "status": "degraded",
+            "evidence_refs": [degraded.get("id")] if degraded and degraded.get("id") else [],
+            "degraded_reason": degraded.get("degraded_reason") if degraded else "no_evidence_for_schema_field",
+        }
+    return {
+        "value": accepted.get("quote_text", ""),
+        "status": "accepted",
+        "source_url": accepted.get("source_url", ""),
+        "evidence_refs": [accepted.get("id")] if accepted.get("id") else [],
+    }
+
+
+def build_legacy_comparison(competitors: list[str], materials: list[dict]) -> list[dict]:
+    comparison = []
+    for competitor in competitors:
+        evidence = [item for item in materials if item.get("competitor") == competitor]
+        accepted = next((item for item in evidence if item.get("validation_status") == "accepted" and item.get("quote_text")), None)
+        degraded = next((item for item in evidence if item.get("validation_status") == "degraded"), None)
+        selected = accepted or degraded
+        comparison.append(
+            {
+                "competitor": competitor,
+                "summary": selected.get("quote_text", "")[:240] if selected else "",
+                "status": "accepted" if accepted else "degraded",
+                "evidence_refs": [item.get("id") for item in evidence if item.get("id")],
+            }
+        )
+    return comparison
