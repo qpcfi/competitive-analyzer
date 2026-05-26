@@ -9,6 +9,35 @@ interface StructuredReportProps {
   analysisResults?: any;
 }
 
+function renderableText(value: unknown, fallback = '信息缺失'): string {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed || fallback;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const parts = value
+      .map((item) => renderableText(item, ''))
+      .filter(Boolean);
+    return parts.length ? parts.join('；') : fallback;
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    const candidates = [record.text, record.summary, record.message, record.value, record.title];
+    for (const candidate of candidates) {
+      if (candidate !== undefined && candidate !== null) {
+        const parsed = renderableText(candidate, '');
+        if (parsed) {
+          return parsed;
+        }
+      }
+    }
+  }
+  return fallback;
+}
+
 export default function StructuredReport({ taskId, analysisResults }: StructuredReportProps) {
   const { message } = App.useApp();
   const [loading, setLoading] = useState<string | null>(null);
@@ -16,6 +45,12 @@ export default function StructuredReport({ taskId, analysisResults }: Structured
   const findings = Array.isArray(report.findings) ? report.findings : [];
   const recommendations = Array.isArray(report.recommendations) ? report.recommendations : [];
   const sources = Array.isArray(report.source_appendix) ? report.source_appendix : [];
+  const recommendationItems = (recommendations.length ? recommendations : [{ text: '等待后端生成建议' }]).map((item: any) => ({
+    text: renderableText(item, '等待后端生成建议'),
+    evidenceRefs: Array.isArray(item?.evidence_refs)
+      ? item.evidence_refs.map((ref: unknown) => renderableText(ref, '')).filter(Boolean)
+      : [],
+  }));
 
   const exportReport = async (format: string) => {
     if (!taskId) return;
@@ -61,20 +96,26 @@ export default function StructuredReport({ taskId, analysisResults }: Structured
         <Title level={3}>一、核心结论与战略建议</Title>
         <Divider />
         <Title level={4}>执行摘要</Title>
-        <Paragraph>{report.summary || '等待后端完成分析后生成执行摘要。'}</Paragraph>
+        <Paragraph>{renderableText(report.summary, '等待后端完成分析后生成执行摘要。')}</Paragraph>
         <Title level={4} style={{ marginTop: 24 }}>关键发现</Title>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {findings.length ? findings.map((item: any, index: number) => (
             <div key={index} style={{ padding: '12px 0', borderBottom: '1px solid #f0f0f0' }}>
-              <Text><Tag color={item.status === 'degraded' ? 'orange' : 'green'}>{item.status || 'accepted'}</Tag> {item.competitor}: {item.summary}</Text>
+              <Text>
+                <Tag color={item.status === 'degraded' ? 'orange' : 'green'}>{renderableText(item.status, 'accepted')}</Tag>{' '}
+                {renderableText(item.competitor, '未知竞品')}: {renderableText(item.summary, '暂无摘要')}
+              </Text>
             </div>
           )) : <Text type="secondary">暂无后端分析发现。</Text>}
         </div>
         <Title level={4} style={{ marginTop: 24 }}>战略建议</Title>
         <div style={{ display: 'flex', gap: 16 }}>
-          {(recommendations.length ? recommendations : ['等待后端生成建议']).map((item: string, index: number) => (
+          {recommendationItems.map((item, index: number) => (
             <Card key={index} title={index === 0 ? '短期' : index === 1 ? '中期' : '长期'} size="small" style={{ flex: 1, background: '#f6ffed', borderColor: '#b7eb8f' }}>
-              {item}
+              <Paragraph style={{ marginBottom: item.evidenceRefs.length ? 8 : 0 }}>{item.text}</Paragraph>
+              {item.evidenceRefs.length ? (
+                <Text type="secondary">证据引用: {item.evidenceRefs.join('、')}</Text>
+              ) : null}
             </Card>
           ))}
         </div>
@@ -86,7 +127,7 @@ export default function StructuredReport({ taskId, analysisResults }: Structured
         <div style={{ border: '1px solid #f0f0f0', borderRadius: '8px' }}>
           {sources.length ? sources.map((item: any, index: number) => (
             <div key={item.id || index} style={{ padding: '12px 16px', borderBottom: index === sources.length - 1 ? 'none' : '1px solid #f0f0f0' }}>
-              <Typography.Text copyable>{item.source_url || item.id}</Typography.Text>
+              <Typography.Text copyable>{renderableText(item.source_url ?? item.id, '未知来源')}</Typography.Text>
             </div>
           )) : <div style={{ padding: '12px 16px' }}><Text type="secondary">暂无溯源数据。</Text></div>}
         </div>
