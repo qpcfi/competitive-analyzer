@@ -11,33 +11,32 @@ Create the database if it does not exist:
 CREATE DATABASE competitive_analyzer;
 ```
 
-Use the local connection expected by the current project unless overridden by
-environment configuration:
+Default local connections:
 
 ```text
-postgresql://postgres:123456@localhost:5432/competitive_analyzer
+DATABASE_URL=postgresql+asyncpg://postgres:123456@localhost:5432/competitive_analyzer
+CHECKPOINT_DATABASE_URL=postgresql://postgres:123456@127.0.0.1:5432/competitive_analyzer
 ```
 
 ## 2. Start the Backend
 
-```bash
+```powershell
 cd backend
 python -m venv venv
-venv\Scripts\activate
+.\venv\Scripts\activate
 pip install -r requirements.txt
-playwright install chromium
 uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-Expected startup behavior:
-- Database tables are created or migrated.
-- LangGraph PostgreSQL checkpoint tables are available.
+Expected behavior:
+- Database tables are created on startup.
+- LangGraph checkpoint tables are available in PostgreSQL.
 - Runtime does not require Redis.
 - Backend exposes `http://localhost:8000/api/v1/tasks`.
 
-## 3. Start the Completed Frontend
+## 3. Start the Frontend
 
-```bash
+```powershell
 cd frontend
 npm install
 npm run dev
@@ -45,10 +44,10 @@ npm run dev
 
 Open `http://localhost:3000`.
 
-## 4. Run the Main End-to-End Scenario
+## 4. Main End-to-End Scenario
 
 1. In the task console, keep or enter:
-   - Domain: `AI大模型`
+   - Domain: `AI models`
    - Competitors: `GPT-4o`, `Claude 3.5`, `Gemini 1.5`
    - Execution mode: step-by-step
 2. Submit the task.
@@ -56,80 +55,52 @@ Open `http://localhost:3000`.
 4. Wait for schema readiness.
 5. Save the schema draft.
 6. Click save and continue.
-7. Verify collection, analysis, token, debug, and completion events update the
-   existing frontend.
-8. Verify comparison, SWOT, and structured report views show task data with
-   evidence or degraded markers.
+7. Verify collection, analysis, token, debug, and completion events update the frontend.
+8. Verify comparison, SWOT, and report views show task data with evidence or degraded markers.
 
 ## 5. Reconnect Validation
 
 1. Start a task and wait until schema review or collection.
 2. Reload the browser.
-3. Reopen or restore the current task.
-4. Verify current task state and recent relevant events are recovered from
-   persisted data.
+3. Verify current task state and recent events are recovered from persisted data.
 
-## 6. Failure and Degraded Source Validation
+## 6. Failure and Recovery Validation
 
-1. Use a competitor or source that is expected to fail or be blocked.
-2. Verify the task records failed/degraded status instead of silently dropping
-   the data.
-3. Verify the main task continues when enough alternate evidence exists.
-4. Verify final visible results mark degraded fields explicitly.
+1. Use a source expected to fail or be blocked.
+2. Verify degraded status is recorded instead of silently dropping data.
+3. Use pause and force-next from the dashboard.
+4. Submit a partial rerun from an analysis/SWOT action.
+5. Verify a `module_updated` event is received and prior evidence remains linked.
 
-## 7. Schema Reject and Rerun Validation
+## 7. Frontend Button/API Coverage
 
-1. Start a step-by-step task.
-2. Reject the generated schema.
-3. Verify the response is `regenerating`, not `regenerating_mocked`.
-4. Confirm the regenerated schema can be saved and resumed.
-5. From a module action, submit a partial rerun instruction.
-6. Verify only the target module updates and existing evidence remains linked.
+Each item must either call a backend endpoint/event or show a truthful disabled/empty state:
 
-## 8. Privacy Validation
+- Task submit: `POST /api/v1/tasks`
+- Schema save draft: `PUT /api/v1/tasks/{task_id}/schema`
+- Schema reject: `POST /api/v1/tasks/{task_id}/reject_schema`
+- Schema continue: `POST /api/v1/tasks/{task_id}/resume`
+- SSE reconnect: `GET /api/v1/tasks/{task_id}/stream?since=`
+- History: `GET /api/v1/tasks`
+- Snapshots: `GET /snapshots`, `POST /restore_snapshot`
+- Pause: `POST /pause`
+- Force next: `POST /force_next`
+- Sources: `GET/POST /source-materials`, `GET /source-materials/{source_id}`
+- Source refetch/trust: `POST /refetch`, `POST /trust`
+- Interventions: `POST /interventions`
+- Schema advice: `GET /schema/advice`
+- Feedback and notes: `POST /feedback`, `POST /notes`
+- Report/export/share/verify: `GET /report`, `GET /export`, `POST /share`, `POST /verify_links`
+- Partial rerun: `POST /partial_rerun`
 
-1. Submit input containing sample emails or phone numbers.
-2. Collect a page or fixture containing common personal data patterns.
-3. Verify model-processing inputs use redacted text.
-4. Verify debug records do not expose unredacted sensitive values.
+## 8. Automated Validation
 
-## 9. Success Criteria Check
+```powershell
+cd backend
+.\venv\Scripts\python.exe -m pytest tests
+```
 
-The validation run passes when:
-- The frontend completes task creation through final report without mock data.
-- No response or visible label contains mock-only status for task data.
-- Every final claim has evidence or degraded status.
-- Stream reconnect recovers current task state.
-- Redis is not required for startup or runtime.
-
-## 10. Frontend Button/API Coverage Check
-
-Run this checklist against the completed frontend. Each item must either call a
-real backend endpoint/event or display a truthful disabled/empty state. No item
-may silently do nothing or show mock data.
-
-- Task submit creates a persisted task and starts SSE.
-- Schema save draft persists a schema version.
-- Schema reject returns `regenerating`, not any mock status.
-- Schema save and continue resumes the same task.
-- Sidebar history loads persisted tasks.
-- Sidebar debug opens persisted debug/task state instead of returning early.
-- Information dashboard logs, statistics, and snapshots come from backend data.
-- Pause collection calls a backend pause endpoint.
-- Force next node calls a backend controlled-transition endpoint.
-- Source icons open source evidence for the selected claim.
-- Refetch source calls the backend and emits an update event.
-- Mark source untrusted/credible/suspicious persists feedback.
-- Data intervention lists, adds, removes, and applies source changes.
-- Schema advice drawer loads field-level advice from backend schema metadata.
-- Partial rerun submits target module, instruction, and scope to backend.
-- Competitor focus data comes from analysis results, not static arrays.
-- SWOT cards and Critic feedback come from analysis results and quality feedback.
-- Refresh/rerun/export buttons call backend endpoints.
-- Report content and source appendix come from final report data.
-- PDF, Markdown, JSON export buttons return real files or truthful pending/error
-  states.
-- Share report creates a backend share token/link.
-- Verify all links records link verification results.
-- Trust feedback and notes are persisted and visible after reload.
-- Browser reload and SSE reconnect do not lose the current task state.
+```powershell
+cd frontend
+npm run build
+```

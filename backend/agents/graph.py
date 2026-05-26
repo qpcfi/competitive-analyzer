@@ -16,7 +16,18 @@ workflow.add_edge(START, "orchestrator")
 workflow.add_edge("orchestrator", "collector")
 workflow.add_edge("collector", "analyzer")
 workflow.add_edge("analyzer", "critic")
-workflow.add_edge("critic", END)
+
+
+def route_after_critic(state: AgentState) -> str:
+    feedback = state.get("critic_feedback", [])
+    retry_counts = state.get("retry_counts", {})
+    wants_retry = any(item.get("suggested_action") == "retry_analysis" for item in feedback if isinstance(item, dict))
+    if wants_retry and int(retry_counts.get("analysis", 0)) < 2:
+        return "analyzer"
+    return END
+
+
+workflow.add_conditional_edges("critic", route_after_critic, {"analyzer": "analyzer", END: END})
 
 # Note: The app compilation with the checkpointer will happen in main.py
 # where the AsyncPostgresSaver pool is managed.

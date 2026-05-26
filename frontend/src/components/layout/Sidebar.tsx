@@ -1,18 +1,16 @@
 import React from 'react';
-import { Menu, Layout, Typography, Badge } from 'antd';
-import { 
-  AppstoreAddOutlined, 
-  DashboardOutlined, 
-  PartitionOutlined, 
-  BarChartOutlined, 
-  FundProjectionScreenOutlined, 
+import { Menu, Typography, Badge } from 'antd';
+import {
+  AppstoreAddOutlined,
+  PartitionOutlined,
+  BarChartOutlined,
+  FundProjectionScreenOutlined,
   FileTextOutlined,
   BugOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined
 } from '@ant-design/icons';
 
-const { Sider } = Layout;
 const { Title } = Typography;
 
 interface SidebarProps {
@@ -71,13 +69,12 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
   ];
 
   const handleMenuClick = (e: { key: string }) => {
-    // 映射菜单key到视图名称
     let targetView = e.key;
     if (e.key === 'report-conclusion' || e.key === 'report-source' || e.key === 'report') {
       targetView = 'report';
     }
     if (e.key === 'history' || e.key === 'debug') {
-      return; // mock: not implemented
+      targetView = 'dashboard';
     }
     onChangeView(targetView);
   };

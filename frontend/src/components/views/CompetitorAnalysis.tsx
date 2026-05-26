@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Table, Radio, Card, Button, Space, Typography, Tag, Dropdown } from 'antd';
+import { Table, Radio, Card, Button, Space, Typography, Tag } from 'antd';
 import { LinkOutlined, EditOutlined, RetweetOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
@@ -14,6 +14,22 @@ export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDraw
   const [viewMode, setViewMode] = useState<'tile' | 'focus'>('tile');
   const [focusItem, setFocusItem] = useState('GPT-4o');
 
+  const renderCell = (data: any) => {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <Text>{data.value}</Text>
+        <Space size="small">
+          <Button type="text" size="small" icon={<LinkOutlined />} onClick={() => onOpenDrawer('source')} style={{ padding: 0, height: 'auto', color: '#1677ff' }}>溯源</Button>
+          {data.status === 'official' ? (
+            <Tag icon={<CheckCircleOutlined />} color="success" style={{ margin: 0 }}>官方</Tag>
+          ) : (
+            <Tag icon={<ExclamationCircleOutlined />} color="warning" style={{ margin: 0 }}>推测值</Tag>
+          )}
+        </Space>
+      </div>
+    );
+  };
+
   const columns = [
     {
       title: '维度/竞品',
@@ -23,34 +39,10 @@ export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDraw
       width: 150,
       render: (text: string) => <Text strong>{text}</Text>,
     },
-    {
-      title: 'GPT-4o',
-      dataIndex: 'gpt4o',
-      key: 'gpt4o',
-      width: 200,
-      render: (val: any) => renderCell(val),
-    },
-    {
-      title: 'Claude 3.5',
-      dataIndex: 'claude',
-      key: 'claude',
-      width: 200,
-      render: (val: any) => renderCell(val),
-    },
-    {
-      title: 'Gemini 1.5',
-      dataIndex: 'gemini',
-      key: 'gemini',
-      width: 200,
-      render: (val: any) => renderCell(val),
-    },
-    {
-      title: 'DeepSeek-V3',
-      dataIndex: 'deepseek',
-      key: 'deepseek',
-      width: 200,
-      render: (val: any) => renderCell(val),
-    },
+    { title: 'GPT-4o', dataIndex: 'gpt4o', key: 'gpt4o', width: 200, render: (val: any) => renderCell(val) },
+    { title: 'Claude 3.5', dataIndex: 'claude', key: 'claude', width: 200, render: (val: any) => renderCell(val) },
+    { title: 'Gemini 1.5', dataIndex: 'gemini', key: 'gemini', width: 200, render: (val: any) => renderCell(val) },
+    { title: 'DeepSeek-V3', dataIndex: 'deepseek', key: 'deepseek', width: 200, render: (val: any) => renderCell(val) },
     {
       title: '操作',
       key: 'action',
@@ -65,7 +57,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDraw
     },
   ];
 
-  const data = [
+  const data = analysisResults?.comparison_rows || [
     {
       key: '1',
       dimension: '定价模型',
@@ -92,38 +84,22 @@ export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDraw
     },
   ];
 
-  const renderCell = (data: any) => {
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <Text>{data.value}</Text>
-        <Space size="small">
-          <Button type="text" size="small" icon={<LinkOutlined />} onClick={() => onOpenDrawer('source')} style={{ padding: 0, height: 'auto', color: '#1677ff' }}>溯源</Button>
-          {data.status === 'official' ? (
-            <Tag icon={<CheckCircleOutlined />} color="success" style={{ margin: 0 }}>官方</Tag>
-          ) : (
-            <Tag icon={<ExclamationCircleOutlined />} color="warning" style={{ margin: 0 }}>推测值</Tag>
-          )}
-        </Space>
-      </div>
-    );
-  };
-
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <Title level={3} style={{ margin: 0 }}>竞品深度分析</Title>
         <Radio.Group value={viewMode} onChange={e => setViewMode(e.target.value)} buttonStyle="solid">
-          <Radio.Button value="tile">🔲 平铺对比模式</Radio.Button>
-          <Radio.Button value="focus">📄 单品聚焦模式</Radio.Button>
+          <Radio.Button value="tile">平铺对比模式</Radio.Button>
+          <Radio.Button value="focus">单品聚焦模式</Radio.Button>
         </Radio.Group>
       </div>
 
       {viewMode === 'tile' ? (
         <Card styles={{ body: { padding: 0 } }}>
-          <Table 
-            columns={columns} 
-            dataSource={data} 
-            pagination={false} 
+          <Table
+            columns={columns}
+            dataSource={data}
+            pagination={false}
             scroll={{ x: 'max-content' }}
             bordered
           />
@@ -132,7 +108,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDraw
         <div style={{ display: 'flex', gap: 24 }}>
           <Card style={{ width: 260, flexShrink: 0 }}>
             <div style={{ marginBottom: 16 }}>
-              <Text type="secondary">当前竞品：</Text><br/>
+              <Text type="secondary">当前竞品：</Text><br />
               <Radio.Group value={focusItem} onChange={e => setFocusItem(e.target.value)} style={{ width: '100%', marginTop: 8 }}>
                 <Space orientation="vertical" style={{ width: '100%' }}>
                   <Radio.Button value="GPT-4o" style={{ width: '100%' }}>GPT-4o</Radio.Button>
@@ -142,7 +118,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDraw
               </Radio.Group>
             </div>
             <div style={{ marginBottom: 24 }}>
-              <Text strong>📑 目录</Text>
+              <Text strong>目录</Text>
               <ul style={{ paddingLeft: 20, marginTop: 8, lineHeight: '2' }}>
                 <li><a href="#basic">基础信息</a></li>
                 <li><a href="#price">定价模型</a></li>
@@ -155,22 +131,22 @@ export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDraw
               <Button icon={<SettingOutlined />} block onClick={() => onOpenDrawer('intervention')}>数据干预</Button>
             </Space>
           </Card>
-          
+
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <Card title="📌 基础信息" id="basic">
+            <Card title="基础信息" id="basic">
               <Paragraph>产品名称：{focusItem}</Paragraph>
               <Paragraph>发布时间：2024年5月 <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => onOpenDrawer('source')}>溯源</Button></Paragraph>
             </Card>
-            <Card title="💰 定价模型" id="price">
-              <Paragraph>• 免费版：每分钟3条请求</Paragraph>
-              <Paragraph>• Plus版：$20/月 <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => onOpenDrawer('source')}>溯源</Button></Paragraph>
+            <Card title="定价模型" id="price">
+              <Paragraph>免费版：每分钟请求限制</Paragraph>
+              <Paragraph>Plus版：$20/月 <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => onOpenDrawer('source')}>溯源</Button></Paragraph>
             </Card>
-            <Card title="🧠 核心能力 - Coding" id="core">
+            <Card title="核心能力 - Coding" id="core">
               <Paragraph>HumanEval得分：92.3%</Paragraph>
               <Paragraph>数据来源：arXiv论文2303.08774 <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => onOpenDrawer('source')}>溯源</Button></Paragraph>
               <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-                <Button size="small">👍 可信</Button>
-                <Button size="small">👎 存疑</Button>
+                <Button size="small">可信</Button>
+                <Button size="small">存疑</Button>
                 <Button size="small" icon={<EditOutlined />}>添加备注</Button>
               </div>
             </Card>
