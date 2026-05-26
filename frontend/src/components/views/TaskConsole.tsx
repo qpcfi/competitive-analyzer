@@ -12,16 +12,12 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
   const { message } = App.useApp();
   const [currentStep] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [domain, setDomain] = useState('AI大模型');
-  const [taskName, setTaskName] = useState('AI大模型分析_20260525');
+  const [domain, setDomain] = useState('');
+  const [taskName, setTaskName] = useState('');
   const [executionMode, setExecutionMode] = useState('step');
-  const [competitors, setCompetitors] = useState<string[]>(['GPT-4o', 'Claude 3.5', 'Gemini 1.5']);
+  const [competitors, setCompetitors] = useState<string[]>([]);
 
-  const schemaData = [
-    { key: '1', name: 'API响应速度', type: '数值(ms)', source: '官方技术文档' },
-    { key: '2', name: '本地化程度', type: '评分1-5', source: '用户区域评测报告' },
-    { key: '3', name: '企业合规认证', type: '多选标签', source: '官网合规页面' },
-  ];
+  const schemaData: Array<{ key: string; name: string; type: string; source: string }> = [];
 
   const handleCreateTask = async () => {
     setLoading(true);
@@ -130,14 +126,13 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
             </div>
             <div style={{ flex: 1, minWidth: '250px', background: '#f6ffed', padding: '16px', borderRadius: '8px', border: '1px solid #b7eb8f' }}>
               <div style={{ color: '#389e0d', fontWeight: 600, marginBottom: 12 }}>
-                <BulbOutlined /> Agent 发现你可能遗漏：
+                <BulbOutlined /> Agent 推荐将在 Schema 阶段生成
               </div>
-              <div style={{ marginBottom: 8 }}><Checkbox>DeepSeek-V3 <span style={{ color: '#8c8c8c', fontSize: '12px' }}>(近期G2评分上升)</span></Checkbox></div>
-              <div style={{ marginBottom: 8 }}><Checkbox>Qwen-Max <span style={{ color: '#8c8c8c', fontSize: '12px' }}>(阿里云主力)</span></Checkbox></div>
-              <div style={{ marginBottom: 16 }}><Checkbox>Llama 3 <span style={{ color: '#8c8c8c', fontSize: '12px' }}>(开源生态活跃)</span></Checkbox></div>
+              <div style={{ marginBottom: 16, color: '#595959', fontSize: '13px' }}>
+                创建任务后，后端会基于公开网页资料验证现有维度，并推荐有证据支撑的补充维度。
+              </div>
               <Space>
-                <Button size="small" type="primary">一键添加全部</Button>
-                <Button size="small">刷新推荐</Button>
+                <Button size="small" type="primary" disabled>等待真实推荐</Button>
               </Space>
             </div>
           </div>

@@ -1,13 +1,17 @@
 import json
 import os
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage
+try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import HumanMessage
+except ImportError:
+    ChatOpenAI = None
+    HumanMessage = None
 from .state import AgentState
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 llm = (
     ChatOpenAI(api_key=api_key, base_url="https://api.deepseek.com", model="deepseek-v4-pro")
-    if api_key
+    if api_key and ChatOpenAI is not None
     else None
 )
 

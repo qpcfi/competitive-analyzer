@@ -6,8 +6,12 @@ from typing import Any
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse, StreamingResponse
-from langgraph.checkpoint.postgres import PostgresSaver
-from psycopg_pool import ConnectionPool
+try:
+    from langgraph.checkpoint.postgres import PostgresSaver
+    from psycopg_pool import ConnectionPool
+except ImportError:
+    PostgresSaver = None
+    ConnectionPool = None
 from sqlalchemy import func, select
 
 from agents.graph import workflow
@@ -72,17 +76,21 @@ async def on_startup():
     global pool, checkpointer, app_auto, app_step
     await init_db()
 
-    pool = ConnectionPool(
-        os.environ.get("CHECKPOINT_DATABASE_URL", "postgresql://postgres:123456@127.0.0.1:5432/competitive_analyzer"),
-        max_size=20,
-        kwargs={"autocommit": True},
-    )
+    if ConnectionPool is not None and PostgresSaver is not None:
+        pool = ConnectionPool(
+            os.environ.get("CHECKPOINT_DATABASE_URL", "postgresql://postgres:123456@127.0.0.1:5432/competitive_analyzer"),
+            max_size=20,
+            kwargs={"autocommit": True},
+        )
 
-    checkpointer = PostgresSaver(pool)
-    checkpointer.setup()
+        checkpointer = PostgresSaver(pool)
+        checkpointer.setup()
 
-    app_auto = workflow.compile(checkpointer=checkpointer)
-    app_step = workflow.compile(checkpointer=checkpointer, interrupt_before=["collector", "analyzer", "critic"])
+        app_auto = workflow.compile(checkpointer=checkpointer)
+        app_step = workflow.compile(checkpointer=checkpointer, interrupt_before=["collector", "analyzer", "critic"])
+    else:
+        app_auto = workflow.compile()
+        app_step = workflow.compile(interrupt_before=["collector", "analyzer", "critic"])
 
 
 @app.on_event("shutdown")

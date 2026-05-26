@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Typography, Space, Divider, Alert, Checkbox, Input, message } from 'antd';
 import { CloseOutlined, ReloadOutlined, WarningOutlined } from '@ant-design/icons';
 
@@ -17,6 +17,35 @@ export default function RightDrawer({ isOpen, type, taskId, data, onClose }: Rig
   const [url, setUrl] = useState('');
   const [instruction, setInstruction] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sourceData, setSourceData] = useState<any>(null);
+
+  useEffect(() => {
+    if (!isOpen || type !== 'source' || !taskId || !data?.sourceId) {
+      setSourceData(data || null);
+      return;
+    }
+    let cancelled = false;
+    const loadSource = async () => {
+      setLoading(true);
+      try {
+        const response = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/source-materials/${data.sourceId}`);
+        if (!response.ok) throw new Error(await response.text());
+        const payload = await response.json();
+        if (!cancelled) setSourceData({ ...payload, sourceId: data.sourceId });
+      } catch (error) {
+        if (!cancelled) {
+          setSourceData(data);
+          message.error(error instanceof Error ? error.message : '来源加载失败');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    loadSource();
+    return () => {
+      cancelled = true;
+    };
+  }, [data, isOpen, taskId, type]);
 
   const postJson = async (path: string, body?: any) => {
     if (!taskId) return;
@@ -45,21 +74,21 @@ export default function RightDrawer({ isOpen, type, taskId, data, onClose }: Rig
             <Divider />
             <Text type="secondary">原文切片 (Quote)</Text>
             <Paragraph style={{ backgroundColor: '#f0f2f5', padding: '12px', borderRadius: '4px', marginTop: '8px' }}>
-              {data?.quote_text || '请选择一个真实来源查看证据切片。'}
+              {sourceData?.quote_text || '请选择一个真实来源查看证据切片。'}
             </Paragraph>
             <Space orientation="vertical" style={{ width: '100%', marginTop: '16px' }}>
               <div>
                 <Text type="secondary">来源链接：</Text>
                 <br />
-                {data?.source_url ? <a href={data.source_url} target="_blank" rel="noreferrer">{data.source_url}</a> : <Text type="secondary">暂无</Text>}
+                {sourceData?.source_url ? <a href={sourceData.source_url} target="_blank" rel="noreferrer">{sourceData.source_url}</a> : <Text type="secondary">暂无</Text>}
               </div>
-              <div><Text type="secondary">负责节点：</Text> <Text>Collector</Text></div>
-              <div><Text type="secondary">数据可信度：</Text> <Text type="success">{data?.trust_status || '待确认'}</Text></div>
+              <div><Text type="secondary">负责节点：</Text> <Text>{sourceData?.agent_node || 'Collector'}</Text></div>
+              <div><Text type="secondary">数据可信度：</Text> <Text type="success">{sourceData?.trust_status || '待确认'}</Text></div>
             </Space>
             <Divider />
             <Space>
-              <Button icon={<ReloadOutlined />} loading={loading} disabled={!taskId || !data?.sourceId} onClick={() => postJson(`/source-materials/${data.sourceId}/refetch`)}>重新抓取</Button>
-              <Button danger icon={<WarningOutlined />} loading={loading} disabled={!taskId || !data?.sourceId} onClick={() => postJson(`/source-materials/${data.sourceId}/trust`, { trust_status: 'untrusted', reason: '用户在抽屉中标记' })}>标记为不可信</Button>
+              <Button icon={<ReloadOutlined />} loading={loading} disabled={!taskId || !sourceData?.sourceId} onClick={() => postJson(`/source-materials/${sourceData.sourceId}/refetch`)}>重新抓取</Button>
+              <Button danger icon={<WarningOutlined />} loading={loading} disabled={!taskId || !sourceData?.sourceId} onClick={() => postJson(`/source-materials/${sourceData.sourceId}/trust`, { trust_status: 'untrusted', reason: '用户在抽屉中标记' })}>标记为不可信</Button>
             </Space>
           </>
         );

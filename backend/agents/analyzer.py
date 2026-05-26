@@ -1,13 +1,17 @@
 import json
 import os
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage
+try:
+    from langchain_openai import ChatOpenAI
+    from langchain_core.messages import HumanMessage
+except ImportError:
+    ChatOpenAI = None
+    HumanMessage = None
 from .state import AgentState
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 llm = (
     ChatOpenAI(api_key=api_key, base_url="https://api.deepseek.com", model="deepseek-v4-pro")
-    if api_key
+    if api_key and ChatOpenAI is not None
     else None
 )
 
@@ -36,28 +40,53 @@ async def analyzer_node(state: AgentState):
             result = json.loads(content)
     except Exception:
         result = build_deterministic_analysis(state)
-        
+
+    if not isinstance(result, dict) or "comparison_rows" not in result:
+        result = build_deterministic_analysis(state)
+
     state["analysis_results"] = result
     return state
 
 
 def build_deterministic_analysis(state: AgentState) -> dict:
     materials = state.get("raw_materials", [])
-    competitors = state.get("task_context", {}).get("competitors", [])
-    comparison = []
-    for competitor in competitors:
-        evidence = [item for item in materials if item.get("competitor") == competitor]
-        comparison.append(
+    schema_dimensions = flatten_schema_dimensions(state.get("dynamic_schema", {}))
+    competitors = discovered_competitors(state)
+    comparison_rows = []
+    for dimension in schema_dimensions:
+        values = {}
+        for competitor in competitors:
+            evidence = [
+                item
+                for item in materials
+                if item.get("competitor") == competitor and item.get("schema_field_id") == dimension["id"]
+            ]
+            values[competitor] = build_cell(evidence)
+        comparison_rows.append(
             {
-                "competitor": competitor,
-                "summary": evidence[0].get("quote_text", "")[:240] if evidence else "",
-                "status": "degraded" if evidence and evidence[0].get("validation_status") == "degraded" else "accepted",
-                "evidence_refs": [item.get("id") for item in evidence if item.get("id")],
+                "key": dimension["id"],
+                "dimension_id": dimension["id"],
+                "dimension": dimension["name"],
+                "values": values,
             }
         )
     evidence_refs = [item.get("id") for item in materials if item.get("id")]
+    findings = [
+        {
+            "dimension": row["dimension"],
+            "covered_competitors": [
+                competitor
+                for competitor, cell in row["values"].items()
+                if cell.get("status") == "accepted"
+            ],
+        }
+        for row in comparison_rows
+    ]
     return {
-        "comparison": comparison,
+        "discovered_competitors": competitors,
+        "schema_dimensions": schema_dimensions,
+        "comparison_rows": comparison_rows,
+        "comparison": comparison_rows,
         "swot": {
             "strengths": [{"text": "Public information is available for comparison.", "evidence_refs": evidence_refs[:2]}],
             "weaknesses": [{"text": "Some fields may require manual verification.", "evidence_refs": evidence_refs[:2]}],
@@ -66,9 +95,54 @@ def build_deterministic_analysis(state: AgentState) -> dict:
         },
         "report": {
             "summary": "Analysis generated from collected public source materials.",
-            "findings": comparison,
+            "findings": findings,
             "recommendations": ["Review degraded sources before publishing."],
             "source_appendix": materials,
         },
         "evidence_refs": evidence_refs,
+    }
+
+
+def flatten_schema_dimensions(schema: dict) -> list[dict]:
+    dimensions = []
+    for group_name, fields in schema.items():
+        if not isinstance(fields, list):
+            continue
+        for index, field in enumerate(fields):
+            if not isinstance(field, dict):
+                continue
+            field_id = field.get("id") or f"{group_name}.{field.get('name', index)}"
+            dimensions.append({"id": field_id, "name": field.get("name") or field_id, "group": group_name})
+    return dimensions
+
+
+def discovered_competitors(state: AgentState) -> list[str]:
+    configured = [str(item) for item in state.get("task_context", {}).get("competitors", []) if str(item).strip()]
+    collected = [
+        str(item.get("competitor"))
+        for item in state.get("raw_materials", [])
+        if item.get("competitor")
+    ]
+    ordered = []
+    for name in configured + collected:
+        if name not in ordered:
+            ordered.append(name)
+    return ordered
+
+
+def build_cell(evidence: list[dict]) -> dict:
+    accepted = next((item for item in evidence if item.get("validation_status") == "accepted" and item.get("quote_text")), None)
+    if not accepted:
+        degraded = next((item for item in evidence if item.get("validation_status") == "degraded"), None)
+        return {
+            "value": "信息缺失",
+            "status": "degraded",
+            "evidence_refs": [degraded.get("id")] if degraded and degraded.get("id") else [],
+            "degraded_reason": degraded.get("degraded_reason") if degraded else "no_evidence_for_schema_field",
+        }
+    return {
+        "value": accepted.get("quote_text", ""),
+        "status": "accepted",
+        "source_url": accepted.get("source_url", ""),
+        "evidence_refs": [accepted.get("id")] if accepted.get("id") else [],
     }
