@@ -7,14 +7,23 @@ const { Title, Text } = Typography;
 interface InfoDashboardProps {
   taskId?: string | null;
   rawMaterials?: any[];
+  collectorLogs?: any[];
+  collectionProgress?: {
+    completed?: number;
+    total?: number;
+    discovered_results?: number;
+  } | null;
 }
 
-export default function InfoDashboard({ taskId, rawMaterials = [] }: InfoDashboardProps) {
+export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs = [], collectionProgress = null }: InfoDashboardProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const accepted = rawMaterials.filter(item => item.validation_status === 'accepted').length;
   const degraded = rawMaterials.filter(item => item.validation_status === 'degraded').length;
   const blocked = rawMaterials.filter(item => ['blocked', 'failed'].includes(item.access_status)).length;
   const progress = rawMaterials.length ? Math.round((accepted / rawMaterials.length) * 100) : 0;
+  const collectionTotal = collectionProgress?.total || rawMaterials.length || 0;
+  const collectionCompleted = collectionProgress?.completed || rawMaterials.length || 0;
+  const collectionPercent = collectionTotal ? Math.round((collectionCompleted / collectionTotal) * 100) : 0;
 
   const postTaskAction = async (path: string, action: string, body?: any) => {
     if (!taskId) return;
@@ -34,11 +43,19 @@ export default function InfoDashboard({ taskId, rawMaterials = [] }: InfoDashboa
     }
   };
 
-  const timelineItems = rawMaterials.length ? rawMaterials.map((item, index) => ({
-    color: item.validation_status === 'accepted' ? 'green' : 'orange',
+  const timelineItems = collectorLogs.length ? collectorLogs.map((item, index) => ({
+    color: item.status === 'accepted' ? 'green' : item.access_status === 'failed' ? 'red' : 'orange',
     content: (
       <>
-        <Text type="secondary">[{index + 1}]</Text> <Text strong>Collector:</Text> {item.competitor || 'Source'} - {item.validation_status || 'pending'}
+        <Text type="secondary">[{index + 1}]</Text>{' '}
+        <Text strong>Collector:</Text>{' '}
+        {item.status === 'accepted' ? '已采集' : '采集降级'}{' '}
+        <Text code>{item.schema_field_name || item.schema_field_id || '字段'}</Text>
+        {item.competitor ? <Text> / {item.competitor}</Text> : null}
+        <br />
+        <Text type="secondary">查询：{item.query || '未知查询'}</Text>
+        <br />
+        {item.url ? <a href={item.url} target="_blank" rel="noreferrer">{item.url}</a> : <Text type="warning">{item.degraded_reason || '暂无可用 URL'}</Text>}
       </>
     ),
   })) : [
@@ -68,6 +85,16 @@ export default function InfoDashboard({ taskId, rawMaterials = [] }: InfoDashboa
         <Col span={14}>
           <Card title="采集日志流(SSE推送)" style={{ height: '600px', overflowY: 'auto' }}>
             <Timeline items={timelineItems} />
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #f0f0f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <Text>采集进度</Text>
+                <Text>
+                  已检索到 {collectionProgress?.discovered_results || 0} 个真实搜索结果，
+                  信息搜集 {collectionCompleted}/{collectionTotal}
+                </Text>
+              </div>
+              <Progress percent={collectionPercent} status={collectionPercent === 100 ? 'success' : 'active'} />
+            </div>
           </Card>
         </Col>
         <Col span={10}>

@@ -236,7 +236,10 @@ async def process_agent_pipeline(task_id: str):
         }
 
     try:
-        state = await collector_node(state)
+        async def publish_collector_progress(payload: dict[str, Any]):
+            await publish_event(task_id, "collector_log", payload)
+
+        state = await collector_node(state, on_progress=publish_collector_progress)
         materials = state.get("raw_materials") or []
         async with async_session() as session:
             task = await update_task_state(session, task_id, state="COLLECTING", progress=60)

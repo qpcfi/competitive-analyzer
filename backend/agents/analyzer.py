@@ -51,6 +51,8 @@ async def analyzer_node(state: AgentState):
 def build_deterministic_analysis(state: AgentState) -> dict:
     materials = state.get("raw_materials", [])
     schema_dimensions = flatten_schema_dimensions(state.get("dynamic_schema", {}))
+    if not schema_dimensions and materials:
+        schema_dimensions = [{"id": "__collected_evidence", "name": "Collected Evidence", "group": "Evidence"}]
     competitors = discovered_competitors(state)
     comparison_rows = []
     for dimension in schema_dimensions:
@@ -59,7 +61,8 @@ def build_deterministic_analysis(state: AgentState) -> dict:
             evidence = [
                 item
                 for item in materials
-                if item.get("competitor") == competitor and item.get("schema_field_id") == dimension["id"]
+                if item.get("competitor") == competitor
+                and (dimension["id"] == "__collected_evidence" or item.get("schema_field_id") == dimension["id"])
             ]
             values[competitor] = build_cell(evidence)
         comparison_rows.append(
@@ -71,6 +74,7 @@ def build_deterministic_analysis(state: AgentState) -> dict:
             }
         )
     evidence_refs = [item.get("id") for item in materials if item.get("id")]
+    legacy_comparison = build_legacy_comparison(competitors, materials)
     findings = [
         {
             "dimension": row["dimension"],
@@ -86,7 +90,7 @@ def build_deterministic_analysis(state: AgentState) -> dict:
         "discovered_competitors": competitors,
         "schema_dimensions": schema_dimensions,
         "comparison_rows": comparison_rows,
-        "comparison": comparison_rows,
+        "comparison": legacy_comparison,
         "swot": {
             "strengths": [{"text": "Public information is available for comparison.", "evidence_refs": evidence_refs[:2]}],
             "weaknesses": [{"text": "Some fields may require manual verification.", "evidence_refs": evidence_refs[:2]}],
@@ -146,3 +150,21 @@ def build_cell(evidence: list[dict]) -> dict:
         "source_url": accepted.get("source_url", ""),
         "evidence_refs": [accepted.get("id")] if accepted.get("id") else [],
     }
+
+
+def build_legacy_comparison(competitors: list[str], materials: list[dict]) -> list[dict]:
+    comparison = []
+    for competitor in competitors:
+        evidence = [item for item in materials if item.get("competitor") == competitor]
+        accepted = next((item for item in evidence if item.get("validation_status") == "accepted" and item.get("quote_text")), None)
+        degraded = next((item for item in evidence if item.get("validation_status") == "degraded"), None)
+        selected = accepted or degraded
+        comparison.append(
+            {
+                "competitor": competitor,
+                "summary": selected.get("quote_text", "")[:240] if selected else "",
+                "status": "accepted" if accepted else "degraded",
+                "evidence_refs": [item.get("id") for item in evidence if item.get("id")],
+            }
+        )
+    return comparison

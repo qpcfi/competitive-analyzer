@@ -1,4 +1,5 @@
 import uuid
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from services.privacy import contains_pii, redact_pii
@@ -6,23 +7,47 @@ from services.web_search import SearchResult, search_public_web
 
 from .state import AgentState
 
+ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
-async def collector_node(state: AgentState):
+
+async def collector_node(state: AgentState, on_progress: ProgressCallback | None = None):
     context = state.get("task_context", {})
     competitors = [str(item) for item in context.get("competitors", []) if str(item).strip()]
     schema_fields = flatten_schema_fields(state.get("dynamic_schema", {}))
     task_id = state.get("task_id", "task")
 
     results: list[dict[str, Any]] = []
+    total = len(competitors) * len(schema_fields)
+    completed = 0
+    discovered_results = 0
     for competitor in competitors:
         for field in schema_fields:
             query = build_collection_query(competitor, field)
             try:
                 search_results = await search_public_web(query, limit=3)
+                discovered_results += len(search_results)
                 material = build_material_from_search_result(task_id, competitor, field, query, search_results)
             except Exception as exc:
+                search_results = []
                 material = build_degraded_material(task_id, competitor, field, query, f"{exc.__class__.__name__}:{exc}")
             results.append(material)
+            completed += 1
+            if on_progress:
+                await on_progress(
+                    {
+                        "query": query,
+                        "url": material.get("source_url") or "",
+                        "competitor": competitor,
+                        "schema_field_id": field.get("id"),
+                        "schema_field_name": field.get("name") or field.get("id"),
+                        "status": material.get("validation_status"),
+                        "access_status": material.get("access_status"),
+                        "completed": completed,
+                        "total": total,
+                        "discovered_results": discovered_results,
+                        "degraded_reason": material.get("degraded_reason"),
+                    }
+                )
 
     state["raw_materials"] = results
     state["source_ids"] = [item["id"] for item in results]

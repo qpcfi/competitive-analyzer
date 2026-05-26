@@ -25,6 +25,8 @@ export default function Home() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [schemaData, setSchemaData] = useState<any>(null);
   const [rawMaterials, setRawMaterials] = useState<any[]>([]);
+  const [collectorLogs, setCollectorLogs] = useState<any[]>([]);
+  const [collectionProgress, setCollectionProgress] = useState<any>(null);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
   const [progress, setProgress] = useState<number>(0);
   const [showDebug, setShowDebug] = useState<boolean>(false);
@@ -80,6 +82,17 @@ export default function Home() {
       const data = JSON.parse(e.data);
       rememberSequence(data);
       setRawMaterials(data.data || []);
+    });
+
+    evtSource.addEventListener('collector_log', (e) => {
+      const data = JSON.parse(e.data);
+      rememberSequence(data);
+      setCollectorLogs(prev => [...prev.slice(-199), data]);
+      setCollectionProgress({
+        completed: data.completed || 0,
+        total: data.total || 0,
+        discovered_results: data.discovered_results || 0,
+      });
     });
 
     evtSource.addEventListener('analysis_progress', (e) => {
@@ -138,7 +151,7 @@ export default function Home() {
       case 'task-config':
         return <TaskConsole onNext={(id) => { setTaskId(id); setCurrentView('schema'); }} />;
       case 'dashboard':
-        return <InfoDashboard taskId={taskId} rawMaterials={rawMaterials} />;
+        return <InfoDashboard taskId={taskId} rawMaterials={rawMaterials} collectorLogs={collectorLogs} collectionProgress={collectionProgress} />;
       case 'schema':
         return <SchemaEditor taskId={taskId} schemaData={schemaData} onNext={() => setCurrentView('analysis')} onOpenDrawer={openDrawer} />;
       case 'analysis':
