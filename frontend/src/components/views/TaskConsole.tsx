@@ -276,6 +276,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
       <Modal
         title={editingSchemaKey ? '编辑自定义维度' : '添加自定义维度'}
         open={schemaModalOpen}
+        forceRender
         onCancel={() => setSchemaModalOpen(false)}
         onOk={handleSaveSchemaField}
         okText="保存维度"
