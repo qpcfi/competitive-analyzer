@@ -1,4 +1,7 @@
-from services.web_search import parse_duckduckgo_results
+import httpx
+import pytest
+
+from services.web_search import SearchResult, extract_page_text, fetch_public_web_pages, parse_duckduckgo_results
 
 
 def test_parse_duckduckgo_results_extracts_title_url_and_snippet():
@@ -23,3 +26,58 @@ def test_parse_duckduckgo_results_extracts_title_url_and_snippet():
     assert [item.url for item in results] == ["https://example.com/pricing", "https://vendor.com/docs"]
     assert results[0].snippet == "Official pricing and feature details."
     assert results[1].query == "example pricing"
+
+
+def test_extract_page_text_removes_scripts_styles_and_limits_text():
+    html = """
+    <html>
+      <head>
+        <title>Vendor Comparison</title>
+        <style>.hidden { display: none; }</style>
+        <script>window.bad = true;</script>
+      </head>
+      <body>
+        <nav>Home Pricing Login</nav>
+        <main>
+          <h1>Vendor Comparison</h1>
+          <p>Alpha, Beta, and Gamma provide enterprise AI search products.</p>
+        </main>
+      </body>
+    </html>
+    """
+
+    text = extract_page_text(html, max_chars=80)
+
+    assert "window.bad" not in text
+    assert "display: none" not in text
+    assert "Alpha, Beta, and Gamma" in text
+    assert len(text) <= 80
+
+
+@pytest.mark.asyncio
+async def test_fetch_public_web_pages_returns_page_evidence(monkeypatch):
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            text="<html><title>Alternatives</title><body><main>Alpha and Beta compete in AI search.</main></body></html>",
+            request=request,
+        )
+
+    transport = httpx.MockTransport(handler)
+    results = [
+        SearchResult(
+            query="AI search alternatives",
+            title="AI Search Alternatives",
+            url="https://example.com/alternatives",
+            snippet="A list of AI search vendors.",
+        )
+    ]
+
+    pages = await fetch_public_web_pages(results, limit=2, transport=transport)
+
+    assert len(pages) == 1
+    assert pages[0].url == "https://example.com/alternatives"
+    assert pages[0].search_title == "AI Search Alternatives"
+    assert pages[0].page_title == "Alternatives"
+    assert "Alpha and Beta compete" in pages[0].text
+    assert pages[0].error is None
