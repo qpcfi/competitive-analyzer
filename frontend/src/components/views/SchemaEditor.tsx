@@ -7,11 +7,12 @@ const { Text } = Typography;
 interface SchemaEditorProps {
   taskId?: string | null;
   schemaData?: any;
+  competitors?: string[];
   onNext: () => void;
   onOpenDrawer: (type: string, data?: any) => void;
 }
 
-export default function SchemaEditor({ taskId, schemaData, onNext, onOpenDrawer }: SchemaEditorProps) {
+export default function SchemaEditor({ taskId, schemaData, competitors = [], onNext, onOpenDrawer }: SchemaEditorProps) {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const hasSchema = !!schemaData && Object.keys(schemaData).length > 0;
@@ -115,6 +116,16 @@ export default function SchemaEditor({ taskId, schemaData, onNext, onOpenDrawer 
         showIcon
         style={{ marginBottom: 24 }}
       />
+
+      <Card title="竞品列表" style={{ marginBottom: 24 }}>
+        {competitors.length ? (
+          <Space wrap>
+            {competitors.map(name => <Tag key={name} color="blue">{name}</Tag>)}
+          </Space>
+        ) : (
+          <Text type="secondary">等待 Agent 根据领域补全竞品。</Text>
+        )}
+      </Card>
 
       <Card
         title={<div>竞品知识框架 v1.2 <Text type="secondary" style={{ fontSize: 14, fontWeight: 'normal' }}>（Agent生成）</Text></div>}

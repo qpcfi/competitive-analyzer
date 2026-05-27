@@ -14,6 +14,9 @@ async def collector_node(state: AgentState, on_progress: ProgressCallback | None
     context = state.get("task_context", {})
     competitors = [str(item) for item in context.get("competitors", []) if str(item).strip()]
     schema_fields = flatten_schema_fields(state.get("dynamic_schema", {}))
+    scope_field_ids = {str(item) for item in context.get("collection_scope_field_ids", []) if str(item).strip()}
+    if scope_field_ids:
+        schema_fields = [field for field in schema_fields if str(field.get("id")) in scope_field_ids]
     task_id = state.get("task_id", "task")
 
     results: list[dict[str, Any]] = []

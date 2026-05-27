@@ -40,34 +40,9 @@ class CompetitorCandidate:
 
 async def orchestrator_node(state: AgentState):
     context = state.get("task_context", {})
-    competitors = [str(item).strip() for item in context.get("competitors", []) if str(item).strip()]
-    if not competitors:
-        competitors = await discover_competitors(context.get("domain", ""))
-        context["competitors"] = competitors
-        state["task_context"] = context
-    if llm is None:
-        schema = build_schema_from_context(context)
-    else:
-        prompt = f"""
-        You are the Orchestrator for a competitive analyzer.
-        Domain: {context.get('domain', 'Unknown')}
-        Competitors: {context.get('competitors', [])}
-        Generate a JSON schema of comparison dimensions for these competitors.
-        Return ONLY valid JSON format.
-        Example format:
-        {{
-          "Core Profile": [{{"name": "Product Name", "type": "text"}}]
-        }}
-        """
-        res = await llm.ainvoke([HumanMessage(content=prompt)])
-        try:
-            import re
-
-            content = res.content
-            match = re.search(r"\{.*\}", content, re.DOTALL)
-            schema = json.loads(match.group(0) if match else content)
-        except Exception:
-            schema = build_schema_from_context(context)
+    competitors, schema = await generate_complete_plan(context)
+    context["competitors"] = competitors
+    state["task_context"] = context
 
     normalized_schema = ensure_schema_metadata(schema)
     state["dynamic_schema"] = await enrich_schema_with_public_evidence(normalized_schema, context)
@@ -75,9 +50,213 @@ async def orchestrator_node(state: AgentState):
     return state
 
 
+async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
+    domain = str(context.get("domain") or "").strip()
+    user_competitors = normalize_competitor_names(context.get("competitors", []))
+    user_schema = build_user_schema_from_context(context)
+
+    discovered = await safe_discover_competitors(domain, user_competitors)
+    seed_competitors = merge_competitors(user_competitors, discovered)
+    if len(seed_competitors) < 3:
+        seed_competitors = merge_competitors(seed_competitors, fallback_competitors(domain, 3 - len(seed_competitors)))
+
+    generated_schema: dict = {}
+    generated_competitors: list[str] = []
+    if llm is not None:
+        prompt = build_plan_completion_prompt(domain, seed_competitors, user_schema)
+        try:
+            res = await llm.ainvoke([make_human_message(prompt)])
+            result = parse_plan_completion(str(res.content))
+            generated_competitors = normalize_competitor_names(result.get("competitors", []))
+            generated_schema = normalize_schema_input(result.get("schema", {}))
+        except Exception:
+            generated_schema = {}
+
+    competitors = merge_competitors(user_competitors, generated_competitors, seed_competitors)[:5]
+    schema = merge_schema_preserving_user(user_schema, generated_schema or build_schema_from_context({**context, "competitors": competitors}))
+    return competitors, schema
+
+
+async def safe_discover_competitors(domain: str, existing: list[str]) -> list[str]:
+    if len(existing) >= 3:
+        return existing
+    try:
+        candidates = await discover_competitor_candidates(domain)
+    except Exception:
+        return []
+    existing_keys = {item.lower() for item in existing}
+    return [candidate.name for candidate in candidates if candidate.name.lower() not in existing_keys]
+
+
+def build_plan_completion_prompt(domain: str, competitors: list[str], user_schema: dict) -> str:
+    return f"""
+You are a competitive-analysis architect.
+The user's required analysis domain is: {domain}
+
+The user may have provided only partial inputs:
+- User/current competitors: {json.dumps(competitors, ensure_ascii=False)}
+- User/current knowledge schema: {json.dumps(user_schema, ensure_ascii=False)}
+
+Complete the plan without overriding user-provided content:
+1. If the competitor list is missing or too short, add mainstream competitors in the same competitive tier until there are 3-5 total competitors.
+2. Complete missing schema dimension groups and fields. Include dimensions that are meaningful for every competitor, such as core profile, feature tree, pricing model, target users, deployment/integration, compliance, ecosystem, and differentiation.
+3. Preserve user-provided fields. Only add missing fields. Do not rename or delete existing user fields.
+4. Each generated field must be collectable from public sources or clearly marked as lower feasibility.
+
+Return ONLY valid JSON:
+{{
+  "competitors": ["existing or generated competitor"],
+  "schema": {{
+    "Core Profile": [
+      {{"name": "Product Name", "type": "text", "required": true, "source": "official", "origin": "agent", "feasibility": "high", "reason": "why this field is useful"}}
+    ]
+  }}
+}}
+"""
+
+
+def parse_plan_completion(content: str) -> dict:
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    parsed = json.loads(match.group(0) if match else content)
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def build_user_schema_from_context(context: dict) -> dict:
+    existing = normalize_schema_input(context.get("dynamic_schema", {}))
+    predefined = context.get("predefined_schema") or []
+    user_fields = []
+    for item in predefined:
+        if isinstance(item, dict) and item.get("name"):
+            user_fields.append({**item, "origin": "user"})
+    if user_fields:
+        existing.setdefault("User Defined", []).extend(user_fields)
+    return existing
+
+
+def normalize_schema_input(schema: object) -> dict:
+    if not isinstance(schema, dict):
+        return {}
+    normalized: dict[str, list[dict]] = {}
+    for group_name, fields in schema.items():
+        group = str(group_name or "").strip()
+        if not group:
+            continue
+        if isinstance(fields, dict):
+            iterable = [{"name": name, **(value if isinstance(value, dict) else {})} for name, value in fields.items()]
+        elif isinstance(fields, list):
+            iterable = fields
+        else:
+            continue
+        normalized[group] = []
+        for field in iterable:
+            if isinstance(field, str):
+                normalized[group].append({"name": field, "type": "text"})
+            elif isinstance(field, dict) and (field.get("name") or field.get("id")):
+                normalized[group].append(dict(field))
+        if not normalized[group]:
+            normalized.pop(group, None)
+    return normalized
+
+
+def merge_competitors(*groups: Iterable[str]) -> list[str]:
+    merged: list[str] = []
+    seen = set()
+    for group in groups:
+        for name in normalize_competitor_names(group):
+            lowered = name.lower()
+            if lowered in seen:
+                continue
+            seen.add(lowered)
+            merged.append(name)
+    return merged
+
+
+def merge_schema_preserving_user(user_schema: dict, generated_schema: dict) -> dict:
+    merged = normalize_schema_input(generated_schema)
+    for group_name, user_fields in normalize_schema_input(user_schema).items():
+        target = merged.setdefault(group_name, [])
+        existing_names = {field_key(field) for field in target}
+        for field in user_fields:
+            key = field_key(field)
+            if key in existing_names:
+                target[:] = [{**item, **field, "origin": "user"} if field_key(item) == key else item for item in target]
+            else:
+                target.append({**field, "origin": "user"})
+                existing_names.add(key)
+    return merged
+
+
+def field_key(field: dict) -> str:
+    return str(field.get("name") or field.get("id") or "").strip().lower()
+
+
+def fallback_competitors(domain: str, count: int) -> list[str]:
+    base = domain or "Market"
+    suffixes = ["Leader", "Challenger", "Specialist", "Enterprise", "Cloud"]
+    return [f"{base} {suffix}" for suffix in suffixes[: max(count, 0)]]
+
+
 async def discover_competitors(domain: str) -> list[str]:
     candidates = await discover_competitor_candidates(domain)
     return [candidate.name for candidate in candidates[:3]]
+
+
+async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> list[CompetitorCandidate]:
+    existing_names = {name.lower() for name in normalize_competitor_names(existing)}
+    try:
+        candidates = await discover_competitor_candidates(domain)
+    except CompetitorDiscoveryUnavailable:
+        candidates = await discover_competitor_candidates_from_search(domain)
+    except Exception:
+        candidates = await discover_competitor_candidates_from_search(domain)
+
+    filtered: list[CompetitorCandidate] = []
+    seen = set(existing_names)
+    for candidate in candidates:
+        lowered = candidate.name.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        filtered.append(candidate)
+    if filtered:
+        return filtered[:5]
+
+    return [
+        CompetitorCandidate(name=name, reason="Generated fallback candidate from the analysis domain.", source_urls=[], confidence=0.2)
+        for name in fallback_competitors(domain, 3)
+        if name.lower() not in existing_names
+    ]
+
+
+async def discover_competitor_candidates_from_search(domain: str) -> list[CompetitorCandidate]:
+    results: list[SearchResult] = []
+    for query in build_competitor_search_queries(domain):
+        try:
+            results.extend(await search_public_web(query, limit=5))
+        except Exception:
+            continue
+
+    names = extract_competitor_names_from_search_results(results, domain)
+    if not names:
+        names = infer_names_from_search_results(results)
+
+    candidates: list[CompetitorCandidate] = []
+    seen = set()
+    for name in names:
+        lowered = name.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        supporting = [result.url for result in results if name.lower() in f"{result.title} {result.snippet}".lower()]
+        candidates.append(
+            CompetitorCandidate(
+                name=name,
+                reason="Identified from public search result titles/snippets.",
+                source_urls=supporting[:2],
+                confidence=0.45 if supporting else 0.25,
+            )
+        )
+    return candidates[:5]
 
 
 async def discover_competitor_candidates(domain: str) -> list[CompetitorCandidate]:
@@ -284,6 +463,20 @@ def extract_competitor_names_from_search_results(results: Iterable[SearchResult]
     return normalize_competitor_names(candidates)
 
 
+def infer_names_from_search_results(results: Iterable[SearchResult]) -> list[str]:
+    candidates: list[str] = []
+    stop_prefixes = ("best ", "top ", "compare ", "comparison ", "alternatives ")
+    for result in results:
+        title = clean_search_title(result.title)
+        if not title:
+            continue
+        compact = re.sub(r"\b(alternatives|competitors|reviews|pricing|comparison|best|top)\b", "", title, flags=re.IGNORECASE)
+        compact = re.sub(r"\s+", " ", compact).strip(" :,-|")
+        if compact and not compact.lower().startswith(stop_prefixes):
+            candidates.append(compact)
+    return normalize_competitor_names(candidates)
+
+
 def clean_search_title(title: str) -> str:
     title = str(title or "").strip()
     if not title:
@@ -326,7 +519,7 @@ def build_schema_from_context(context: dict) -> dict:
 def ensure_schema_metadata(schema: dict) -> dict:
     normalized = {}
     total_fields = 0
-    max_fields = 8
+    max_fields = 12
     for group_name, fields in schema.items():
         if not isinstance(fields, list):
             continue
@@ -339,17 +532,19 @@ def ensure_schema_metadata(schema: dict) -> dict:
             field_name = str(field.get("name") or f"field_{index + 1}")
             stable_group = str(group_name).strip().replace(" ", "_")
             stable_name = field_name.strip().replace(" ", "_")
-            normalized[group_name].append(
-                {
-                    "id": field.get("id") or f"{stable_group}.{stable_name}",
-                    "name": field_name,
-                    "type": field.get("type") or "text",
-                    "required": bool(field.get("required", True)),
-                    "source": field.get("source") or "public_web",
-                    "origin": field.get("origin") or "agent",
-                    "feasibility": field.get("feasibility") or "medium",
-                }
-            )
+            normalized_field = {
+                "id": field.get("id") or f"{stable_group}.{stable_name}",
+                "name": field_name,
+                "type": field.get("type") or "text",
+                "required": bool(field.get("required", True)),
+                "source": field.get("source") or "public_web",
+                "origin": field.get("origin") or "agent",
+                "feasibility": field.get("feasibility") or "medium",
+            }
+            for metadata_key in ("confidence", "reason", "evidence", "affected_competitors"):
+                if metadata_key in field:
+                    normalized_field[metadata_key] = field[metadata_key]
+            normalized[group_name].append(normalized_field)
             total_fields += 1
         if not normalized[group_name]:
             normalized.pop(group_name, None)
@@ -370,6 +565,48 @@ def ensure_schema_metadata(schema: dict) -> dict:
             ]
         }
     return normalized
+
+
+def merge_schema_extensions(schema: dict, extensions: list[dict]) -> tuple[dict, list[dict]]:
+    updated = normalize_schema_input(schema)
+    added_fields: list[dict] = []
+    for extension in extensions:
+        if not isinstance(extension, dict):
+            continue
+        confidence = safe_float(extension.get("confidence"), 0.0)
+        if confidence < 0.8:
+            continue
+        group_name = str(extension.get("dimension_group") or extension.get("group") or "Extended Attributes").strip()
+        field_name = str(extension.get("new_field") or extension.get("name") or "").strip()
+        if not group_name or not field_name:
+            continue
+        group = updated.setdefault(group_name, [])
+        if any(field_key(field) == field_name.lower() for field in group if isinstance(field, dict)):
+            continue
+        stable_group = group_name.replace(" ", "_")
+        stable_name = field_name.replace(" ", "_")
+        field = {
+            "id": extension.get("field_id") or f"{stable_group}.{stable_name}",
+            "name": field_name,
+            "type": extension.get("type") or "text",
+            "required": False,
+            "source": extension.get("source") or "public_web",
+            "origin": "critic",
+            "feasibility": "medium",
+            "confidence": confidence,
+            "evidence": extension.get("evidence") or [],
+            "affected_competitors": extension.get("affected_competitors") or [],
+        }
+        group.append(field)
+        added_fields.append({**field, "group": group_name})
+    return ensure_schema_metadata(updated), added_fields
+
+
+def safe_float(value: object, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 async def enrich_schema_with_public_evidence(schema: dict, context: dict) -> dict:

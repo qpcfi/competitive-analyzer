@@ -9,6 +9,7 @@ class AgentState(TypedDict):
     source_ids: List[str]
     analysis_results: Dict[str, Any]
     critic_feedback: List[Dict[str, Any]]
+    suggested_schema_extensions: List[Dict[str, Any]]
     task_events: List[Dict[str, Any]]
     progress: int
     module_updates: List[Dict[str, Any]]

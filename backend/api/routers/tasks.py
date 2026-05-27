@@ -6,10 +6,9 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 
-from core import runtime
 from models_db import TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
 from schemas import TaskCreateRequest, TaskCreateResponse
-from services.pipeline import event_generator, make_initial_state, process_graph_events, publish_event, regenerate_schema
+from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
 from services.repositories import add_intervention, create_task_record, get_task, save_schema, update_task_state
 from services.serialization import serialize_task
 
@@ -33,14 +32,10 @@ async def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks)
             await save_schema(session, task_id, {"User Defined": req.predefined_schema}, created_by="user", status="draft")
         await session.commit()
 
-    config = {"configurable": {"thread_id": task_id}}
     asyncio.create_task(publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "previous_state": "INITIALIZING", "progress": 10}))
     asyncio.create_task(publish_event(task_id, "progress_update", {"progress": 10, "stage": "SCHEMA_GENERATING"}))
     asyncio.create_task(publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Starting schema generation"}))
-    if req.execution_mode == "step_by_step":
-        asyncio.create_task(regenerate_schema(task_id))
-    else:
-        asyncio.create_task(process_graph_events(task_id, runtime.app_auto, make_initial_state(req, task_id), config))
+    asyncio.create_task(process_initial_pipeline(task_id, make_initial_state(req, task_id), continue_after_schema=req.execution_mode == "auto"))
 
     return {"task_id": task_id, "state": "INITIALIZING", "stream_url": f"/api/v1/tasks/{task_id}/stream"}
 

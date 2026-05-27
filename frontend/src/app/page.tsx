@@ -25,6 +25,7 @@ export default function Home() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [schemaData, setSchemaData] = useState<any>(null);
+  const [competitors, setCompetitors] = useState<string[]>([]);
   const [rawMaterials, setRawMaterials] = useState<any[]>([]);
   const [collectorLogs, setCollectorLogs] = useState<any[]>([]);
   const [collectionProgress, setCollectionProgress] = useState<any>(null);
@@ -76,7 +77,15 @@ export default function Home() {
       const data = JSON.parse(e.data);
       rememberSequence(data);
       setSchemaData(data.dynamic_schema);
+      setCompetitors(Array.isArray(data.competitors) ? data.competitors : []);
       message.success('知识框架生成完成');
+    });
+
+    evtSource.addEventListener('schema_extended', (e) => {
+      const data = JSON.parse(e.data);
+      rememberSequence(data);
+      setSchemaData(data.dynamic_schema);
+      message.success('Critic 已完成一轮 Schema 后校验微调');
     });
 
     evtSource.addEventListener('raw_materials_updated', (e) => {
@@ -156,6 +165,7 @@ export default function Home() {
     setTaskId(data.task_id);
     setProgress(data.progress || 0);
     setSchemaData(data.dynamic_schema || null);
+    setCompetitors(Array.isArray(data.competitors) ? data.competitors : []);
     setRawMaterials(Array.isArray(data.raw_materials) ? data.raw_materials : []);
     setAnalysisResults(data.analysis_results || null);
     setCollectorLogs([]);
@@ -174,7 +184,7 @@ export default function Home() {
       case 'history':
         return <HistoryView currentTaskId={taskId} onRestoreTask={restoreHistoricalTask} />;
       case 'schema':
-        return <SchemaEditor taskId={taskId} schemaData={schemaData} onNext={() => setCurrentView('analysis')} onOpenDrawer={openDrawer} />;
+        return <SchemaEditor taskId={taskId} schemaData={schemaData} competitors={competitors} onNext={() => setCurrentView('analysis')} onOpenDrawer={openDrawer} />;
       case 'analysis':
         return <CompetitorAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />;
       case 'swot':

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 
-from agents.orchestrator import CompetitorDiscoveryUnavailable, discover_competitors
+from agents.orchestrator import recommend_competitors
 
 router = APIRouter()
 
@@ -15,14 +15,10 @@ async def get_competitor_recommendations(
         raise HTTPException(status_code=400, detail="domain is required")
 
     existing_names = {item.strip().lower() for item in existing if item.strip()}
-    try:
-        discovered = await discover_competitors(normalized_domain)
-    except CompetitorDiscoveryUnavailable as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
     items = []
     seen = set(existing_names)
-    for name in discovered:
-        normalized_name = str(name).strip()
+    for candidate in await recommend_competitors(normalized_domain, existing):
+        normalized_name = str(candidate.name).strip()
         lowered = normalized_name.lower()
         if not normalized_name or lowered in seen:
             continue
@@ -30,7 +26,9 @@ async def get_competitor_recommendations(
         items.append(
             {
                 "name": normalized_name,
-                "reason": f"基于公开网页信号，{normalized_name} 与 {normalized_domain} 存在竞品相关性。",
+                "reason": candidate.reason or f"基于公开网页信号，{normalized_name} 与 {normalized_domain} 存在竞品相关性。",
+                "source_urls": candidate.source_urls,
+                "confidence": candidate.confidence,
             }
         )
     return {"items": items}

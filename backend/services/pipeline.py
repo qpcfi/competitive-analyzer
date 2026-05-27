@@ -4,7 +4,7 @@ from typing import Any
 from agents.analyzer import analyzer_node
 from agents.collector import collector_node
 from agents.critic import critic_node
-from agents.orchestrator import orchestrator_node
+from agents.orchestrator import merge_schema_extensions, orchestrator_node
 from models_db import async_session
 from schemas import TaskCreateRequest
 from services.events import event_broker
@@ -44,11 +44,54 @@ def make_initial_state(req: TaskCreateRequest, task_id: str, schema_version: int
         "source_ids": [],
         "analysis_results": {},
         "critic_feedback": [],
+        "suggested_schema_extensions": [],
         "task_events": [],
         "progress": 0,
         "module_updates": [],
         "retry_counts": {},
     }
+
+
+async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], *, continue_after_schema: bool = False):
+    try:
+        await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Completing competitors and schema from domain inputs."})
+        state = await orchestrator_node(initial_state)
+        schema_json = state.get("dynamic_schema") or {}
+        discovered_competitors = (state.get("task_context") or {}).get("competitors") or []
+        async with async_session() as session:
+            task = await get_task(session, task_id)
+            if task and discovered_competitors:
+                task.competitors = discovered_competitors
+            record = await save_schema(session, task_id, schema_json, created_by="agent", status="active")
+            await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
+            await session.commit()
+        await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Competitor list and schema completed."})
+        await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"})
+        await publish_event(
+            task_id,
+            "schema_ready",
+            {
+                "dynamic_schema": schema_json,
+                "schema_version": record.version,
+                "competitors": discovered_competitors,
+                "stats": count_schema_stats(schema_json),
+            },
+        )
+        await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_REVIEW", "progress": 30})
+        if continue_after_schema:
+            async with async_session() as session:
+                await update_task_state(session, task_id, state="COLLECTING", progress=40)
+                await session.commit()
+            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "previous_state": "SCHEMA_REVIEW", "progress": 40})
+            await process_agent_pipeline(task_id)
+    except Exception as exc:
+        async with async_session() as session:
+            try:
+                await update_task_state(session, task_id, state="ERROR", error={"message": str(exc), "type": exc.__class__.__name__})
+                await session.commit()
+            except Exception:
+                await session.rollback()
+        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True})
 
 
 async def process_graph_events(task_id: str, graph, initial_state, config):
@@ -158,6 +201,7 @@ async def process_agent_pipeline(task_id: str):
             "source_ids": [],
             "analysis_results": {},
             "critic_feedback": [],
+            "suggested_schema_extensions": [],
             "task_events": [],
             "progress": db_task.progress or 40,
             "module_updates": [],
@@ -202,6 +246,9 @@ async def process_agent_pipeline(task_id: str):
         await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis})
 
         state = await critic_node(state)
+        state, calibration_outcome = await run_schema_calibration(task_id, state)
+        if calibration_outcome == "waiting_for_user":
+            return
         feedback = state.get("critic_feedback") or []
         async with async_session() as session:
             task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
@@ -222,6 +269,94 @@ async def process_agent_pipeline(task_id: str):
             except Exception:
                 await session.rollback()
         await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True})
+
+
+async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[dict[str, Any], str]:
+    suggestions = state.get("suggested_schema_extensions") or []
+    if not suggestions:
+        return state, "none"
+
+    context = state.get("task_context") or {}
+    execution_mode = context.get("execution_mode", "step_by_step")
+    if execution_mode != "auto":
+        async with async_session() as session:
+            await update_task_state(session, task_id, state="NEEDS_INTERVENTION", progress=95)
+            await session.commit()
+        await publish_event(
+            task_id,
+            "schema_extension_request",
+            {
+                "suggested_schema_extensions": suggestions,
+                "message": "Critic found possible missing dimensions. Confirm or reject before final report.",
+            },
+        )
+        await publish_event(task_id, "task_state_changed", {"state": "NEEDS_INTERVENTION", "progress": 95})
+        return state, "waiting_for_user"
+
+    calibration_count = int(state.get("retry_counts", {}).get("schema_calibration", 0))
+    if calibration_count >= 1:
+        return state, "skipped"
+
+    updated_schema, added_fields = merge_schema_extensions(state.get("dynamic_schema", {}), suggestions)
+    if not added_fields:
+        return state, "none"
+
+    retry_counts = state.get("retry_counts", {})
+    retry_counts["schema_calibration"] = calibration_count + 1
+    state["retry_counts"] = retry_counts
+    state["dynamic_schema"] = updated_schema
+    context["collection_scope_field_ids"] = [field["id"] for field in added_fields if field.get("id")]
+    state["task_context"] = context
+
+    async with async_session() as session:
+        await save_schema(session, task_id, updated_schema, created_by="critic", status="active")
+        await update_task_state(session, task_id, state="SCHEMA_CALIBRATING", progress=92)
+        await session.commit()
+    await publish_event(
+        task_id,
+        "schema_extended",
+        {
+            "dynamic_schema": updated_schema,
+            "added_fields": added_fields,
+            "stats": count_schema_stats(updated_schema),
+        },
+    )
+    await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_CALIBRATING", "progress": 92})
+
+    previous_materials = list(state.get("raw_materials") or [])
+    incremental_state = await collector_node(state)
+    new_materials = incremental_state.get("raw_materials") or []
+    state["raw_materials"] = previous_materials + new_materials
+    context.pop("collection_scope_field_ids", None)
+    state["task_context"] = context
+
+    async with async_session() as session:
+        task = await update_task_state(session, task_id, state="ANALYZING", progress=96)
+        task.raw_materials = state["raw_materials"]
+        await save_source_materials(session, task_id, new_materials)
+        await session.commit()
+    await publish_event(task_id, "raw_materials_updated", {"data": state["raw_materials"], "source_stats": source_stats(state["raw_materials"])})
+
+    state = await analyzer_node(state)
+    analysis = state.get("analysis_results") or {}
+    async with async_session() as session:
+        task = await update_task_state(session, task_id, state="ANALYZING", progress=98)
+        task.analysis_results = analysis
+        for module_id in ("comparison", "swot", "report"):
+            content = analysis.get(module_id, {}) if isinstance(analysis, dict) else {}
+            await save_analysis_module(
+                session,
+                task_id,
+                module_id=module_id,
+                module_type=module_id,
+                content=content if isinstance(content, dict) else {"items": content},
+                evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
+            )
+        await session.commit()
+    await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis, "calibrated": True})
+
+    state = await critic_node(state)
+    return state, "applied"
 
 
 async def regenerate_schema(task_id: str):
@@ -249,6 +384,7 @@ async def regenerate_schema(task_id: str):
             "source_ids": [],
             "analysis_results": {},
             "critic_feedback": [],
+            "suggested_schema_extensions": [],
             "task_events": [],
             "progress": 10,
             "module_updates": [],
