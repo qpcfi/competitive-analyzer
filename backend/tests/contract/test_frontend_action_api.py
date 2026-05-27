@@ -1,3 +1,6 @@
+import pytest
+from fastapi import HTTPException
+
 import main
 
 
@@ -62,3 +65,17 @@ async def test_competitor_recommendations_filter_existing_names(monkeypatch):
             "reason": "基于公开网页信号，Perplexity 与 AI search tools 存在竞品相关性。",
         },
     ]
+
+
+@pytest.mark.asyncio
+async def test_competitor_recommendations_returns_503_when_discovery_unavailable(monkeypatch):
+    async def fake_discover_competitors(domain: str):
+        raise main.CompetitorDiscoveryUnavailable("LLM is required for competitor discovery")
+
+    monkeypatch.setattr(main, "discover_competitors", fake_discover_competitors)
+
+    with pytest.raises(HTTPException) as exc:
+        await main.get_competitor_recommendations(domain="AI search tools", existing=[])
+
+    assert exc.value.status_code == 503
+    assert "LLM is required" in exc.value.detail

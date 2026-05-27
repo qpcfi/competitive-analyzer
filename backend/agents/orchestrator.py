@@ -2,6 +2,8 @@ import json
 import os
 import re
 from collections.abc import Iterable
+from dataclasses import dataclass
+from types import SimpleNamespace
 
 try:
     from langchain_core.messages import HumanMessage
@@ -10,7 +12,7 @@ except ImportError:
     HumanMessage = None
     ChatOpenAI = None
 
-from services.web_search import SearchResult, search_public_web
+from services.web_search import PageEvidence, SearchResult, fetch_public_web_pages, search_public_web
 
 from .state import AgentState
 
@@ -22,6 +24,18 @@ llm = (
     if api_key and ChatOpenAI is not None
     else None
 )
+
+
+class CompetitorDiscoveryUnavailable(RuntimeError):
+    pass
+
+
+@dataclass(slots=True)
+class CompetitorCandidate:
+    name: str
+    reason: str
+    source_urls: list[str]
+    confidence: float = 0.0
 
 
 async def orchestrator_node(state: AgentState):
@@ -62,28 +76,149 @@ async def orchestrator_node(state: AgentState):
 
 
 async def discover_competitors(domain: str) -> list[str]:
+    candidates = await discover_competitor_candidates(domain)
+    return [candidate.name for candidate in candidates[:3]]
+
+
+async def discover_competitor_candidates(domain: str) -> list[CompetitorCandidate]:
     domain = str(domain or "").strip()
     if not domain:
         return []
-    if llm is not None:
-        prompt = f"""
-        Identify 3 real competitors or representative products for this analysis domain: {domain}.
-        Return ONLY a JSON array of short product/company names, with no prose.
-        """
-        try:
-            res = await llm.ainvoke([HumanMessage(content=prompt)])
-            parsed = json.loads(extract_json_array(str(res.content)))
-            names = normalize_competitor_names(parsed)
-            if len(names) >= 2:
-                return names[:3]
-        except Exception:
-            pass
+    if llm is None:
+        raise CompetitorDiscoveryUnavailable("LLM is required for competitor discovery")
 
+    results: list[SearchResult] = []
+    for query in build_competitor_search_queries(domain):
+        try:
+            results.extend(await search_public_web(query, limit=4))
+        except Exception:
+            continue
+
+    deduped_results = dedupe_search_results_by_url(results)
     try:
-        results = await search_public_web(f"{domain} competitors products", limit=5)
-    except Exception:
+        pages = await fetch_public_web_pages(deduped_results, limit=6)
+    except Exception as exc:
+        raise CompetitorDiscoveryUnavailable("Web page fetching failed for competitor discovery") from exc
+
+    usable_pages = [page for page in pages if page.text or page.snippet]
+    if not usable_pages:
+        raise CompetitorDiscoveryUnavailable("No usable web evidence found for competitor discovery")
+
+    prompt = build_competitor_discovery_prompt(domain, usable_pages)
+    try:
+        res = await llm.ainvoke([make_human_message(prompt)])
+        candidates = parse_competitor_candidates(str(res.content))
+    except Exception as exc:
+        raise CompetitorDiscoveryUnavailable("LLM competitor discovery failed") from exc
+
+    if not candidates:
+        raise CompetitorDiscoveryUnavailable("No competitors found in model output")
+    return candidates[:3]
+
+
+def build_competitor_search_queries(domain: str) -> list[str]:
+    return [
+        f"{domain} competitors products",
+        f"{domain} alternatives",
+        f"{domain} market vendors",
+    ]
+
+
+def make_human_message(content: str):
+    if HumanMessage is not None:
+        return HumanMessage(content=content)
+    return SimpleNamespace(content=content)
+
+
+def dedupe_search_results_by_url(results: Iterable[SearchResult]) -> list[SearchResult]:
+    deduped: list[SearchResult] = []
+    seen = set()
+    for result in results:
+        url = str(result.url or "").strip()
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        deduped.append(result)
+    return deduped
+
+
+def build_competitor_discovery_prompt(domain: str, pages: Iterable[PageEvidence]) -> str:
+    evidence_blocks = []
+    for index, page in enumerate(pages, start=1):
+        excerpt = (page.text or page.snippet or "").strip()[:2500]
+        evidence_blocks.append(
+            "\n".join(
+                [
+                    f"Source {index}",
+                    f"URL: {page.url}",
+                    f"Search title: {page.search_title}",
+                    f"Page title: {page.page_title}",
+                    f"Search snippet: {page.snippet}",
+                    f"Page excerpt: {excerpt}",
+                ]
+            )
+        )
+
+    evidence_text = "\n\n".join(evidence_blocks)
+    return f"""
+You are identifying real competitor products or companies for a competitive-analysis task.
+Domain: {domain}
+
+Use only the public web evidence below. Do not invent names. Exclude article titles,
+ranking pages, repositories, categories, and generic market descriptions.
+
+Return ONLY a JSON array. Each item must have:
+- name: short product or company name
+- reason: one concise evidence-backed reason
+- source_urls: URLs that support the candidate
+- confidence: number from 0 to 1
+
+Evidence:
+{evidence_text}
+"""
+
+
+def parse_competitor_candidates(content: str) -> list[CompetitorCandidate]:
+    parsed = json.loads(extract_json_array(content))
+    if not isinstance(parsed, list):
         return []
-    return extract_competitor_names_from_search_results(results, domain)[:3]
+
+    candidates: list[CompetitorCandidate] = []
+    seen = set()
+    for item in parsed:
+        if isinstance(item, str):
+            raw_name = item
+            reason = ""
+            source_urls: list[str] = []
+            confidence = 0.0
+        elif isinstance(item, dict):
+            raw_name = item.get("name", "")
+            reason = str(item.get("reason") or "").strip()
+            source_urls = [str(url).strip() for url in item.get("source_urls", []) if str(url).strip()]
+            try:
+                confidence = float(item.get("confidence") or 0)
+            except (TypeError, ValueError):
+                confidence = 0.0
+        else:
+            continue
+
+        names = normalize_competitor_names([raw_name])
+        if not names:
+            continue
+        name = names[0]
+        lowered = name.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        candidates.append(
+            CompetitorCandidate(
+                name=name,
+                reason=reason,
+                source_urls=source_urls,
+                confidence=confidence,
+            )
+        )
+    return candidates
 
 
 def extract_json_array(content: str) -> str:
