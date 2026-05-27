@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 
-from agents.orchestrator import discover_competitors
+from agents.orchestrator import CompetitorDiscoveryUnavailable, discover_competitors
 
 router = APIRouter()
 
@@ -15,7 +15,10 @@ async def get_competitor_recommendations(
         raise HTTPException(status_code=400, detail="domain is required")
 
     existing_names = {item.strip().lower() for item in existing if item.strip()}
-    discovered = await discover_competitors(normalized_domain)
+    try:
+        discovered = await discover_competitors(normalized_domain)
+    except CompetitorDiscoveryUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     items = []
     seen = set(existing_names)
     for name in discovered:

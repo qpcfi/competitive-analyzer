@@ -5,7 +5,7 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from agents.graph import workflow
-from agents.orchestrator import discover_competitors
+from agents.orchestrator import CompetitorDiscoveryUnavailable, discover_competitors
 from api.routers import discovery, feedback, recovery, reports, schema, sources, tasks
 from api.routers.discovery import get_competitor_recommendations
 from api.routers.feedback import record_feedback, save_note
@@ -106,7 +106,10 @@ async def get_competitor_recommendations(
         raise HTTPException(status_code=400, detail="domain is required")
 
     existing_names = {item.strip().lower() for item in existing if item.strip()}
-    discovered = await discover_competitors(normalized_domain)
+    try:
+        discovered = await discover_competitors(normalized_domain)
+    except CompetitorDiscoveryUnavailable as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     items = []
     seen = set(existing_names)
     for name in discovered:
