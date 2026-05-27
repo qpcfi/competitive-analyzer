@@ -73,7 +73,7 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
     if (e.key === 'report-conclusion' || e.key === 'report-source' || e.key === 'report') {
       targetView = 'report';
     }
-    if (e.key === 'history' || e.key === 'debug') {
+    if (e.key === 'debug') {
       targetView = 'dashboard';
     }
     onChangeView(targetView);

@@ -46,7 +46,7 @@ export default function RightDrawer({ isOpen, type, taskId, data, onClose }: Rig
     return () => {
       cancelled = true;
     };
-  }, [data, isOpen, taskId, type]);
+  }, [data, isOpen, message, taskId, type]);
 
   const postJson = async (path: string, body?: any) => {
     if (!taskId) return;

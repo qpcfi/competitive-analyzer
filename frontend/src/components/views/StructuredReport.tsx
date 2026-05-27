@@ -9,6 +9,11 @@ interface StructuredReportProps {
   analysisResults?: any;
 }
 
+interface RecommendationItem {
+  text: string;
+  evidenceRefs: string[];
+}
+
 function renderableText(value: unknown, fallback = '信息缺失'): string {
   if (typeof value === 'string') {
     const trimmed = value.trim();
@@ -110,7 +115,7 @@ export default function StructuredReport({ taskId, analysisResults }: Structured
         </div>
         <Title level={4} style={{ marginTop: 24 }}>战略建议</Title>
         <div style={{ display: 'flex', gap: 16 }}>
-          {recommendationItems.map((item, index: number) => (
+          {recommendationItems.map((item: RecommendationItem, index: number) => (
             <Card key={index} title={index === 0 ? '短期' : index === 1 ? '中期' : '长期'} size="small" style={{ flex: 1, background: '#f6ffed', borderColor: '#b7eb8f' }}>
               <Paragraph style={{ marginBottom: item.evidenceRefs.length ? 8 : 0 }}>{item.text}</Paragraph>
               {item.evidenceRefs.length ? (

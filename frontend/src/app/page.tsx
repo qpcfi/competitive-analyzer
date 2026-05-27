@@ -5,6 +5,7 @@ import Sidebar from '@/components/layout/Sidebar';
 import RightDrawer from '@/components/layout/RightDrawer';
 import TaskConsole from '@/components/views/TaskConsole';
 import InfoDashboard from '@/components/views/InfoDashboard';
+import HistoryView from '@/components/views/HistoryView';
 import SchemaEditor from '@/components/views/SchemaEditor';
 import CompetitorAnalysis from '@/components/views/CompetitorAnalysis';
 import SWOTAnalysis from '@/components/views/SWOTAnalysis';
@@ -146,12 +147,32 @@ export default function Home() {
     setDrawerConfig({ ...drawerConfig, isOpen: false });
   };
 
+  const restoreHistoricalTask = async (restoredTaskId: string) => {
+    const response = await fetch(`http://localhost:8000/api/v1/tasks/${restoredTaskId}`);
+    if (!response.ok) {
+      throw new Error('Failed to load task snapshot');
+    }
+    const data = await response.json();
+    setTaskId(data.task_id);
+    setProgress(data.progress || 0);
+    setSchemaData(data.dynamic_schema || null);
+    setRawMaterials(Array.isArray(data.raw_materials) ? data.raw_materials : []);
+    setAnalysisResults(data.analysis_results || null);
+    setCollectorLogs([]);
+    setCollectionProgress(null);
+    setDebugLogs([]);
+    setTokenUsage(null);
+    window.localStorage.setItem("competitive-analyzer:last-task-id", data.task_id);
+  };
+
   const renderWorkspace = () => {
     switch (currentView) {
       case 'task-config':
         return <TaskConsole onNext={(id) => { setTaskId(id); setCurrentView('schema'); }} />;
       case 'dashboard':
         return <InfoDashboard taskId={taskId} rawMaterials={rawMaterials} collectorLogs={collectorLogs} collectionProgress={collectionProgress} />;
+      case 'history':
+        return <HistoryView currentTaskId={taskId} onRestoreTask={restoreHistoricalTask} />;
       case 'schema':
         return <SchemaEditor taskId={taskId} schemaData={schemaData} onNext={() => setCurrentView('analysis')} onOpenDrawer={openDrawer} />;
       case 'analysis':

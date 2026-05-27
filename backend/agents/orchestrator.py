@@ -1,5 +1,6 @@
 import json
 import os
+import re
 from collections.abc import Iterable
 
 try:
@@ -82,12 +83,7 @@ async def discover_competitors(domain: str) -> list[str]:
         results = await search_public_web(f"{domain} competitors products", limit=5)
     except Exception:
         return []
-    names = []
-    for result in results:
-        title = (result.title or "").split("|")[0].split("-")[0].strip()
-        if title:
-            names.append(title)
-    return normalize_competitor_names(names)[:3]
+    return extract_competitor_names_from_search_results(results, domain)[:3]
 
 
 def extract_json_array(content: str) -> str:
@@ -103,11 +99,77 @@ def normalize_competitor_names(values: Iterable[object]) -> list[str]:
     seen = set()
     for value in values:
         name = str(value).strip().strip('"').strip("'")
-        if not name or name.lower() in seen:
+        if not is_plausible_competitor_name(name) or name.lower() in seen:
             continue
         seen.add(name.lower())
         normalized.append(name[:80])
     return normalized
+
+
+MODEL_NAME_PATTERN = re.compile(
+    r"GPT-4o|GPT-\d+(?:\.\d+)?|Claude\s*\d+(?:\.\d+)?|Gemini\s*\d+(?:\.\d+)?|"
+    r"DeepSeek[-\s]?[A-Za-z0-9.]+|Qwen[-\s]?[A-Za-z0-9.]+|Llama\s*\d+(?:\.\d+)?|"
+    r"GLM[-\s]?\d+(?:\.\d+)?|Kimi|Doubao|豆包|ERNIE(?:\s*Bot)?|文心一言|通义千问|"
+    r"Hunyuan|混元|Grok[-\s]?\d*|Mistral(?:\s+[A-Za-z0-9.]+)?|Command\s+R\+?|"
+    r"Yi[-\s]?\d*(?:\.\d+)?|MiniMax|abab\d+(?:\.\d+)?",
+    re.IGNORECASE,
+)
+
+PAGE_TITLE_KEYWORDS = (
+    "leaderboard",
+    "ranking",
+    "rankings",
+    "rank",
+    "top ",
+    "top-",
+    "top20",
+    "top 20",
+    "榜单",
+    "排行",
+    "排名",
+    "测评",
+    "评测",
+    "综合排名",
+    "github",
+)
+
+
+def extract_competitor_names_from_search_results(results: Iterable[SearchResult], domain: str) -> list[str]:
+    candidates: list[str] = []
+    for result in results:
+        evidence_text = " ".join(part for part in [result.title, result.snippet] if part)
+        candidates.extend(match.group(0) for match in MODEL_NAME_PATTERN.finditer(evidence_text))
+
+        # Titles from search engines are often pages, rankings, or repositories.
+        # Use them only as a last-mile candidate when they already look like a product name.
+        title_candidate = clean_search_title(result.title)
+        if title_candidate:
+            candidates.append(title_candidate)
+
+    return normalize_competitor_names(candidates)
+
+
+def clean_search_title(title: str) -> str:
+    title = str(title or "").strip()
+    if not title:
+        return ""
+    return re.split(r"\s*[\-|_|｜|]\s*", title, maxsplit=1)[0].strip()
+
+
+def is_plausible_competitor_name(name: str) -> bool:
+    name = str(name or "").strip()
+    lowered = name.lower()
+    if not name or len(name) > 40:
+        return False
+    if "/" in name or "\\" in name:
+        return False
+    if re.search(r"20\d{2}\s*年?", name):
+        return False
+    if any(keyword in lowered for keyword in PAGE_TITLE_KEYWORDS):
+        return False
+    if any(keyword in name for keyword in ("全球", "综合", "网址", "网站", "产品清单", "大模型")):
+        return False
+    return True
 
 
 def build_schema_from_context(context: dict) -> dict:

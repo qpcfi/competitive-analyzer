@@ -22,6 +22,7 @@ def test_frontend_action_routes_are_registered():
         "/api/v1/tasks/{task_id}/share": "POST",
         "/api/v1/tasks/{task_id}/verify_links": "POST",
         "/api/v1/tasks/{task_id}/events": "GET",
+        "/api/v1/competitor-recommendations": "GET",
     }
 
     for path, method in expected.items():
@@ -37,3 +38,27 @@ def test_schema_and_source_event_payload_stats_are_contract_shaped():
 
     assert main.count_schema_stats(schema) == {"total_fields": 2, "user_defined": 1, "agent_supplement": 1}
     assert main.source_stats(materials) == {"accepted": 1, "degraded": 1, "failed": 0, "blocked": 1}
+
+
+async def test_competitor_recommendations_filter_existing_names(monkeypatch):
+    async def fake_discover_competitors(domain: str):
+        assert domain == "AI search tools"
+        return ["GPT-4o", "Claude 3.5", "Perplexity"]
+
+    monkeypatch.setattr(main, "discover_competitors", fake_discover_competitors)
+
+    payload = await main.get_competitor_recommendations(
+        domain="AI search tools",
+        existing=["gpt-4o"],
+    )
+
+    assert payload["items"] == [
+        {
+            "name": "Claude 3.5",
+            "reason": "基于公开网页信号，Claude 3.5 与 AI search tools 存在竞品相关性。",
+        },
+        {
+            "name": "Perplexity",
+            "reason": "基于公开网页信号，Perplexity 与 AI search tools 存在竞品相关性。",
+        },
+    ]

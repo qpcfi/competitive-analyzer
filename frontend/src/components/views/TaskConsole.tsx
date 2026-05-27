@@ -1,8 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Steps, Input, Button, Radio, Card, Space, Tag, Table, Checkbox, App, Modal, Form, Select } from 'antd';
-import { PlusOutlined, DeleteOutlined, EditOutlined, BulbOutlined } from '@ant-design/icons';
-
-const { Search } = Input;
+import { Steps, Input, Button, Radio, Card, Space, Tag, Table, Checkbox, App, Modal, Form, Select, Empty } from 'antd';
+import { PlusOutlined, DeleteOutlined, EditOutlined, BulbOutlined, ReloadOutlined } from '@ant-design/icons';
 
 interface TaskConsoleProps {
   onNext: (taskId: string) => void;
@@ -13,6 +11,11 @@ interface PredefinedSchemaField {
   name: string;
   type: string;
   source: string;
+}
+
+interface CompetitorRecommendation {
+  name: string;
+  reason: string;
 }
 
 interface SchemaFieldModalProps {
@@ -151,11 +154,92 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
   const [taskName, setTaskName] = useState('');
   const [executionMode, setExecutionMode] = useState('step');
   const [competitors, setCompetitors] = useState<string[]>([]);
+  const [competitorInput, setCompetitorInput] = useState('');
+  const [recommendations, setRecommendations] = useState<CompetitorRecommendation[]>([]);
+  const [selectedRecommendations, setSelectedRecommendations] = useState<string[]>([]);
+  const [recommendationLoading, setRecommendationLoading] = useState(false);
   const [schemaData, setSchemaData] = useState<PredefinedSchemaField[]>([]);
   const [schemaModalOpen, setSchemaModalOpen] = useState(false);
   const [editingSchemaKey, setEditingSchemaKey] = useState<string | null>(null);
   const domainInputRef = useRef<any>(null);
   const submitButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const addCompetitorNames = (names: string[]) => {
+    const current = new Set(competitors.map(item => item.toLowerCase()));
+    const additions: string[] = [];
+    names
+      .map(name => name.trim())
+      .forEach(name => {
+        const lowered = name.toLowerCase();
+        if (name && !current.has(lowered)) {
+          current.add(lowered);
+          additions.push(name);
+        }
+      });
+
+    if (!additions.length) {
+      return;
+    }
+
+    setCompetitors(prev => [...prev, ...additions]);
+    setRecommendations(prev => prev.filter(item => !current.has(item.name.toLowerCase())));
+    setSelectedRecommendations(prev => prev.filter(name => !current.has(name.toLowerCase())));
+  };
+
+  const handleManualCompetitorAdd = () => {
+    addCompetitorNames(competitorInput.split(/\r?\n/));
+    setCompetitorInput('');
+  };
+
+  const handleCompetitorPaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const pasted = event.clipboardData.getData('text');
+    if (!pasted.includes('\n')) {
+      return;
+    }
+    event.preventDefault();
+    addCompetitorNames(pasted.split(/\r?\n/));
+    setCompetitorInput('');
+  };
+
+  const refreshRecommendations = async () => {
+    const submittedDomain = domain.trim() || String(domainInputRef.current?.input?.value || '').trim();
+    if (!submittedDomain) {
+      message.warning('请先填写分析领域');
+      return;
+    }
+
+    const params = new URLSearchParams({ domain: submittedDomain });
+    competitors.forEach(name => params.append('existing', name));
+    setRecommendationLoading(true);
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/competitor-recommendations?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) {
+        message.error(formatApiErrorDetail(data.detail, '刷新推荐失败'));
+        return;
+      }
+      const items = Array.isArray(data.items) ? data.items : [];
+      const existingNames = new Set(competitors.map(item => item.toLowerCase()));
+      setRecommendations(
+        items
+          .filter((item: CompetitorRecommendation) => item?.name && !existingNames.has(item.name.toLowerCase()))
+          .map((item: CompetitorRecommendation) => ({
+            name: item.name.trim(),
+            reason: item.reason || 'Agent 基于公开网页信号推荐',
+          }))
+      );
+      setSelectedRecommendations([]);
+    } catch (err) {
+      console.error(err);
+      message.error('刷新推荐失败');
+    } finally {
+      setRecommendationLoading(false);
+    }
+  };
+
+  const addAllRecommendations = () => {
+    addCompetitorNames(recommendations.map(item => item.name));
+  };
 
   const openAddSchemaField = () => {
     setEditingSchemaKey(null);
@@ -289,35 +373,74 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
           </div>
         </Card>
 
-        <Card title="竞品对象配置" style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-            <div style={{ flex: 2, minWidth: '300px' }}>
-              <div style={{ marginBottom: 16 }}>
-                {competitors.map(comp => (
-                  <Tag key={comp} closable onClose={() => setCompetitors(competitors.filter(c => c !== comp))} color="blue" style={{ padding: '4px 8px', fontSize: '14px' }}>{comp}</Tag>
-                ))}
+        <Card title="竞品对象配置（可选）" style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 16, color: '#595959' }}>
+            只填写分析领域也可以创建任务；竞品对象是可选项。你也可以手动添加已知竞品，Agent 会按分析领域继续发现可能遗漏的对象。
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
+            <div style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 16 }}>
+              <div style={{ fontWeight: 600, marginBottom: 12 }}>手动输入区</div>
+              <div style={{ minHeight: 36, marginBottom: 12 }}>
+                {competitors.length ? competitors.map(comp => (
+                  <Tag
+                    key={comp}
+                    closable
+                    onClose={() => setCompetitors(competitors.filter(c => c !== comp))}
+                    color="blue"
+                    style={{ padding: '4px 8px', fontSize: 14, marginBottom: 8 }}
+                  >
+                    {comp}
+                  </Tag>
+                )) : <span style={{ color: '#8c8c8c' }}>尚未手动添加竞品，后端可自动发现。</span>}
               </div>
-              <Search
-                placeholder="请输入竞品名称并回车添加..."
-                enterButton="添加"
-                size="large"
-                onSearch={(value) => {
-                  const name = value.trim();
-                  if (name && !competitors.some(c => c.toLowerCase() === name.toLowerCase())) {
-                    setCompetitors([...competitors, name]);
-                  }
-                }}
-              />
+              <Space.Compact style={{ width: '100%' }}>
+                <Input.TextArea
+                  aria-label="竞品名称"
+                  autoSize={{ minRows: 1, maxRows: 4 }}
+                  value={competitorInput}
+                  onChange={event => setCompetitorInput(event.target.value)}
+                  onPaste={handleCompetitorPaste}
+                  onPressEnter={(event) => {
+                    if (!event.shiftKey) {
+                      event.preventDefault();
+                      handleManualCompetitorAdd();
+                    }
+                  }}
+                  placeholder="请输入竞品名称，批量粘贴时每行一个"
+                />
+                <Button type="primary" onClick={handleManualCompetitorAdd}>添加</Button>
+              </Space.Compact>
             </div>
-            <div style={{ flex: 1, minWidth: '250px', background: '#f6ffed', padding: '16px', borderRadius: '8px', border: '1px solid #b7eb8f' }}>
-              <div style={{ color: '#389e0d', fontWeight: 600, marginBottom: 12 }}>
-                <BulbOutlined /> Agent 推荐将在 Schema 阶段生成
+            <div style={{ background: '#f6ffed', padding: 16, borderRadius: 8, border: '1px solid #b7eb8f' }}>
+              <div style={{ color: '#237804', fontWeight: 600, marginBottom: 12 }}>
+                <BulbOutlined /> Agent发现你可能遗漏：
               </div>
-              <div style={{ marginBottom: 16, color: '#595959', fontSize: '13px' }}>
-                创建任务后，后端会基于公开网页资料验证现有维度，并推荐有证据支撑的补充维度。
+              <div style={{ minHeight: 126, marginBottom: 16 }}>
+                {recommendations.length ? (
+                  <Space orientation="vertical" style={{ width: '100%' }}>
+                    {recommendations.map(item => (
+                      <Checkbox
+                        key={item.name}
+                        checked={selectedRecommendations.includes(item.name)}
+                        onChange={event => {
+                          setSelectedRecommendations(prev => event.target.checked
+                            ? [...prev, item.name]
+                            : prev.filter(name => name !== item.name));
+                        }}
+                      >
+                        <span style={{ fontWeight: 600 }}>{item.name}</span>
+                        <span style={{ color: '#595959' }}>（推荐理由：{item.reason}）</span>
+                      </Checkbox>
+                    ))}
+                  </Space>
+                ) : (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="填写分析领域后刷新推荐" />
+                )}
               </div>
-              <Space>
-                <Button size="small" type="primary" disabled>等待真实推荐</Button>
+              <Space wrap>
+                <Button type="primary" onClick={addAllRecommendations} disabled={!recommendations.length}>一键添加全部</Button>
+                <Button onClick={() => addCompetitorNames(selectedRecommendations)} disabled={!selectedRecommendations.length}>添加选中</Button>
+                <Button icon={<ReloadOutlined />} loading={recommendationLoading} onClick={refreshRecommendations}>刷新推荐</Button>
               </Space>
             </div>
           </div>
