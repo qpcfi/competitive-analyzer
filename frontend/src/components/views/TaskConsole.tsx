@@ -230,8 +230,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
       );
       setSelectedRecommendations([]);
     } catch (err) {
-      console.error(err);
-      message.error('刷新推荐失败');
+      message.warning('刷新推荐暂时不可用，请稍后重试');
     } finally {
       setRecommendationLoading(false);
     }
@@ -304,8 +303,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
         message.error(formatApiErrorDetail(data.detail, '创建失败'));
       }
     } catch (err) {
-      console.error(err);
-      message.error('请求后端失败');
+      message.warning('请求后端暂时失败，请稍后重试');
     } finally {
       setLoading(false);
     }

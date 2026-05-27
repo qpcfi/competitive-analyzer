@@ -1,11 +1,28 @@
+import os
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from services.privacy import contains_pii, redact_pii
-from services.web_search import SearchResult, search_public_web
+from services.web_search import PageEvidence, SearchResult, fetch_public_web_pages, search_public_web
+
+try:
+    from langchain_core.messages import HumanMessage
+    from langchain_openai import ChatOpenAI
+except ImportError:
+    HumanMessage = None
+    ChatOpenAI = None
 
 from .state import AgentState
+
+api_key = os.environ.get("DEEPSEEK_API_KEY")
+base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+model_name = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+llm = (
+    ChatOpenAI(api_key=api_key, base_url=base_url, model=model_name)
+    if api_key and ChatOpenAI is not None
+    else None
+)
 
 ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -29,10 +46,14 @@ async def collector_node(state: AgentState, on_progress: ProgressCallback | None
             try:
                 search_results = await search_public_web(query, limit=3)
                 discovered_results += len(search_results)
-                material = build_material_from_search_result(task_id, competitor, field, query, search_results)
+                
+                # Fetch actual web pages for deeper scraping
+                pages = await fetch_public_web_pages(search_results, limit=2)
+                
+                material = await build_material_from_pages(task_id, competitor, field, query, pages)
             except Exception as exc:
-                search_results = []
                 material = build_degraded_material(task_id, competitor, field, query, f"{exc.__class__.__name__}:{exc}")
+            
             results.append(material)
             completed += 1
             if on_progress:
@@ -76,27 +97,55 @@ def build_collection_query(competitor: str, field: dict[str, Any]) -> str:
     return f"{competitor} {field_name} {source_hint}".strip()
 
 
-def build_material_from_search_result(
+async def build_material_from_pages(
     task_id: str,
     competitor: str,
     field: dict[str, Any],
     query: str,
-    search_results: list[SearchResult],
+    pages: list[PageEvidence],
 ) -> dict[str, Any]:
-    accepted = next((item for item in search_results if item.snippet or item.title), None)
+    accepted = next((item for item in pages if item.text or item.snippet), None)
     if not accepted:
         return build_degraded_material(task_id, competitor, field, query, "no_search_evidence_found")
 
-    quote = " ".join(part for part in [accepted.title, accepted.snippet] if part)
-    pii_redacted = contains_pii(quote)
-    redacted = redact_pii(quote)
+    excerpt = (accepted.text or accepted.snippet or "").strip()[:4000]
+    extracted_value = excerpt
+
+    # Perform information extraction using LLM if available
+    if llm is not None and excerpt:
+        prompt = f"""
+You are the Information Extraction component of the Collector Agent.
+Your task is to extract a specific fact from the provided web page text.
+Competitor: {competitor}
+Field to extract: {field.get("name") or field.get("id")}
+Field metadata: {field.get("reason") or "N/A"}
+
+Web Page Content:
+{excerpt}
+
+Instructions:
+1. Extract only the concise, relevant information answering the field for the competitor.
+2. If the information is not present, reply with exactly: "NOT_FOUND".
+3. Do not include extra conversational text.
+"""
+        try:
+            res = await llm.ainvoke([HumanMessage(content=prompt)])
+            ans = res.content.strip()
+            if ans and ans != "NOT_FOUND":
+                extracted_value = ans
+        except Exception:
+            pass
+
+    pii_redacted = contains_pii(extracted_value)
+    redacted = redact_pii(extracted_value)
+    
     return {
         "id": stable_source_id(task_id, competitor, field.get("id", ""), accepted.url),
         "competitor": competitor,
         "schema_field_id": field.get("id"),
         "schema_field_name": field.get("name") or field.get("id"),
         "source_url": accepted.url,
-        "source_type": "search_result",
+        "source_type": "web_page",
         "quote_text": redacted,
         "extracted_value": {"value": redacted, "query": query},
         "agent_node": "collector",

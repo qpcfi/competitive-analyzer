@@ -12,7 +12,9 @@ except ImportError:
     HumanMessage = None
     ChatOpenAI = None
 
-from services.web_search import PageEvidence, SearchResult, fetch_public_web_pages, search_public_web
+from dotenv import load_dotenv
+load_dotenv()
+
 
 from .state import AgentState
 
@@ -24,10 +26,6 @@ llm = (
     if api_key and ChatOpenAI is not None
     else None
 )
-
-
-class CompetitorDiscoveryUnavailable(RuntimeError):
-    pass
 
 
 @dataclass(slots=True)
@@ -45,7 +43,7 @@ async def orchestrator_node(state: AgentState):
     state["task_context"] = context
 
     normalized_schema = ensure_schema_metadata(schema)
-    state["dynamic_schema"] = await enrich_schema_with_public_evidence(normalized_schema, context)
+    state["dynamic_schema"] = normalized_schema
     state["schema_version"] = int(state.get("schema_version", 0)) + 1
     return state
 
@@ -55,10 +53,9 @@ async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
     user_competitors = normalize_competitor_names(context.get("competitors", []))
     user_schema = build_user_schema_from_context(context)
 
-    discovered = await safe_discover_competitors(domain, user_competitors)
+    discovered_candidates = await recommend_competitors(domain, user_competitors)
+    discovered = [c.name for c in discovered_candidates]
     seed_competitors = merge_competitors(user_competitors, discovered)
-    if len(seed_competitors) < 3:
-        seed_competitors = merge_competitors(seed_competitors, fallback_competitors(domain, 3 - len(seed_competitors)))
 
     generated_schema: dict = {}
     generated_competitors: list[str] = []
@@ -69,23 +66,17 @@ async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
             result = parse_plan_completion(str(res.content))
             generated_competitors = normalize_competitor_names(result.get("competitors", []))
             generated_schema = normalize_schema_input(result.get("schema", {}))
-        except Exception:
+        except Exception as e:
+            import logging
+            logging.error(f"Error in generate_complete_plan: {e}")
             generated_schema = {}
 
     competitors = merge_competitors(user_competitors, generated_competitors, seed_competitors)[:5]
+    if len(competitors) < 3:
+        competitors = merge_competitors(competitors, fallback_competitors(domain, 3 - len(competitors)))
+
     schema = merge_schema_preserving_user(user_schema, generated_schema or build_schema_from_context({**context, "competitors": competitors}))
     return competitors, schema
-
-
-async def safe_discover_competitors(domain: str, existing: list[str]) -> list[str]:
-    if len(existing) >= 3:
-        return existing
-    try:
-        candidates = await discover_competitor_candidates(domain)
-    except Exception:
-        return []
-    existing_keys = {item.lower() for item in existing}
-    return [candidate.name for candidate in candidates if candidate.name.lower() not in existing_keys]
 
 
 def build_plan_completion_prompt(domain: str, competitors: list[str], user_schema: dict) -> str:
@@ -101,14 +92,13 @@ Complete the plan without overriding user-provided content:
 1. If the competitor list is missing or too short, add mainstream competitors in the same competitive tier until there are 3-5 total competitors.
 2. Complete missing schema dimension groups and fields. Include dimensions that are meaningful for every competitor, such as core profile, feature tree, pricing model, target users, deployment/integration, compliance, ecosystem, and differentiation.
 3. Preserve user-provided fields. Only add missing fields. Do not rename or delete existing user fields.
-4. Each generated field must be collectable from public sources or clearly marked as lower feasibility.
 
 Return ONLY valid JSON:
 {{
-  "competitors": ["existing or generated competitor"],
+  "competitors": ["competitor1", "competitor2"],
   "schema": {{
     "Core Profile": [
-      {{"name": "Product Name", "type": "text", "required": true, "source": "official", "origin": "agent", "feasibility": "high", "reason": "why this field is useful"}}
+      {{"name": "Product Name", "type": "text", "required": true, "reason": "why useful"}}
     ]
   }}
 }}
@@ -196,19 +186,57 @@ def fallback_competitors(domain: str, count: int) -> list[str]:
     return [f"{base} {suffix}" for suffix in suffixes[: max(count, 0)]]
 
 
-async def discover_competitors(domain: str) -> list[str]:
-    candidates = await discover_competitor_candidates(domain)
-    return [candidate.name for candidate in candidates[:3]]
-
-
 async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> list[CompetitorCandidate]:
     existing_names = {name.lower() for name in normalize_competitor_names(existing)}
-    try:
-        candidates = await discover_competitor_candidates(domain)
-    except CompetitorDiscoveryUnavailable:
-        candidates = await discover_competitor_candidates_from_search(domain)
-    except Exception:
-        candidates = await discover_competitor_candidates_from_search(domain)
+    candidates: list[CompetitorCandidate] = []
+    
+    if llm is not None:
+        from services.web_search import search_public_web
+        snippets = []
+        try:
+            results = await search_public_web(f"{domain} top competitors alternatives", limit=5)
+            for r in results:
+                snippets.append(f"Title: {r.title}\nSnippet: {r.snippet}\nURL: {r.url}")
+        except Exception as e:
+            import logging
+            logging.error(f"Search failed in recommend_competitors: {e}")
+            
+        evidence = "\n\n".join(snippets)
+        
+        prompt = f"""
+You are an expert in competitive analysis.
+The user wants to analyze the domain: {domain}
+
+Based on your knowledge AND the following recent search results, provide up to 5 real competitor products or companies in this domain.
+Do not include generic terms, just specific entities.
+
+Search Results:
+{evidence}
+
+Return ONLY a valid JSON array. Each item must have:
+- name: short product or company name
+- reason: one concise reason why it is a competitor
+- source_urls: [] (add URL from search results if applicable)
+- confidence: number from 0 to 1
+
+Example Output:
+[
+  {{"name": "Competitor A", "reason": "Reason A", "source_urls": ["url1"], "confidence": 0.9}}
+]
+"""
+        try:
+            res = await llm.ainvoke([make_human_message(prompt)])
+            print("RAW LLM OUTPUT:", repr(res.content))
+            candidates = parse_competitor_candidates(str(res.content))
+            print("PARSED CANDIDATES:", candidates)
+        except Exception as e:
+            import logging
+            logging.error(f"LLM extraction failed in recommend_competitors: {e}")
+            pass
+
+    if not candidates and 'snippets' in locals() and snippets:
+        # Fallback: simple extraction from search snippets if LLM fails
+        candidates = extract_competitors_from_snippets(domain, snippets)
 
     filtered: list[CompetitorCandidate] = []
     seen = set(existing_names)
@@ -218,6 +246,7 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> li
             continue
         seen.add(lowered)
         filtered.append(candidate)
+        
     if filtered:
         return filtered[:5]
 
@@ -228,137 +257,12 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> li
     ]
 
 
-async def discover_competitor_candidates_from_search(domain: str) -> list[CompetitorCandidate]:
-    results: list[SearchResult] = []
-    for query in build_competitor_search_queries(domain):
-        try:
-            results.extend(await search_public_web(query, limit=5))
-        except Exception:
-            continue
-
-    names = extract_competitor_names_from_search_results(results, domain)
-    if not names:
-        names = infer_names_from_search_results(results)
-
-    candidates: list[CompetitorCandidate] = []
-    seen = set()
-    for name in names:
-        lowered = name.lower()
-        if lowered in seen:
-            continue
-        seen.add(lowered)
-        supporting = [result.url for result in results if name.lower() in f"{result.title} {result.snippet}".lower()]
-        candidates.append(
-            CompetitorCandidate(
-                name=name,
-                reason="Identified from public search result titles/snippets.",
-                source_urls=supporting[:2],
-                confidence=0.45 if supporting else 0.25,
-            )
-        )
-    return candidates[:5]
-
-
-async def discover_competitor_candidates(domain: str) -> list[CompetitorCandidate]:
-    domain = str(domain or "").strip()
-    if not domain:
-        return []
-    if llm is None:
-        raise CompetitorDiscoveryUnavailable("LLM is required for competitor discovery")
-
-    results: list[SearchResult] = []
-    for query in build_competitor_search_queries(domain):
-        try:
-            results.extend(await search_public_web(query, limit=4))
-        except Exception:
-            continue
-
-    deduped_results = dedupe_search_results_by_url(results)
-    try:
-        pages = await fetch_public_web_pages(deduped_results, limit=6)
-    except Exception as exc:
-        raise CompetitorDiscoveryUnavailable("Web page fetching failed for competitor discovery") from exc
-
-    usable_pages = [page for page in pages if page.text or page.snippet]
-    if not usable_pages:
-        raise CompetitorDiscoveryUnavailable("No usable web evidence found for competitor discovery")
-
-    prompt = build_competitor_discovery_prompt(domain, usable_pages)
-    try:
-        res = await llm.ainvoke([make_human_message(prompt)])
-        candidates = parse_competitor_candidates(str(res.content))
-    except Exception as exc:
-        raise CompetitorDiscoveryUnavailable("LLM competitor discovery failed") from exc
-
-    if not candidates:
-        raise CompetitorDiscoveryUnavailable("No competitors found in model output")
-    return candidates[:3]
-
-
-def build_competitor_search_queries(domain: str) -> list[str]:
-    return [
-        f"{domain} competitors products",
-        f"{domain} alternatives",
-        f"{domain} market vendors",
-    ]
-
-
-def make_human_message(content: str):
-    if HumanMessage is not None:
-        return HumanMessage(content=content)
-    return SimpleNamespace(content=content)
-
-
-def dedupe_search_results_by_url(results: Iterable[SearchResult]) -> list[SearchResult]:
-    deduped: list[SearchResult] = []
-    seen = set()
-    for result in results:
-        url = str(result.url or "").strip()
-        if not url or url in seen:
-            continue
-        seen.add(url)
-        deduped.append(result)
-    return deduped
-
-
-def build_competitor_discovery_prompt(domain: str, pages: Iterable[PageEvidence]) -> str:
-    evidence_blocks = []
-    for index, page in enumerate(pages, start=1):
-        excerpt = (page.text or page.snippet or "").strip()[:2500]
-        evidence_blocks.append(
-            "\n".join(
-                [
-                    f"Source {index}",
-                    f"URL: {page.url}",
-                    f"Search title: {page.search_title}",
-                    f"Page title: {page.page_title}",
-                    f"Search snippet: {page.snippet}",
-                    f"Page excerpt: {excerpt}",
-                ]
-            )
-        )
-
-    evidence_text = "\n\n".join(evidence_blocks)
-    return f"""
-You are identifying real competitor products or companies for a competitive-analysis task.
-Domain: {domain}
-
-Use only the public web evidence below. Do not invent names. Exclude article titles,
-ranking pages, repositories, categories, and generic market descriptions.
-
-Return ONLY a JSON array. Each item must have:
-- name: short product or company name
-- reason: one concise evidence-backed reason
-- source_urls: URLs that support the candidate
-- confidence: number from 0 to 1
-
-Evidence:
-{evidence_text}
-"""
-
-
 def parse_competitor_candidates(content: str) -> list[CompetitorCandidate]:
-    parsed = json.loads(extract_json_array(content))
+    try:
+        parsed = json.loads(extract_json_array(content))
+    except Exception:
+        return []
+        
     if not isinstance(parsed, list):
         return []
 
@@ -399,6 +303,27 @@ def parse_competitor_candidates(content: str) -> list[CompetitorCandidate]:
         )
     return candidates
 
+def extract_competitors_from_snippets(domain: str, snippets: list[str]) -> list[CompetitorCandidate]:
+    candidates: list[CompetitorCandidate] = []
+    text = " ".join(snippets)
+    words = re.findall(r'[A-Z][a-zA-Z0-9-]{2,15}|\b[\u4e00-\u9fa5]{2,6}\b', text)
+    from collections import Counter
+    counts = Counter(words)
+    domain_words = set(domain.lower().split())
+    
+    for word, count in counts.most_common(15):
+        if count < 2 or word.lower() in domain_words or word.lower() in {"the", "and", "for", "top", "best", "vs", "ai"}:
+            continue
+        candidates.append(CompetitorCandidate(
+            name=word,
+            reason=f"Found {count} times in search results for {domain}.",
+            source_urls=[],
+            confidence=0.5
+        ))
+        if len(candidates) >= 5:
+            break
+    return candidates
+
 
 def extract_json_array(content: str) -> str:
     start = content.find("[")
@@ -413,91 +338,14 @@ def normalize_competitor_names(values: Iterable[object]) -> list[str]:
     seen = set()
     for value in values:
         name = str(value).strip().strip('"').strip("'")
-        if not is_plausible_competitor_name(name) or name.lower() in seen:
+        if not name or len(name) > 80:
             continue
-        seen.add(name.lower())
-        normalized.append(name[:80])
+        lowered = name.lower()
+        if lowered in seen:
+            continue
+        seen.add(lowered)
+        normalized.append(name)
     return normalized
-
-
-MODEL_NAME_PATTERN = re.compile(
-    r"GPT-4o|GPT-\d+(?:\.\d+)?|Claude\s*\d+(?:\.\d+)?|Gemini\s*\d+(?:\.\d+)?|"
-    r"DeepSeek[-\s]?[A-Za-z0-9.]+|Qwen[-\s]?[A-Za-z0-9.]+|Llama\s*\d+(?:\.\d+)?|"
-    r"GLM[-\s]?\d+(?:\.\d+)?|Kimi|Doubao|豆包|ERNIE(?:\s*Bot)?|文心一言|通义千问|"
-    r"Hunyuan|混元|Grok[-\s]?\d*|Mistral(?:\s+[A-Za-z0-9.]+)?|Command\s+R\+?|"
-    r"Yi[-\s]?\d*(?:\.\d+)?|MiniMax|abab\d+(?:\.\d+)?",
-    re.IGNORECASE,
-)
-
-PAGE_TITLE_KEYWORDS = (
-    "leaderboard",
-    "ranking",
-    "rankings",
-    "rank",
-    "top ",
-    "top-",
-    "top20",
-    "top 20",
-    "榜单",
-    "排行",
-    "排名",
-    "测评",
-    "评测",
-    "综合排名",
-    "github",
-)
-
-
-def extract_competitor_names_from_search_results(results: Iterable[SearchResult], domain: str) -> list[str]:
-    candidates: list[str] = []
-    for result in results:
-        evidence_text = " ".join(part for part in [result.title, result.snippet] if part)
-        candidates.extend(match.group(0) for match in MODEL_NAME_PATTERN.finditer(evidence_text))
-
-        # Titles from search engines are often pages, rankings, or repositories.
-        # Use them only as a last-mile candidate when they already look like a product name.
-        title_candidate = clean_search_title(result.title)
-        if title_candidate:
-            candidates.append(title_candidate)
-
-    return normalize_competitor_names(candidates)
-
-
-def infer_names_from_search_results(results: Iterable[SearchResult]) -> list[str]:
-    candidates: list[str] = []
-    stop_prefixes = ("best ", "top ", "compare ", "comparison ", "alternatives ")
-    for result in results:
-        title = clean_search_title(result.title)
-        if not title:
-            continue
-        compact = re.sub(r"\b(alternatives|competitors|reviews|pricing|comparison|best|top)\b", "", title, flags=re.IGNORECASE)
-        compact = re.sub(r"\s+", " ", compact).strip(" :,-|")
-        if compact and not compact.lower().startswith(stop_prefixes):
-            candidates.append(compact)
-    return normalize_competitor_names(candidates)
-
-
-def clean_search_title(title: str) -> str:
-    title = str(title or "").strip()
-    if not title:
-        return ""
-    return re.split(r"\s*[\-|_|｜|]\s*", title, maxsplit=1)[0].strip()
-
-
-def is_plausible_competitor_name(name: str) -> bool:
-    name = str(name or "").strip()
-    lowered = name.lower()
-    if not name or len(name) > 40:
-        return False
-    if "/" in name or "\\" in name:
-        return False
-    if re.search(r"20\d{2}\s*年?", name):
-        return False
-    if any(keyword in lowered for keyword in PAGE_TITLE_KEYWORDS):
-        return False
-    if any(keyword in name for keyword in ("全球", "综合", "网址", "网站", "产品清单", "大模型")):
-        return False
-    return True
 
 
 def build_schema_from_context(context: dict) -> dict:
@@ -609,84 +457,7 @@ def safe_float(value: object, default: float) -> float:
         return default
 
 
-async def enrich_schema_with_public_evidence(schema: dict, context: dict) -> dict:
-    competitors = [str(item) for item in context.get("competitors", []) if str(item).strip()]
-    domain = str(context.get("domain") or "").strip()
-    evidence_sequence = 1
-    evidence_snippets: list[str] = []
-
-    for fields in schema.values():
-        if not isinstance(fields, list):
-            continue
-        for field in fields:
-            if not isinstance(field, dict):
-                continue
-            queries = build_field_queries(competitors, field.get("name", ""), domain)
-            field["recommended_queries"] = queries
-            try:
-                results = await search_public_web(queries[0] if queries else f"{field.get('name', '')} {domain}", limit=3)
-            except Exception as exc:
-                field["feasibility"] = "low"
-                field["evidence_refs"] = []
-                field["degraded_reason"] = f"schema_evidence_search_failed:{exc.__class__.__name__}"
-                continue
-
-            accepted = [result for result in results if result.snippet or result.title]
-            field["feasibility"] = "high" if accepted else "low"
-            field["evidence_refs"] = []
-            for result in accepted[:2]:
-                evidence_id = f"schemaev_{evidence_sequence}"
-                evidence_sequence += 1
-                field["evidence_refs"].append(evidence_id)
-                evidence_snippets.append(" ".join(part for part in [result.title, result.snippet] if part))
-            if not accepted:
-                field["degraded_reason"] = "no_schema_evidence_found"
-
-    recommended = build_recommended_fields_from_evidence(evidence_snippets, schema)
-    if recommended:
-        schema.setdefault("Recommended Dimensions", []).extend(recommended)
-    return schema
-
-
-def build_field_queries(competitors: Iterable[str], field_name: str, domain: str) -> list[str]:
-    names = list(competitors)
-    if names:
-        return [f"{competitor} {field_name} {domain}".strip() for competitor in names]
-    return [f"{field_name} {domain}".strip()]
-
-
-def build_recommended_fields_from_evidence(snippets: list[str], schema: dict) -> list[dict]:
-    existing_names = {
-        str(field.get("name", "")).lower()
-        for fields in schema.values()
-        if isinstance(fields, list)
-        for field in fields
-        if isinstance(field, dict)
-    }
-    joined = " ".join(snippets).lower()
-    candidates = [
-        ("SLA", "sla"),
-        ("Compliance", "compliance"),
-        ("Pricing", "pricing"),
-        ("API Limits", "rate limit"),
-    ]
-    recommendations = []
-    for name, keyword in candidates:
-        if name.lower() in existing_names:
-            continue
-        if keyword in joined:
-            stable_name = name.replace(" ", "_")
-            recommendations.append(
-                {
-                    "id": f"Recommended_Dimensions.{stable_name}",
-                    "name": name,
-                    "type": "text",
-                    "required": False,
-                    "source": "public_web",
-                    "origin": "agent",
-                    "feasibility": "medium",
-                    "evidence_refs": ["schemaev_recommended"],
-                    "recommended_queries": [f"<competitor> {name}"],
-                }
-            )
-    return recommendations
+def make_human_message(content: str):
+    if HumanMessage is not None:
+        return HumanMessage(content=content)
+    return SimpleNamespace(content=content)
