@@ -1,5 +1,82 @@
 import agents.orchestrator as orchestrator
+import pytest
 from services.web_search import SearchResult
+
+
+@pytest.mark.asyncio
+async def test_discover_competitors_requires_llm(monkeypatch):
+    monkeypatch.setattr(orchestrator, "llm", None)
+
+    with pytest.raises(orchestrator.CompetitorDiscoveryUnavailable, match="LLM"):
+        await orchestrator.discover_competitors("AI search tools")
+
+
+@pytest.mark.asyncio
+async def test_discover_competitors_uses_fetched_page_evidence(monkeypatch):
+    captured = {}
+
+    class FakeLLM:
+        async def ainvoke(self, messages):
+            captured["prompt"] = messages[0].content
+
+            class Response:
+                content = """
+                [
+                  {
+                    "name": "Perplexity",
+                    "reason": "The evidence describes Perplexity as an AI search product.",
+                    "source_urls": ["https://example.com/ai-search"],
+                    "confidence": 0.91
+                  },
+                  {
+                    "name": "LLM Leaderboard",
+                    "reason": "This is a ranking page, not a product.",
+                    "source_urls": ["https://example.com/ranking"],
+                    "confidence": 0.4
+                  }
+                ]
+                """
+
+            return Response()
+
+    async def fake_search(query: str, limit: int = 5):
+        return [
+            orchestrator.SearchResult(
+                query=query,
+                title="AI Search Alternatives",
+                url="https://example.com/ai-search",
+                snippet="Perplexity and You.com appear in this market.",
+            ),
+            orchestrator.SearchResult(
+                query=query,
+                title="Duplicate",
+                url="https://example.com/ai-search",
+                snippet="Duplicate URL should not be fetched twice.",
+            ),
+        ]
+
+    async def fake_fetch(results, limit: int = 5):
+        captured["fetched_urls"] = [result.url for result in results]
+        return [
+            orchestrator.PageEvidence(
+                query=results[0].query,
+                search_title=results[0].title,
+                url=results[0].url,
+                snippet=results[0].snippet,
+                page_title="AI Search Alternatives",
+                text="Perplexity, You.com, and Glean are AI search competitors for enterprise teams.",
+            )
+        ]
+
+    monkeypatch.setattr(orchestrator, "llm", FakeLLM())
+    monkeypatch.setattr(orchestrator, "search_public_web", fake_search)
+    monkeypatch.setattr(orchestrator, "fetch_public_web_pages", fake_fetch)
+
+    names = await orchestrator.discover_competitors("AI search tools")
+
+    assert names == ["Perplexity"]
+    assert captured["fetched_urls"] == ["https://example.com/ai-search"]
+    assert "Perplexity, You.com, and Glean" in captured["prompt"]
 
 
 def test_extracts_competitor_names_from_search_evidence_instead_of_page_titles():
