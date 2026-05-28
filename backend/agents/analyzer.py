@@ -1,12 +1,16 @@
 import json
 import os
+import yaml
 try:
     from langchain_openai import ChatOpenAI
     from langchain_core.messages import HumanMessage
+    from langchain_core.prompts import ChatPromptTemplate
 except ImportError:
     ChatOpenAI = None
     HumanMessage = None
+    ChatPromptTemplate = None
 from .state import AgentState
+from .schemas import AnalysisResult
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -20,65 +24,35 @@ llm = (
 async def analyzer_node(state: AgentState):
     schema = state.get("dynamic_schema", {})
     materials = state.get("raw_materials", [])
-    if llm is None:
+    if llm is None or ChatPromptTemplate is None:
         state["analysis_results"] = build_deterministic_analysis(state)
         return state
     
-    prompt = f"""
-    You are the Analyzer Agent for a real competitive intelligence workflow.
-    Use only the supplied raw materials. Every factual cell, SWOT point, finding,
-    and recommendation must include evidence_refs from source material ids, or a
-    degraded status with a reason when evidence is insufficient.
-
-    Return ONLY JSON with this shape:
-    {{
-      "discovered_competitors": ["name"],
-      "schema_dimensions": [{{"id": "field_id", "name": "field_name", "group": "group"}}],
-      "comparison_rows": [
-        {{
-          "key": "field_id",
-          "dimension_id": "field_id",
-          "dimension": "field_name",
-          "values": {{
-            "Competitor": {{
-              "value": "concise extracted fact or short synthesized answer",
-              "status": "accepted|degraded",
-              "source_url": "url if accepted",
-              "evidence_refs": ["source_id"],
-              "degraded_reason": "reason if degraded"
-            }}
-          }}
-        }}
-      ],
-      "comparison": [{{"competitor": "name", "summary": "evidence-backed competitive position", "status": "accepted|degraded", "evidence_refs": ["source_id"]}}],
-      "swot": {{
-        "strengths": [{{"text": "competitor-specific insight", "evidence_refs": ["source_id"]}}],
-        "weaknesses": [{{"text": "competitor-specific insight", "evidence_refs": ["source_id"]}}],
-        "opportunities": [{{"text": "market/action insight", "evidence_refs": ["source_id"]}}],
-        "threats": [{{"text": "risk insight", "evidence_refs": ["source_id"]}}]
-      }},
-      "report": {{
-        "summary": "deep comparative executive summary",
-        "findings": [{{"title": "finding", "detail": "analysis", "evidence_refs": ["source_id"]}}],
-        "recommendations": [{{"text": "actionable recommendation", "evidence_refs": ["source_id"]}}],
-        "source_appendix": []
-      }},
-      "evidence_refs": ["source_id"]
-    }}
-
-    Schema: {json.dumps(schema, ensure_ascii=False)}
-    Raw Materials: {json.dumps(materials, ensure_ascii=False)}
-    """
-    res = await llm.ainvoke([HumanMessage(content=prompt)])
+    prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
     try:
-        import re
-        content = res.content
-        match = re.search(r'\{.*\}', content, re.DOTALL)
-        if match:
-            result = json.loads(match.group(0))
-        else:
-            result = json.loads(content)
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            PROMPT_CONFIG = yaml.safe_load(f)
     except Exception:
+        state["analysis_results"] = build_deterministic_analysis(state)
+        return state
+
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", PROMPT_CONFIG["analyzer_agent"]["system_prompt"]),
+        ("human", PROMPT_CONFIG["analyzer_agent"]["human_template"])
+    ])
+
+    structured_llm = llm.with_structured_output(AnalysisResult)
+    chain = prompt_template | structured_llm
+
+    try:
+        response = await chain.ainvoke({
+            "schema": json.dumps(schema, ensure_ascii=False),
+            "materials": json.dumps(materials, ensure_ascii=False)
+        })
+        result = response.model_dump()
+    except Exception as e:
+        import logging
+        logging.error(f"Error in analyzer_node: {e}")
         result = build_deterministic_analysis(state)
 
     if not isinstance(result, dict) or "comparison_rows" not in result:

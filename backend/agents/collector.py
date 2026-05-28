@@ -9,10 +9,13 @@ from services.web_search import PageEvidence, SearchResult, fetch_public_web_pag
 try:
     from langchain_core.messages import HumanMessage
     from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
 except ImportError:
     HumanMessage = None
     ChatOpenAI = None
+    ChatPromptTemplate = None
 
+import yaml
 from .state import AgentState
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
@@ -112,24 +115,23 @@ async def build_material_from_pages(
     extracted_value = excerpt
 
     # Perform information extraction using LLM if available
-    if llm is not None and excerpt:
-        prompt = f"""
-You are the Information Extraction component of the Collector Agent.
-Your task is to extract a specific fact from the provided web page text.
-Competitor: {competitor}
-Field to extract: {field.get("name") or field.get("id")}
-Field metadata: {field.get("reason") or "N/A"}
-
-Web Page Content:
-{excerpt}
-
-Instructions:
-1. Extract only the concise, relevant information answering the field for the competitor.
-2. If the information is not present, reply with exactly: "NOT_FOUND".
-3. Do not include extra conversational text.
-"""
+    if llm is not None and excerpt and ChatPromptTemplate is not None:
         try:
-            res = await llm.ainvoke([HumanMessage(content=prompt)])
+            prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
+            with open(prompt_path, "r", encoding="utf-8") as f:
+                PROMPT_CONFIG = yaml.safe_load(f)
+                
+            prompt_template = ChatPromptTemplate.from_messages([
+                ("system", PROMPT_CONFIG["collector_agent"]["system_prompt"]),
+                ("human", PROMPT_CONFIG["collector_agent"]["human_template"])
+            ])
+            chain = prompt_template | llm
+            res = await chain.ainvoke({
+                "competitor": competitor,
+                "field_name": field.get("name") or field.get("id"),
+                "field_reason": field.get("reason") or "N/A",
+                "excerpt": excerpt
+            })
             ans = res.content.strip()
             if ans and ans != "NOT_FOUND":
                 extracted_value = ans

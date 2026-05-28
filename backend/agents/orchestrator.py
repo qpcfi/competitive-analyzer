@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import yaml
 from collections.abc import Iterable
 from dataclasses import dataclass
 from types import SimpleNamespace
@@ -8,15 +9,18 @@ from types import SimpleNamespace
 try:
     from langchain_core.messages import HumanMessage
     from langchain_openai import ChatOpenAI
+    from langchain_core.prompts import ChatPromptTemplate
 except ImportError:
     HumanMessage = None
     ChatOpenAI = None
+    ChatPromptTemplate = None
 
 from dotenv import load_dotenv
 load_dotenv()
 
 
 from .state import AgentState
+from .schemas import PlanCompletionResult, CompetitorRecommendationResult
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -59,11 +63,26 @@ async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
 
     generated_schema: dict = {}
     generated_competitors: list[str] = []
-    if llm is not None:
-        prompt = build_plan_completion_prompt(domain, seed_competitors, user_schema)
+    if llm is not None and ChatPromptTemplate is not None:
         try:
-            res = await llm.ainvoke([make_human_message(prompt)])
-            result = parse_plan_completion(str(res.content))
+            prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
+            with open(prompt_path, "r", encoding="utf-8") as f:
+                PROMPT_CONFIG = yaml.safe_load(f)
+                
+            prompt_template = ChatPromptTemplate.from_messages([
+                ("system", PROMPT_CONFIG["orchestrator_agent"]["plan_completion"]["system_prompt"]),
+                ("human", PROMPT_CONFIG["orchestrator_agent"]["plan_completion"]["human_template"])
+            ])
+            
+            structured_llm = llm.with_structured_output(PlanCompletionResult)
+            chain = prompt_template | structured_llm
+            
+            response = await chain.ainvoke({
+                "domain": domain,
+                "competitors": json.dumps(seed_competitors, ensure_ascii=False),
+                "user_schema": json.dumps(user_schema, ensure_ascii=False)
+            })
+            result = response.model_dump()
             generated_competitors = normalize_competitor_names(result.get("competitors", []))
             generated_schema = normalize_schema_input(result.get("schema", {}))
         except Exception as e:
@@ -77,38 +96,6 @@ async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
 
     schema = merge_schema_preserving_user(user_schema, generated_schema or build_schema_from_context({**context, "competitors": competitors}))
     return competitors, schema
-
-
-def build_plan_completion_prompt(domain: str, competitors: list[str], user_schema: dict) -> str:
-    return f"""
-You are a competitive-analysis architect.
-The user's required analysis domain is: {domain}
-
-The user may have provided only partial inputs:
-- User/current competitors: {json.dumps(competitors, ensure_ascii=False)}
-- User/current knowledge schema: {json.dumps(user_schema, ensure_ascii=False)}
-
-Complete the plan without overriding user-provided content:
-1. If the competitor list is missing or too short, add mainstream competitors in the same competitive tier until there are 3-5 total competitors.
-2. Complete missing schema dimension groups and fields. Include dimensions that are meaningful for every competitor, such as core profile, feature tree, pricing model, target users, deployment/integration, compliance, ecosystem, and differentiation.
-3. Preserve user-provided fields. Only add missing fields. Do not rename or delete existing user fields.
-
-Return ONLY valid JSON:
-{{
-  "competitors": ["competitor1", "competitor2"],
-  "schema": {{
-    "Core Profile": [
-      {{"name": "Product Name", "type": "text", "required": true, "reason": "why useful"}}
-    ]
-  }}
-}}
-"""
-
-
-def parse_plan_completion(content: str) -> dict:
-    match = re.search(r"\{.*\}", content, re.DOTALL)
-    parsed = json.loads(match.group(0) if match else content)
-    return parsed if isinstance(parsed, dict) else {}
 
 
 def build_user_schema_from_context(context: dict) -> dict:
@@ -190,7 +177,7 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> li
     existing_names = {name.lower() for name in normalize_competitor_names(existing)}
     candidates: list[CompetitorCandidate] = []
     
-    if llm is not None:
+    if llm is not None and ChatPromptTemplate is not None:
         from services.web_search import search_public_web
         snippets = []
         try:
@@ -203,32 +190,38 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> li
             
         evidence = "\n\n".join(snippets)
         
-        prompt = f"""
-You are an expert in competitive analysis.
-The user wants to analyze the domain: {domain}
-
-Based on your knowledge AND the following recent search results, provide up to 5 real competitor products or companies in this domain.
-Do not include generic terms, just specific entities.
-
-Search Results:
-{evidence}
-
-Return ONLY a valid JSON array. Each item must have:
-- name: short product or company name
-- reason: one concise reason why it is a competitor
-- source_urls: [] (add URL from search results if applicable)
-- confidence: number from 0 to 1
-
-Example Output:
-[
-  {{"name": "Competitor A", "reason": "Reason A", "source_urls": ["url1"], "confidence": 0.9}}
-]
-"""
         try:
-            res = await llm.ainvoke([make_human_message(prompt)])
-            print("RAW LLM OUTPUT:", repr(res.content))
-            candidates = parse_competitor_candidates(str(res.content))
-            print("PARSED CANDIDATES:", candidates)
+            prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
+            with open(prompt_path, "r", encoding="utf-8") as f:
+                PROMPT_CONFIG = yaml.safe_load(f)
+
+            prompt_template = ChatPromptTemplate.from_messages([
+                ("system", PROMPT_CONFIG["orchestrator_agent"]["recommend_competitors"]["system_prompt"]),
+                ("human", PROMPT_CONFIG["orchestrator_agent"]["recommend_competitors"]["human_template"])
+            ])
+            
+            structured_llm = llm.with_structured_output(CompetitorRecommendationResult)
+            chain = prompt_template | structured_llm
+            
+            res = await chain.ainvoke({
+                "domain": domain,
+                "evidence": evidence
+            })
+            
+            parsed_candidates = res.model_dump().get("candidates", [])
+            for item in parsed_candidates:
+                names = normalize_competitor_names([item.get("name", "")])
+                if not names:
+                    continue
+                name = names[0]
+                candidates.append(
+                    CompetitorCandidate(
+                        name=name,
+                        reason=str(item.get("reason") or "").strip(),
+                        source_urls=[str(url).strip() for url in item.get("source_urls", []) if str(url).strip()],
+                        confidence=float(item.get("confidence") or 0.0),
+                    )
+                )
         except Exception as e:
             import logging
             logging.error(f"LLM extraction failed in recommend_competitors: {e}")
@@ -256,52 +249,6 @@ Example Output:
         if name.lower() not in existing_names
     ]
 
-
-def parse_competitor_candidates(content: str) -> list[CompetitorCandidate]:
-    try:
-        parsed = json.loads(extract_json_array(content))
-    except Exception:
-        return []
-        
-    if not isinstance(parsed, list):
-        return []
-
-    candidates: list[CompetitorCandidate] = []
-    seen = set()
-    for item in parsed:
-        if isinstance(item, str):
-            raw_name = item
-            reason = ""
-            source_urls: list[str] = []
-            confidence = 0.0
-        elif isinstance(item, dict):
-            raw_name = item.get("name", "")
-            reason = str(item.get("reason") or "").strip()
-            source_urls = [str(url).strip() for url in item.get("source_urls", []) if str(url).strip()]
-            try:
-                confidence = float(item.get("confidence") or 0)
-            except (TypeError, ValueError):
-                confidence = 0.0
-        else:
-            continue
-
-        names = normalize_competitor_names([raw_name])
-        if not names:
-            continue
-        name = names[0]
-        lowered = name.lower()
-        if lowered in seen:
-            continue
-        seen.add(lowered)
-        candidates.append(
-            CompetitorCandidate(
-                name=name,
-                reason=reason,
-                source_urls=source_urls,
-                confidence=confidence,
-            )
-        )
-    return candidates
 
 def extract_competitors_from_snippets(domain: str, snippets: list[str]) -> list[CompetitorCandidate]:
     candidates: list[CompetitorCandidate] = []

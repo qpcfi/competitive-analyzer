@@ -1,12 +1,16 @@
 import json
 import os
+import yaml
 try:
     from langchain_openai import ChatOpenAI
     from langchain_core.messages import HumanMessage
+    from langchain_core.prompts import ChatPromptTemplate
 except ImportError:
     ChatOpenAI = None
     HumanMessage = None
+    ChatPromptTemplate = None
 from .state import AgentState
+from .schemas import CriticResult
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -21,59 +25,40 @@ async def critic_node(state: AgentState):
     analysis_results = state.get("analysis_results", {})
     schema = state.get("dynamic_schema", {})
     materials = state.get("raw_materials", [])
-    if llm is None:
+    if llm is None or ChatPromptTemplate is None:
         state["critic_feedback"] = build_structured_feedback(analysis_results)
         state["suggested_schema_extensions"] = build_deterministic_schema_extensions(schema, materials)
         return state
     
-    prompt = f"""
-    You are a Critic Agent for a schema-driven competitive analysis workflow.
-    Evaluate the analysis for unsupported claims, contradictions, degraded coverage,
-    and missing schema dimensions discovered during collection.
-
-    Return ONLY JSON with this shape:
-    {{
-      "feedback": [
-        {{
-          "level": "L2",
-          "target_type": "analysis_result",
-          "target_id": "analysis",
-          "module_id": "analysis",
-          "severity": "warning|error",
-          "code": "short_code",
-          "message": "specific issue",
-          "suggested_action": "review|manual_review|retry_analysis",
-          "retry_count": 0
-        }}
-      ],
-      "suggested_schema_extensions": [
-        {{
-          "dimension_group": "Feature Tree",
-          "new_field": "Open source license support",
-          "confidence": 0.0,
-          "evidence": ["brief evidence from supplied materials"],
-          "affected_competitors": ["name"]
-        }}
-      ]
-    }}
-
-    Only suggest schema extensions when multiple competitors share a meaningful
-    attribute that is absent from the current schema, or when one competitor has
-    a strong differentiator that belongs under Extended Attributes. Suggestions
-    must be evidence-backed and confidence must be 0-1.
-
-    Current schema: {json.dumps(schema, ensure_ascii=False)}
-    Raw materials: {json.dumps(materials, ensure_ascii=False)}
-    Analysis: {json.dumps(analysis_results, ensure_ascii=False)}
-    """
-    res = await llm.ainvoke([HumanMessage(content=prompt)])
+    prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
     try:
-        import re
-        content = res.content
-        match = re.search(r'\{.*\}', content, re.DOTALL)
-        parsed = json.loads(match.group(0) if match else content)
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            PROMPT_CONFIG = yaml.safe_load(f)
     except Exception:
+        state["critic_feedback"] = build_structured_feedback(analysis_results)
+        state["suggested_schema_extensions"] = build_deterministic_schema_extensions(schema, materials)
+        return state
+
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", PROMPT_CONFIG["critic_agent"]["system_prompt"]),
+        ("human", PROMPT_CONFIG["critic_agent"]["human_template"])
+    ])
+
+    structured_llm = llm.with_structured_output(CriticResult)
+    chain = prompt_template | structured_llm
+
+    try:
+        response = await chain.ainvoke({
+            "schema": json.dumps(schema, ensure_ascii=False),
+            "materials": json.dumps(materials, ensure_ascii=False),
+            "analysis_results": json.dumps(analysis_results, ensure_ascii=False)
+        })
+        parsed = response.model_dump()
+    except Exception as e:
+        import logging
+        logging.error(f"Error in critic_node: {e}")
         parsed = {"feedback": build_structured_feedback(analysis_results), "suggested_schema_extensions": []}
+        
     if isinstance(parsed, list):
         feedback = parsed
         suggested_schema_extensions = []
@@ -83,6 +68,7 @@ async def critic_node(state: AgentState):
     else:
         feedback = build_structured_feedback(analysis_results)
         suggested_schema_extensions = []
+        
     if feedback and isinstance(feedback[0], str):
         feedback = [
             {
