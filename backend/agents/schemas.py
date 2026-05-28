@@ -99,7 +99,7 @@ class SchemaFieldInfo(BaseModel):
 
 class PlanCompletionResult(BaseModel):
     competitors: List[str]
-    schema: Dict[str, List[SchemaFieldInfo]]
+    schema_def: Dict[str, List[SchemaFieldInfo]]
 
 class CompetitorCandidateModel(BaseModel):
     name: str = Field(description="short product or company name")

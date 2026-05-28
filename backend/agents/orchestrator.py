@@ -21,6 +21,7 @@ load_dotenv()
 
 from .state import AgentState
 from .schemas import PlanCompletionResult, CompetitorRecommendationResult
+from .callbacks import DebugCallbackHandler
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -42,7 +43,7 @@ class CompetitorCandidate:
 
 async def orchestrator_node(state: AgentState):
     context = state.get("task_context", {})
-    competitors, schema = await generate_complete_plan(context)
+    competitors, schema = await generate_complete_plan(context, state.get("task_id", "unknown"))
     context["competitors"] = competitors
     state["task_context"] = context
 
@@ -52,12 +53,12 @@ async def orchestrator_node(state: AgentState):
     return state
 
 
-async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
+async def generate_complete_plan(context: dict, task_id: str = "unknown") -> tuple[list[str], dict]:
     domain = str(context.get("domain") or "").strip()
     user_competitors = normalize_competitor_names(context.get("competitors", []))
     user_schema = build_user_schema_from_context(context)
 
-    discovered_candidates = await recommend_competitors(domain, user_competitors)
+    discovered_candidates = await recommend_competitors(domain, user_competitors, task_id)
     discovered = [c.name for c in discovered_candidates]
     seed_competitors = merge_competitors(user_competitors, discovered)
 
@@ -81,10 +82,10 @@ async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
                 "domain": domain,
                 "competitors": json.dumps(seed_competitors, ensure_ascii=False),
                 "user_schema": json.dumps(user_schema, ensure_ascii=False)
-            })
+            }, config={"callbacks": [DebugCallbackHandler(task_id, "Orchestrator")]})
             result = response.model_dump()
             generated_competitors = normalize_competitor_names(result.get("competitors", []))
-            generated_schema = normalize_schema_input(result.get("schema", {}))
+            generated_schema = normalize_schema_input(result.get("schema_def", {}))
         except Exception as e:
             import logging
             logging.error(f"Error in generate_complete_plan: {e}")
@@ -173,7 +174,7 @@ def fallback_competitors(domain: str, count: int) -> list[str]:
     return [f"{base} {suffix}" for suffix in suffixes[: max(count, 0)]]
 
 
-async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> list[CompetitorCandidate]:
+async def recommend_competitors(domain: str, existing: Iterable[str] = (), task_id: str = "unknown") -> list[CompetitorCandidate]:
     existing_names = {name.lower() for name in normalize_competitor_names(existing)}
     candidates: list[CompetitorCandidate] = []
     
@@ -206,7 +207,7 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> li
             res = await chain.ainvoke({
                 "domain": domain,
                 "evidence": evidence
-            })
+            }, config={"callbacks": [DebugCallbackHandler(task_id, "Orchestrator")]})
             
             parsed_candidates = res.model_dump().get("candidates", [])
             for item in parsed_candidates:
