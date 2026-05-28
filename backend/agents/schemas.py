@@ -69,7 +69,7 @@ class CriticFeedback(BaseModel):
     severity: Literal["warning", "error"]
     code: str = Field(description="short_code")
     message: str = Field(description="specific issue")
-    suggested_action: Literal["review", "manual_review", "retry_analysis"]
+    suggested_action: Literal["retry_collection", "retry_analysis", "extend_schema", "human_review", "review", "manual_review"]
     retry_count: int = Field(default=0)
 
 class SchemaExtension(BaseModel):
@@ -85,11 +85,17 @@ class CriticResult(BaseModel):
 
 # --- Orchestrator Models ---
 
+CollectorSkillType = Literal["product_feature", "business_pricing", "technical_spec", "general"]
+
 class SchemaFieldInfo(BaseModel):
     name: str
     type: str = "text"
     required: bool = True
     reason: Optional[str] = Field(None, description="why useful")
+    skill_category: CollectorSkillType = Field(
+        default="general", 
+        description="Choose the most appropriate extraction skill for this field."
+    )
 
 class PlanCompletionResult(BaseModel):
     competitors: List[str]

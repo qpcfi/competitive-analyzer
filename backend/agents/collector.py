@@ -121,9 +121,16 @@ async def build_material_from_pages(
             with open(prompt_path, "r", encoding="utf-8") as f:
                 PROMPT_CONFIG = yaml.safe_load(f)
                 
+            skill_type = field.get("skill_category") or "general"
+            skills_config = PROMPT_CONFIG.get("collector_skills", {})
+            prompt_config = skills_config.get(skill_type, skills_config.get("general", {}))
+
+            if not prompt_config:
+                raise ValueError("Missing prompt config")
+
             prompt_template = ChatPromptTemplate.from_messages([
-                ("system", PROMPT_CONFIG["collector_agent"]["system_prompt"]),
-                ("human", PROMPT_CONFIG["collector_agent"]["human_template"])
+                ("system", prompt_config.get("system_prompt", "You are an extractor.")),
+                ("human", prompt_config.get("human_template", "{excerpt}"))
             ])
             chain = prompt_template | llm
             res = await chain.ainvoke({

@@ -79,7 +79,7 @@ async def critic_node(state: AgentState):
                 "severity": "warning",
                 "code": "critic_message",
                 "message": item,
-                "suggested_action": "review",
+                "suggested_action": "retry_analysis",
                 "retry_count": 0,
             }
             for item in feedback
@@ -88,8 +88,10 @@ async def critic_node(state: AgentState):
     state["critic_feedback"] = feedback
     state["suggested_schema_extensions"] = suggested_schema_extensions
     retry_counts = state.get("retry_counts", {})
-    if any(item.get("suggested_action") == "retry_analysis" for item in feedback):
-        retry_counts["analysis"] = int(retry_counts.get("analysis", 0)) + 1
+    for item in feedback:
+        action = item.get("suggested_action")
+        if action in ("retry_analysis", "retry_collection", "extend_schema"):
+            retry_counts[action] = int(retry_counts.get(action, 0)) + 1
     state["retry_counts"] = retry_counts
     return state
 
@@ -106,7 +108,7 @@ def build_structured_feedback(analysis_results: dict) -> list[dict]:
                 "severity": "warning",
                 "code": "missing_comparison",
                 "message": "Comparison module has no usable results.",
-                "suggested_action": "retry_analysis",
+                "suggested_action": "retry_collection",
                 "retry_count": 0,
             }
         ]
@@ -121,7 +123,7 @@ def build_structured_feedback(analysis_results: dict) -> list[dict]:
                 "severity": "warning",
                 "code": "degraded_source",
                 "message": f"{item.get('competitor', 'Unknown')} has degraded source coverage.",
-                "suggested_action": "manual_review",
+                "suggested_action": "retry_collection",
                 "retry_count": 0,
             }
             for item in degraded

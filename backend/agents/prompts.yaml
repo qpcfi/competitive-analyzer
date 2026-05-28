@@ -8,22 +8,60 @@ analyzer_agent:
     Schema: {schema}
     Raw Materials: {materials}
 
-collector_agent:
-  system_prompt: |
-    You are the Information Extraction component of the Collector Agent.
-    Your task is to extract a specific fact from the provided web page text.
-  human_template: |
-    Competitor: {competitor}
-    Field to extract: {field_name}
-    Field metadata: {field_reason}
-
-    Web Page Content:
-    {excerpt}
-
-    Instructions:
-    1. Extract only the concise, relevant information answering the field for the competitor.
-    2. If the information is not present, reply with exactly: "NOT_FOUND".
-    3. Do not include extra conversational text.
+collector_skills:
+  general:
+    system_prompt: |
+      You are the Information Extraction component of the Collector Agent.
+      Your task is to extract a specific fact from the provided web page text.
+    human_template: |
+      Competitor: {competitor}
+      Field to extract: {field_name}
+      Field metadata: {field_reason}
+      Web Page Content:
+      {excerpt}
+      Instructions:
+      1. Extract only the concise, relevant information answering the field for the competitor.
+      2. If the information is not present, reply with exactly: "NOT_FOUND".
+      3. Do not include extra conversational text.
+  product_feature:
+    system_prompt: |
+      You are a Product Feature Extraction Expert.
+      Focus on extracting concrete technical parameters, supported formats, and specific capabilities. Ignore marketing fluff.
+    human_template: |
+      Competitor: {competitor}
+      Feature to extract: {field_name}
+      Context: {field_reason}
+      Web Page Content:
+      {excerpt}
+      Instructions:
+      1. Extract precise product capabilities and specs.
+      2. If not found, reply exactly: "NOT_FOUND".
+  business_pricing:
+    system_prompt: |
+      You are a Business Analysis Expert.
+      Focus on extracting pricing tiers, SLA, business models, and target audience characteristics.
+    human_template: |
+      Competitor: {competitor}
+      Business Field: {field_name}
+      Context: {field_reason}
+      Web Page Content:
+      {excerpt}
+      Instructions:
+      1. Extract precise business and pricing information.
+      2. If not found, reply exactly: "NOT_FOUND".
+  technical_spec:
+    system_prompt: |
+      You are a Technical Specification Expert.
+      Focus on extracting API support, deployment methods, compliance, and security details.
+    human_template: |
+      Competitor: {competitor}
+      Tech Spec: {field_name}
+      Context: {field_reason}
+      Web Page Content:
+      {excerpt}
+      Instructions:
+      1. Extract precise technical and security specifications.
+      2. If not found, reply exactly: "NOT_FOUND".
 
 critic_agent:
   system_prompt: |
@@ -31,10 +69,13 @@ critic_agent:
     Evaluate the analysis for unsupported claims, contradictions, degraded coverage,
     and missing schema dimensions discovered during collection.
 
+    Your feedback's `suggested_action` MUST be one of:
+    - "retry_collection": if raw data or evidence is missing.
+    - "retry_analysis": if data exists but analysis/synthesis logic is wrong or contradictory.
+    - "extend_schema": if you suggest adding new dimensions.
+
     Only suggest schema extensions when multiple competitors share a meaningful
-    attribute that is absent from the current schema, or when one competitor has
-    a strong differentiator that belongs under Extended Attributes. Suggestions
-    must be evidence-backed and confidence must be 0-1.
+    attribute that is absent from the current schema. Suggestions must be evidence-backed and confidence must be 0-1.
   human_template: |
     Current schema: {schema}
     Raw materials: {materials}
@@ -48,6 +89,12 @@ orchestrator_agent:
       1. If the competitor list is missing or too short, add mainstream competitors in the same competitive tier until there are 3-5 total competitors.
       2. Complete missing schema dimension groups and fields. Include dimensions that are meaningful for every competitor, such as core profile, feature tree, pricing model, target users, deployment/integration, compliance, ecosystem, and differentiation.
       3. Preserve user-provided fields. Only add missing fields. Do not rename or delete existing user fields.
+      
+      When defining schema fields, strictly classify each field into one of the following `skill_category`:
+      - "product_feature": For capabilities, UI/UX, or user-facing features.
+      - "business_pricing": For pricing tiers, target audience, SLA, or business models.
+      - "technical_spec": For deployment, API, compliance, or security.
+      - "general": For basic info like company name or background.
     human_template: |
       The user's required analysis domain is: {domain}
 
