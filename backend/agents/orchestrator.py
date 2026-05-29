@@ -21,7 +21,6 @@ load_dotenv()
 
 from .state import AgentState
 from .schemas import PlanCompletionResult, CompetitorRecommendationResult
-from .callbacks import DebugCallbackHandler
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -43,7 +42,7 @@ class CompetitorCandidate:
 
 async def orchestrator_node(state: AgentState):
     context = state.get("task_context", {})
-    competitors, schema = await generate_complete_plan(context, state.get("task_id", "unknown"))
+    competitors, schema = await generate_complete_plan(context)
     context["competitors"] = competitors
     state["task_context"] = context
 
@@ -53,12 +52,12 @@ async def orchestrator_node(state: AgentState):
     return state
 
 
-async def generate_complete_plan(context: dict, task_id: str = "unknown") -> tuple[list[str], dict]:
+async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
     domain = str(context.get("domain") or "").strip()
     user_competitors = normalize_competitor_names(context.get("competitors", []))
     user_schema = build_user_schema_from_context(context)
 
-    discovered_candidates = await recommend_competitors(domain, user_competitors, task_id)
+    discovered_candidates = await recommend_competitors(domain, user_competitors)
     discovered = [c.name for c in discovered_candidates]
     seed_competitors = merge_competitors(user_competitors, discovered)
 
@@ -78,14 +77,16 @@ async def generate_complete_plan(context: dict, task_id: str = "unknown") -> tup
             structured_llm = llm.with_structured_output(PlanCompletionResult)
             chain = prompt_template | structured_llm
             
+            callbacks = context.get("callbacks") if isinstance(context, dict) else None
+            config = {"callbacks": callbacks} if callbacks else None
             response = await chain.ainvoke({
                 "domain": domain,
                 "competitors": json.dumps(seed_competitors, ensure_ascii=False),
                 "user_schema": json.dumps(user_schema, ensure_ascii=False)
-            }, config={"callbacks": [DebugCallbackHandler(task_id, "Orchestrator")]})
+            }, config=config)
             result = response.model_dump()
             generated_competitors = normalize_competitor_names(result.get("competitors", []))
-            generated_schema = normalize_schema_input(result.get("schema_def", {}))
+            generated_schema = normalize_schema_input(result.get("schema", {}))
         except Exception as e:
             import logging
             logging.error(f"Error in generate_complete_plan: {e}")
@@ -174,22 +175,37 @@ def fallback_competitors(domain: str, count: int) -> list[str]:
     return [f"{base} {suffix}" for suffix in suffixes[: max(count, 0)]]
 
 
-async def recommend_competitors(domain: str, existing: Iterable[str] = (), task_id: str = "unknown") -> list[CompetitorCandidate]:
+async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> list[CompetitorCandidate]:
     existing_names = {name.lower() for name in normalize_competitor_names(existing)}
     candidates: list[CompetitorCandidate] = []
     
     if llm is not None and ChatPromptTemplate is not None:
-        from services.web_search import search_public_web
+        from services.web_search import search_public_web, fetch_public_web_pages
+        evidence_blocks = []
         snippets = []
         try:
             results = await search_public_web(f"{domain} top competitors alternatives", limit=5)
-            for r in results:
-                snippets.append(f"Title: {r.title}\nSnippet: {r.snippet}\nURL: {r.url}")
+            snippets = [r.snippet for r in results if r.snippet]
+            pages = await fetch_public_web_pages(results, limit=5)
+            for index, page in enumerate(pages, start=1):
+                excerpt = (page.text or page.snippet or "").strip()[:2500]
+                evidence_blocks.append(
+                    "\n".join(
+                        [
+                            f"Source {index}",
+                            f"URL: {page.url}",
+                            f"Search title: {page.search_title}",
+                            f"Page title: {page.page_title}",
+                            f"Search snippet: {page.snippet}",
+                            f"Page excerpt: {excerpt}",
+                        ]
+                    )
+                )
         except Exception as e:
             import logging
             logging.error(f"Search failed in recommend_competitors: {e}")
             
-        evidence = "\n\n".join(snippets)
+        evidence = "\n\n".join(evidence_blocks)
         
         try:
             prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
@@ -201,15 +217,17 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = (), task_
                 ("human", PROMPT_CONFIG["orchestrator_agent"]["recommend_competitors"]["human_template"])
             ])
             
-            structured_llm = llm.with_structured_output(CompetitorRecommendationResult)
-            chain = prompt_template | structured_llm
+            chain = prompt_template | llm
             
+            # No callbacks passed to recommend_competitors yet, can leave it or pass if we add context argument
             res = await chain.ainvoke({
                 "domain": domain,
                 "evidence": evidence
-            }, config={"callbacks": [DebugCallbackHandler(task_id, "Orchestrator")]})
+            })
             
-            parsed_candidates = res.model_dump().get("candidates", [])
+            import json
+            parsed = json.loads(extract_json_array(str(res.content)))
+            parsed_candidates = parsed if isinstance(parsed, list) else []
             for item in parsed_candidates:
                 names = normalize_competitor_names([item.get("name", "")])
                 if not names:
@@ -226,11 +244,7 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = (), task_
         except Exception as e:
             import logging
             logging.error(f"LLM extraction failed in recommend_competitors: {e}")
-            pass
-
-    if not candidates and 'snippets' in locals() and snippets:
-        # Fallback: simple extraction from search snippets if LLM fails
-        candidates = extract_competitors_from_snippets(domain, snippets)
+            raise RuntimeError(f"大模型在提取竞品时发生异常: {e}\n(证据片段或网络可能存在问题，或者大模型未能按照指定格式输出。)") from e
 
     filtered: list[CompetitorCandidate] = []
     seen = set(existing_names)
@@ -249,28 +263,6 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = (), task_
         for name in fallback_competitors(domain, 3)
         if name.lower() not in existing_names
     ]
-
-
-def extract_competitors_from_snippets(domain: str, snippets: list[str]) -> list[CompetitorCandidate]:
-    candidates: list[CompetitorCandidate] = []
-    text = " ".join(snippets)
-    words = re.findall(r'[A-Z][a-zA-Z0-9-]{2,15}|\b[\u4e00-\u9fa5]{2,6}\b', text)
-    from collections import Counter
-    counts = Counter(words)
-    domain_words = set(domain.lower().split())
-    
-    for word, count in counts.most_common(15):
-        if count < 2 or word.lower() in domain_words or word.lower() in {"the", "and", "for", "top", "best", "vs", "ai"}:
-            continue
-        candidates.append(CompetitorCandidate(
-            name=word,
-            reason=f"Found {count} times in search results for {domain}.",
-            source_urls=[],
-            confidence=0.5
-        ))
-        if len(candidates) >= 5:
-            break
-    return candidates
 
 
 def extract_json_array(content: str) -> str:
