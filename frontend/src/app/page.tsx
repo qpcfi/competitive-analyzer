@@ -10,6 +10,7 @@ import SchemaEditor from '@/components/views/SchemaEditor';
 import CompetitorAnalysis from '@/components/views/CompetitorAnalysis';
 import SWOTAnalysis from '@/components/views/SWOTAnalysis';
 import StructuredReport from '@/components/views/StructuredReport';
+import DebugPanel from '@/components/views/DebugPanel';
 import { App, Progress, Switch, Card, Typography } from 'antd';
 
 const { Title, Text } = Typography;
@@ -232,30 +233,7 @@ export default function Home() {
                 zIndex: 10
               }}
             />
-            <div style={{ height: `${debugHeight}px`, borderTop: '1px solid #ccc', background: '#fafafa', overflow: 'auto', padding: '16px' }}>
-              <Title level={5}>调试与可观测性面板</Title>
-              <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-                <Card size="small" title="Token 消耗仪表盘" style={{ flex: 1 }}>
-                  {tokenUsage ? (
-                    <div>
-                      <Text>已用 Token: <Text strong type="danger">{tokenUsage.total_used}</Text></Text><br />
-                      <Text>预算: {tokenUsage.budget} | 剩余预估: {tokenUsage.estimated_remaining}</Text>
-                    </div>
-                  ) : <Text type="secondary">暂无 Token 数据</Text>}
-                </Card>
-                <Card size="small" title="State Graph 快照" style={{ flex: 1 }}>
-                  <Text type="secondary">当前节点快照已保存</Text>
-                  <div style={{ marginTop: 8 }}><Text type="secondary">JSON 快照会随执行状态更新</Text></div>
-                </Card>
-              </div>
-
-              <Title level={5} style={{ marginTop: 16 }}>执行日志 (Agent Traces)</Title>
-              <div style={{ background: '#000', color: '#0f0', padding: '12px', borderRadius: '4px', fontFamily: 'monospace', fontSize: '12px' }}>
-                {debugLogs.length === 0 ? "等待执行日志..." : debugLogs.map((log, i) => (
-                  <div key={i}>[{new Date().toLocaleTimeString()}] [{log.agent}] {log.event.toUpperCase()}: {log.message}</div>
-                ))}
-              </div>
-            </div>
+            <DebugPanel logs={debugLogs} tokenUsage={tokenUsage} height={debugHeight} />
           </div>
         )}
       </div>
