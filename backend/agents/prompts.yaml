@@ -4,6 +4,17 @@ analyzer_agent:
     Use only the supplied raw materials. Every factual cell, SWOT point, finding, 
     and recommendation must include evidence_refs from source material ids, or a 
     degraded status with a reason when evidence is insufficient.
+    
+    Return ONLY valid JSON with the following structure:
+    {{
+      "comparison_rows": [
+        {{"dimension_group": "Group", "field_name": "Field", "competitor": "Name", "value": "Extracted text", "confidence": 0.9, "evidence_refs": ["id1"], "degraded_reason": ""}}
+      ],
+      "swot_analysis": [
+        {{"competitor": "Name", "strengths": ["..."], "weaknesses": ["..."], "opportunities": ["..."], "threats": ["..."]}}
+      ],
+      "executive_summary": "Overall summary..."
+    }}
   human_template: |
     Schema: {schema}
     Raw Materials: {materials}
@@ -76,6 +87,16 @@ critic_agent:
 
     Only suggest schema extensions when multiple competitors share a meaningful
     attribute that is absent from the current schema. Suggestions must be evidence-backed and confidence must be 0-1.
+    
+    Return ONLY valid JSON with the following structure:
+    {{
+      "feedback": [
+        {{"competitor": "Competitor Name", "field_name": "Field", "issue_type": "missing_evidence", "comment": "Description of issue", "suggested_action": "retry_collection"}}
+      ],
+      "schema_extensions": [
+        {{"dimension_group": "Group", "new_field": "Field Name", "type": "text", "reason": "Why to add", "confidence": 0.9}}
+      ]
+    }}
   human_template: |
     Current schema: {schema}
     Raw materials: {materials}
@@ -95,6 +116,16 @@ orchestrator_agent:
       - "business_pricing": For pricing tiers, target audience, SLA, or business models.
       - "technical_spec": For deployment, API, compliance, or security.
       - "general": For basic info like company name or background.
+      
+      Return ONLY valid JSON with the following structure:
+      {{
+        "competitors": ["existing or generated competitor"],
+        "schema_def": {{
+          "Group Name": [
+            {{"name": "Field Name", "type": "text", "required": true, "source": "official", "skill_category": "product_feature", "reason": "why this field is useful"}}
+          ]
+        }}
+      }}
     human_template: |
       The user's required analysis domain is: {domain}
 

@@ -74,8 +74,7 @@ async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
                 ("human", PROMPT_CONFIG["orchestrator_agent"]["plan_completion"]["human_template"])
             ])
             
-            structured_llm = llm.with_structured_output(PlanCompletionResult)
-            chain = prompt_template | structured_llm
+            chain = prompt_template | llm
             
             callbacks = context.get("callbacks") if isinstance(context, dict) else None
             config = {"callbacks": callbacks} if callbacks else None
@@ -84,9 +83,13 @@ async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
                 "competitors": json.dumps(seed_competitors, ensure_ascii=False),
                 "user_schema": json.dumps(user_schema, ensure_ascii=False)
             }, config=config)
-            result = response.model_dump()
+            
+            content = str(response.content)
+            match = re.search(r"\{.*\}", content, re.DOTALL)
+            result = json.loads(match.group(0) if match else content)
+            
             generated_competitors = normalize_competitor_names(result.get("competitors", []))
-            generated_schema = normalize_schema_input(result.get("schema", {}))
+            generated_schema = normalize_schema_input(result.get("schema_def", result.get("schema", {})))
         except Exception as e:
             import logging
             logging.error(f"Error in generate_complete_plan: {e}")
@@ -225,7 +228,6 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> li
                 "evidence": evidence
             })
             
-            import json
             parsed = json.loads(extract_json_array(str(res.content)))
             parsed_candidates = parsed if isinstance(parsed, list) else []
             for item in parsed_candidates:

@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import yaml
 try:
     from langchain_openai import ChatOpenAI
@@ -41,15 +42,19 @@ async def analyzer_node(state: AgentState):
         ("human", PROMPT_CONFIG["analyzer_agent"]["human_template"])
     ])
 
-    structured_llm = llm.with_structured_output(AnalysisResult)
-    chain = prompt_template | structured_llm
-
+    chain = prompt_template | llm
+    
     try:
+        callbacks = state.get("task_context", {}).get("callbacks")
+        config = {"callbacks": callbacks} if callbacks else None
         response = await chain.ainvoke({
             "schema": json.dumps(schema, ensure_ascii=False),
             "materials": json.dumps(materials, ensure_ascii=False)
-        })
-        result = response.model_dump()
+        }, config=config)
+        
+        content = str(response.content)
+        match = re.search(r"\{.*\}", content, re.DOTALL)
+        result = json.loads(match.group(0) if match else content)
     except Exception as e:
         import logging
         logging.error(f"Error in analyzer_node: {e}")

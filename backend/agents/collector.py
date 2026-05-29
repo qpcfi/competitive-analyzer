@@ -53,7 +53,8 @@ async def collector_node(state: AgentState, on_progress: ProgressCallback | None
                 # Fetch actual web pages for deeper scraping
                 pages = await fetch_public_web_pages(search_results, limit=2)
                 
-                material = await build_material_from_pages(task_id, competitor, field, query, pages)
+                callbacks = context.get("callbacks") if isinstance(context, dict) else None
+                material = await build_material_from_pages(task_id, competitor, field, query, pages, callbacks=callbacks)
             except Exception as exc:
                 material = build_degraded_material(task_id, competitor, field, query, f"{exc.__class__.__name__}:{exc}")
             
@@ -106,6 +107,7 @@ async def build_material_from_pages(
     field: dict[str, Any],
     query: str,
     pages: list[PageEvidence],
+    callbacks: list = None,
 ) -> dict[str, Any]:
     accepted = next((item for item in pages if item.text or item.snippet), None)
     if not accepted:
@@ -133,12 +135,13 @@ async def build_material_from_pages(
                 ("human", prompt_config.get("human_template", "{excerpt}"))
             ])
             chain = prompt_template | llm
+            config = {"callbacks": callbacks} if callbacks else None
             res = await chain.ainvoke({
                 "competitor": competitor,
                 "field_name": field.get("name") or field.get("id"),
                 "field_reason": field.get("reason") or "N/A",
                 "excerpt": excerpt
-            })
+            }, config=config)
             ans = res.content.strip()
             if ans and ans != "NOT_FOUND":
                 extracted_value = ans
