@@ -54,8 +54,15 @@ def make_initial_state(req: TaskCreateRequest, task_id: str, schema_version: int
 
 async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], *, continue_after_schema: bool = False):
     try:
+        from agents.discoverer.node import discoverer_node
+        
+        await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Starting competitor discovery and market context gathering."})
+        state = await discoverer_node(initial_state)
+        await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Competitors discovered and market context loaded."})
+        await publish_event(task_id, "progress_update", {"progress": 15, "stage": "DISCOVERING"})
+        
         await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Completing competitors and schema from domain inputs."})
-        state = await orchestrator_node(initial_state)
+        state = await orchestrator_node(state)
         schema_json = state.get("dynamic_schema") or {}
         discovered_competitors = (state.get("task_context") or {}).get("competitors") or []
         async with async_session() as session:

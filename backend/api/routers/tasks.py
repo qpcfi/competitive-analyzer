@@ -35,7 +35,6 @@ async def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks)
 
     asyncio.create_task(publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "previous_state": "INITIALIZING", "progress": 10}))
     asyncio.create_task(publish_event(task_id, "progress_update", {"progress": 10, "stage": "SCHEMA_GENERATING"}))
-    asyncio.create_task(publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Starting schema generation"}))
     asyncio.create_task(process_initial_pipeline(task_id, make_initial_state(req, task_id), continue_after_schema=req.execution_mode == "auto"))
 
     return {"task_id": task_id, "state": "INITIALIZING", "stream_url": f"/api/v1/tasks/{task_id}/stream"}
