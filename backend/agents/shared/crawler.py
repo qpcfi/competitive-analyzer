@@ -50,26 +50,44 @@ async def crawl_urls(urls: list[str]) -> dict[str, str]:
 
     # 2. Fallback: Crawl missing URLs
     if urls_to_crawl:
-        browser_config = BrowserConfig(
-            headless=True,
-            verbose=False,
-        )
-        
-        run_config = CrawlerRunConfig(
-            cache_mode=CacheMode.BYPASS, # Blackboard handles the cache
-            word_count_threshold=10,
-            exclude_external_links=True,
-            remove_overlay_elements=True,
-        )
+        def _run_crawler_in_thread(urls):
+            import sys
+            import asyncio
+            if sys.platform == 'win32':
+                asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+                
+            async def _do_crawl():
+                thread_results = {}
+                browser_config = BrowserConfig(
+                    headless=True,
+                    verbose=False,
+                )
+                
+                run_config = CrawlerRunConfig(
+                    cache_mode=CacheMode.BYPASS, # Blackboard handles the cache
+                    word_count_threshold=10,
+                    exclude_external_links=True,
+                    remove_overlay_elements=True,
+                )
 
-        async with AsyncWebCrawler(config=browser_config) as crawler:
-            for url in urls_to_crawl:
-                try:
-                    result = await crawler.arun(url=url, config=run_config)
-                    if result.success and result.markdown:
-                        _GLOBAL_CACHE.set(url, result.markdown)
-                        results[url] = result.markdown
-                except Exception as e:
-                    print(f"Failed to crawl {url}: {e}")
+                async with AsyncWebCrawler(config=browser_config) as crawler:
+                    for url in urls:
+                        try:
+                            result = await crawler.arun(url=url, config=run_config)
+                            if result.success and result.markdown:
+                                thread_results[url] = result.markdown
+                        except Exception as e:
+                            print(f"Failed to crawl {url}: {e}")
+                return thread_results
+                
+            return asyncio.run(_do_crawl())
+
+        import asyncio
+        loop = asyncio.get_running_loop()
+        crawled_results = await loop.run_in_executor(None, _run_crawler_in_thread, urls_to_crawl)
+        
+        for url, md in crawled_results.items():
+            _GLOBAL_CACHE.set(url, md)
+            results[url] = md
                 
     return results
