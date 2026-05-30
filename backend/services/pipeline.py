@@ -152,7 +152,7 @@ async def process_graph_events(task_id: str, graph, initial_state, config):
                     async with async_session() as session:
                         task = await update_task_state(session, task_id, state="ANALYZING", progress=90)
                         task.analysis_results = analysis
-                        for module_id in ("comparison", "swot", "report"):
+                        for module_id in ("comparison", "swot"):
                             content = analysis.get(module_id, {}) if isinstance(analysis, dict) else {}
                             await save_analysis_module(
                                 session,
@@ -172,15 +172,35 @@ async def process_graph_events(task_id: str, graph, initial_state, config):
                 elif node_name == "critic":
                     feedback = state.get("critic_feedback") or []
                     async with async_session() as session:
-                        task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
+                        task = await update_task_state(session, task_id, state="CRITIQUING", progress=95)
                         task.critic_feedback = feedback
-                        task.final_report = (task.analysis_results or {}).get("report", {})
-                        task.completed_at = datetime.utcnow()
                         await save_quality_feedback(session, task_id, feedback)
                         await session.commit()
                     await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "end", "message": "Critic evaluation completed."})
+                    await publish_event(task_id, "progress_update", {"progress": 95, "stage": "CRITIQUING"})
+                    await publish_event(task_id, "task_state_changed", {"state": "CRITIQUING", "progress": 95})
+
+                elif node_name == "reporter":
+                    analysis = state.get("analysis_results") or {}
+                    async with async_session() as session:
+                        task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
+                        task.analysis_results = analysis
+                        task.final_report = analysis.get("report", {})
+                        task.completed_at = datetime.utcnow()
+                        content = analysis.get("report", {})
+                        await save_analysis_module(
+                            session,
+                            task_id,
+                            module_id="report",
+                            module_type="report",
+                            content=content if isinstance(content, dict) else {"items": content},
+                            evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
+                        )
+                        await session.commit()
+                    await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "end", "message": "Structured report generated."})
                     await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"})
                     await publish_event(task_id, "task_state_changed", {"state": "COMPLETED", "progress": 100})
+                    await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": analysis})
                     await publish_event(task_id, "task_completed", {"final_report_url": f"/api/v1/tasks/{task_id}/report", "state": "COMPLETED"})
 
     except Exception as exc:

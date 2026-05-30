@@ -4,6 +4,7 @@ from .discoverer import discoverer_node
 from .collector import collector_node
 from .analyzer import analyzer_node
 from .critic import critic_node
+from .reporter import reporter_node
 from .graph import workflow
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "collector_node",
     "analyzer_node",
     "critic_node",
+    "reporter_node",
     "workflow"
 ]

@@ -5,7 +5,7 @@ analyzer_agent:
     and recommendation must include evidence_refs from source material ids, or a 
     degraded status with a reason when evidence is insufficient.
     
-    IMPORTANT: Ensure that all textual output (including group names, field names, analysis text, executive summaries, SWOT points) is written in Chinese (except for domain-specific terminology).
+    IMPORTANT: Ensure that all textual output (including group names, field names, analysis text, SWOT points) is written in Chinese (except for domain-specific terminology).
     
     Return ONLY valid JSON with the following structure:
     {{
@@ -14,8 +14,7 @@ analyzer_agent:
       ],
       "swot_analysis": [
         {{"competitor": "Name", "strengths": ["..."], "weaknesses": ["..."], "opportunities": ["..."], "threats": ["..."]}}
-      ],
-      "executive_summary": "Overall summary..."
+      ]
     }}
   human_template: |
     Schema: {schema}

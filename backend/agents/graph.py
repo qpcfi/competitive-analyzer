@@ -5,6 +5,7 @@ from .orchestrator import orchestrator_node
 from .collector import collector_node
 from .analyzer import analyzer_node
 from .critic import critic_node
+from .reporter import reporter_node
 
 def human_review_node(state: AgentState):
     # Just mark the state as needing human review
@@ -30,6 +31,7 @@ workflow.add_node("orchestrator", orchestrator_node)
 workflow.add_node("collector", collector_node)
 workflow.add_node("analyzer", analyzer_node)
 workflow.add_node("critic", critic_node)
+workflow.add_node("reporter", reporter_node)
 workflow.add_node("human_review", human_review_node)
 
 workflow.add_edge(START, "discoverer")
@@ -43,8 +45,6 @@ def route_after_critic(state: AgentState) -> str:
     retry_counts = state.get("retry_counts", {})
     
     total_retries = sum(retry_counts.values()) if isinstance(retry_counts, dict) else 0
-    if total_retries >= 3:
-        return "human_review"
         
     for item in feedback:
         if not isinstance(item, dict):
@@ -57,15 +57,35 @@ def route_after_critic(state: AgentState) -> str:
         if action == "retry_analysis":
             return "analyzer"
 
+    return "reporter"
+
+def route_after_reporter(state: AgentState) -> str:
+    retry_counts = state.get("retry_counts", {})
+    total_retries = sum(retry_counts.values()) if isinstance(retry_counts, dict) else 0
+    if total_retries >= 3:
+        return "human_review"
     return END
 
-workflow.add_conditional_edges("critic", route_after_critic, {
-    "collector": "collector",
-    "orchestrator": "orchestrator",
-    "analyzer": "analyzer",
-    "human_review": "human_review",
-    END: END
-})
+workflow.add_conditional_edges(
+    "critic",
+    route_after_critic,
+    {
+        "collector": "collector",
+        "orchestrator": "orchestrator",
+        "analyzer": "analyzer",
+        "reporter": "reporter"
+    }
+)
+
+workflow.add_conditional_edges(
+    "reporter",
+    route_after_reporter,
+    {
+        "human_review": "human_review",
+        END: END
+    }
+)
+
 workflow.add_edge("human_review", END)
 
 # Note: The app compilation with the checkpointer will happen in main.py
