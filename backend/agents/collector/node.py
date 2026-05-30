@@ -33,8 +33,8 @@ ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 import asyncio
 from services.events import event_broker
-from .router import route_sources
-from .crawler import crawl_urls
+from ..shared.router import route_sources
+from ..shared.crawler import crawl_urls
 
 async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progress: ProgressCallback | None = None):
     context = state.get("task_context", {})

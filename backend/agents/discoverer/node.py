@@ -79,29 +79,51 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = (), callb
     
     if llm is not None and ChatPromptTemplate is not None:
         from services.web_search import search_public_web, fetch_public_web_pages
+        from ..shared.router import route_sources
+        from ..shared.crawler import crawl_urls
+        
         evidence_blocks = []
         snippets = []
+        
         try:
-            results = await search_public_web(f"{domain} top competitors alternatives", limit=5)
-            snippets = [r.snippet for r in results if r.snippet]
-            pages = await fetch_public_web_pages(results, limit=5)
-            for index, page in enumerate(pages, start=1):
-                excerpt = (page.text or page.snippet or "").strip()[:2500]
-                evidence_blocks.append(
-                    "\n".join(
-                        [
-                            f"Source {index}",
-                            f"URL: {page.url}",
-                            f"Search title: {page.search_title}",
-                            f"Page title: {page.page_title}",
-                            f"Search snippet: {page.snippet}",
+            # 1. Try to fetch from curated domain-level sources (e.g. ranking lists)
+            routed_sources = await route_sources(domain, "")
+            routed_urls = [src["url"] for src in routed_sources if "url" in src]
+            
+            if routed_urls:
+                cached_markdowns = await crawl_urls(routed_urls)
+                for index, (url, md) in enumerate(cached_markdowns.items(), start=1):
+                    excerpt = md.strip()[:6000] # Cap size to avoid context overflow
+                    evidence_blocks.append(
+                        "\n".join([
+                            f"Curated Source {index}",
+                            f"URL: {url}",
                             f"Page excerpt: {excerpt}",
-                        ]
+                        ])
                     )
-                )
+            
+            # 2. Fallback or augment with DuckDuckGo search if curated evidence is insufficient
+            if not evidence_blocks:
+                results = await search_public_web(f"{domain} top competitors alternatives", limit=5)
+                snippets = [r.snippet for r in results if r.snippet]
+                pages = await fetch_public_web_pages(results, limit=5)
+                for index, page in enumerate(pages, start=1):
+                    excerpt = (page.text or page.snippet or "").strip()[:2500]
+                    evidence_blocks.append(
+                        "\n".join(
+                            [
+                                f"Search Source {index}",
+                                f"URL: {page.url}",
+                                f"Search title: {page.search_title}",
+                                f"Page title: {page.page_title}",
+                                f"Search snippet: {page.snippet}",
+                                f"Page excerpt: {excerpt}",
+                            ]
+                        )
+                    )
         except Exception as e:
             import logging
-            logging.error(f"Search failed in recommend_competitors: {e}")
+            logging.error(f"Data gathering failed in recommend_competitors: {e}")
             
         evidence = "\n\n".join(evidence_blocks)
         

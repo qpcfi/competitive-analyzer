@@ -32,7 +32,7 @@ async def route_sources(domain: str, competitor: str) -> list[dict[str, Any]]:
         target_competitors = src.get("competitors")
         if target_competitors:
             # If target competitors are specified, the current competitor must match one of them
-            if any(competitor.lower() in target.lower() or target.lower() in competitor.lower() for target in target_competitors):
+            if competitor and any(competitor.lower() in target.lower() or target.lower() in competitor.lower() for target in target_competitors):
                 hard_filtered.append(src)
         else:
             # General domain source, applicable to any competitor
