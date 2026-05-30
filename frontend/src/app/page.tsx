@@ -177,24 +177,31 @@ export default function Home() {
   };
 
   const renderWorkspace = () => {
-    switch (currentView) {
-      case 'task-config':
-        return <TaskConsole onNext={(id) => { setTaskId(id); setCurrentView('schema'); }} />;
-      case 'dashboard':
-        return <InfoDashboard taskId={taskId} rawMaterials={rawMaterials} collectorLogs={collectorLogs} collectionProgress={collectionProgress} />;
-      case 'history':
-        return <HistoryView currentTaskId={taskId} onRestoreTask={restoreHistoricalTask} />;
-      case 'schema':
-        return <SchemaEditor taskId={taskId} schemaData={schemaData} competitors={competitors} onNext={() => setCurrentView('analysis')} onOpenDrawer={openDrawer} />;
-      case 'analysis':
-        return <CompetitorAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />;
-      case 'swot':
-        return <SWOTAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />;
-      case 'report':
-        return <StructuredReport taskId={taskId} analysisResults={analysisResults} />;
-      default:
-        return <TaskConsole onNext={(id) => { setTaskId(id); setCurrentView('schema'); }} />;
-    }
+    return (
+      <>
+        <div style={{ display: currentView === 'task-config' ? 'block' : 'none', height: '100%' }}>
+          <TaskConsole onNext={(id) => { setTaskId(id); setCurrentView('schema'); }} />
+        </div>
+        <div style={{ display: currentView === 'dashboard' ? 'block' : 'none', height: '100%' }}>
+          <InfoDashboard taskId={taskId} rawMaterials={rawMaterials} collectorLogs={collectorLogs} collectionProgress={collectionProgress} />
+        </div>
+        <div style={{ display: currentView === 'history' ? 'block' : 'none', height: '100%' }}>
+          <HistoryView currentTaskId={taskId} onRestoreTask={restoreHistoricalTask} />
+        </div>
+        <div style={{ display: currentView === 'schema' ? 'block' : 'none', height: '100%' }}>
+          <SchemaEditor taskId={taskId} schemaData={schemaData} competitors={competitors} onNext={() => setCurrentView('analysis')} onOpenDrawer={openDrawer} />
+        </div>
+        <div style={{ display: currentView === 'analysis' ? 'block' : 'none', height: '100%' }}>
+          <CompetitorAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />
+        </div>
+        <div style={{ display: currentView === 'swot' ? 'block' : 'none', height: '100%' }}>
+          <SWOTAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />
+        </div>
+        <div style={{ display: currentView === 'report' ? 'block' : 'none', height: '100%' }}>
+          <StructuredReport taskId={taskId} analysisResults={analysisResults} />
+        </div>
+      </>
+    );
   };
 
   return (
