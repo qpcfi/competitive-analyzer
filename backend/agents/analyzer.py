@@ -64,11 +64,12 @@ async def analyzer_node(state: AgentState):
                 for comp in result.get("discovered_competitors", []):
                     cell = next((c for c in llm_cells if isinstance(c, dict) and c.get("field_name") == row.get("dimension") and c.get("competitor") == comp), None)
                     if cell:
+                        old_cell = row["values"].get(comp, {})
                         row["values"][comp] = {
                             "value": cell.get("value", ""),
                             "status": "accepted" if cell.get("value") else "degraded",
-                            "evidence_refs": cell.get("evidence_refs", []) if isinstance(cell.get("evidence_refs"), list) else [],
-                            "degraded_reason": cell.get("degraded_reason", "")
+                            "evidence_refs": old_cell.get("evidence_refs", []),
+                            "degraded_reason": cell.get("degraded_reason", "") or old_cell.get("degraded_reason", "")
                         }
         llm_swot = parsed.get("swot_analysis", [])
         if isinstance(llm_swot, list) and llm_swot:
