@@ -41,7 +41,8 @@ async def discoverer_node(state: AgentState):
 
     if not user_competitors:
         callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
-        discovered_candidates = await recommend_competitors(domain, user_competitors, callbacks=callbacks)
+        discovered_candidates, market_context = await recommend_competitors(domain, user_competitors, callbacks=callbacks)
+        context["market_context"] = market_context
         discovered = [c.name for c in discovered_candidates]
         seed_competitors = merge_competitors(user_competitors, discovered)
         if len(seed_competitors) < 3:
@@ -73,7 +74,7 @@ def fallback_competitors(domain: str, count: int) -> list[str]:
     return [f"{base} {suffix}" for suffix in suffixes[: max(count, 0)]]
 
 
-async def recommend_competitors(domain: str, existing: Iterable[str] = (), callbacks=None) -> list[CompetitorCandidate]:
+async def recommend_competitors(domain: str, existing: Iterable[str] = (), callbacks=None) -> tuple[list[CompetitorCandidate], str]:
     existing_names = {name.lower() for name in normalize_competitor_names(existing)}
     candidates: list[CompetitorCandidate] = []
     
@@ -175,13 +176,13 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = (), callb
         filtered.append(candidate)
         
     if filtered:
-        return filtered[:5]
+        return filtered[:5], evidence
 
     return [
         CompetitorCandidate(name=name, reason="Generated fallback candidate from the analysis domain.", source_urls=[], confidence=0.2)
         for name in fallback_competitors(domain, 3)
         if name.lower() not in existing_names
-    ]
+    ], evidence
 
 def extract_json_array(content: str) -> str:
     start = content.find("[")

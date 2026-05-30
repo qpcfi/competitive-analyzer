@@ -65,7 +65,7 @@ async def generate_complete_plan(context: dict, task_id: str = None) -> tuple[li
     generated_competitors: list[str] = []
     if llm is not None and ChatPromptTemplate is not None:
         try:
-            prompt_path = os.path.join(os.path.dirname(__file__), "prompts_orchestrator.yaml")
+            prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
             with open(prompt_path, "r", encoding="utf-8") as f:
                 PROMPT_CONFIG = yaml.safe_load(f)
                 
@@ -81,7 +81,8 @@ async def generate_complete_plan(context: dict, task_id: str = None) -> tuple[li
             response = await chain.ainvoke({
                 "domain": domain,
                 "competitors": json.dumps(seed_competitors, ensure_ascii=False),
-                "user_schema": json.dumps(user_schema, ensure_ascii=False)
+                "user_schema": json.dumps(user_schema, ensure_ascii=False),
+                "market_context": context.get("market_context") or "No additional context."
             }, config=config)
             
             content = str(response.content)

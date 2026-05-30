@@ -31,3 +31,7 @@ orchestrator_agent:
       - User/current competitors: {competitors}
       - User/current knowledge schema: {user_schema}
 
+      Here is some recent market context and evaluation evidence we found regarding this domain:
+      {market_context}
+      
+      Please refer to the above industry evidence when formulating your professional comparison schema.
