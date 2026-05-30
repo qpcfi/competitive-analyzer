@@ -194,13 +194,13 @@ export default function Home() {
           <TaskConsole onNext={(id) => { setTaskId(id); setCurrentView('schema'); }} />
         </div>
         <div style={{ display: currentView === 'dashboard' ? 'block' : 'none', height: '100%' }}>
-          <InfoDashboard taskId={taskId} rawMaterials={rawMaterials} collectorLogs={collectorLogs} collectionProgress={collectionProgress} />
+          <InfoDashboard taskId={taskId} rawMaterials={rawMaterials} collectorLogs={collectorLogs} collectionProgress={collectionProgress} onNext={() => setCurrentView('analysis')} />
         </div>
         <div style={{ display: currentView === 'history' ? 'block' : 'none', height: '100%' }}>
           <HistoryView currentTaskId={taskId} onRestoreTask={restoreHistoricalTask} />
         </div>
         <div style={{ display: currentView === 'schema' ? 'block' : 'none', height: '100%' }}>
-          <SchemaEditor taskId={taskId} schemaData={schemaData} competitors={competitors} taskState={taskState} onNext={() => setCurrentView('analysis')} onOpenDrawer={openDrawer} />
+          <SchemaEditor taskId={taskId} schemaData={schemaData} competitors={competitors} taskState={taskState} onNext={() => setCurrentView('dashboard')} onOpenDrawer={openDrawer} />
         </div>
         <div style={{ display: currentView === 'analysis' ? 'block' : 'none', height: '100%' }}>
           <CompetitorAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />

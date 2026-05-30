@@ -13,9 +13,10 @@ interface InfoDashboardProps {
     total?: number;
     discovered_results?: number;
   } | null;
+  onNext?: () => void;
 }
 
-export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs = [], collectionProgress = null }: InfoDashboardProps) {
+export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs = [], collectionProgress = null, onNext }: InfoDashboardProps) {
   const { message } = App.useApp();
   const [loading, setLoading] = useState<string | null>(null);
   const accepted = rawMaterials.filter(item => item.validation_status === 'accepted').length;
@@ -37,6 +38,9 @@ export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs
       });
       if (!response.ok) throw new Error(await response.text());
       message.success('操作已提交');
+      if (action === 'force' && onNext) {
+        onNext();
+      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : '操作失败');
     } finally {
@@ -127,7 +131,9 @@ export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs
 
       <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', gap: 16 }}>
         <Button size="large" icon={<PauseCircleOutlined />} loading={loading === 'pause'} disabled={!taskId} onClick={() => postTaskAction('/pause', 'pause')}>暂停采集</Button>
-        <Button size="large" danger icon={<RightCircleOutlined />} loading={loading === 'force'} disabled={!taskId} onClick={() => postTaskAction('/force_next', 'force', { reason: '用户接受当前状态并强制进入下一节点' })}>强制进入下一节点</Button>
+        <Button size="large" type="primary" icon={<RightCircleOutlined />} loading={loading === 'force'} disabled={!taskId} onClick={() => postTaskAction('/force_next', 'force', { reason: '用户接受当前状态并强制进入下一节点' })}>
+          放行并进入深度分析
+        </Button>
       </div>
     </div>
   );
