@@ -243,6 +243,22 @@ export default function Home() {
         <div className="main-content-inner" style={{ flex: 1, overflow: 'auto' }}>
           {renderWorkspace()}
         </div>
+
+        {showDebug && currentView !== 'debug' && (
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div
+              onMouseDown={() => setIsResizing(true)}
+              style={{
+                height: '6px',
+                background: isResizing ? '#1677ff' : '#d9d9d9',
+                cursor: 'ns-resize',
+                transition: 'background 0.2s',
+                zIndex: 10
+              }}
+            />
+            <DebugPanel logs={debugLogs} tokenUsage={tokenUsage} height={debugHeight} taskId={taskId} />
+          </div>
+        )}
       </div>
       <RightDrawer
         isOpen={drawerConfig.isOpen}
