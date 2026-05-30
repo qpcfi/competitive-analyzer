@@ -119,6 +119,7 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
                 "total": total,
                 "discovered_results": discovered_results,
                 "degraded_reason": material.get("degraded_reason"),
+                "skill": skill_filter,
             }
             if on_progress:
                 if asyncio.iscoroutinefunction(on_progress):

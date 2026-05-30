@@ -115,11 +115,14 @@ export default function Home() {
       rememberSequence(payload);
       const data = payload.data || payload;
       setCollectorLogs(prev => [...prev.slice(-199), data]);
-      setCollectionProgress({
-        completed: data.completed || 0,
-        total: data.total || 0,
-        discovered_results: data.discovered_results || 0,
-      });
+      setCollectionProgress((prev: any) => ({
+        ...(prev || {}),
+        [data.skill || 'general']: {
+          completed: data.completed || 0,
+          total: data.total || 0,
+          discovered_results: data.discovered_results || 0,
+        }
+      }));
     });
 
     evtSource.addEventListener('analysis_progress', (e) => {
