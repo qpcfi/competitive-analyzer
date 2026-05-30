@@ -32,7 +32,7 @@ async def critic_node(state: AgentState):
         state["suggested_schema_extensions"] = build_deterministic_schema_extensions(schema, materials)
         return state
     
-    prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
+    prompt_path = os.path.join(os.path.dirname(__file__), "prompts_critic.yaml")
     try:
         with open(prompt_path, "r", encoding="utf-8") as f:
             PROMPT_CONFIG = yaml.safe_load(f)

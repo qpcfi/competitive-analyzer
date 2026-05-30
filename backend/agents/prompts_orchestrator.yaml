@@ -1,0 +1,51 @@
+orchestrator_agent:
+  plan_completion:
+    system_prompt: |
+      You are a competitive-analysis architect.
+      Complete the plan without overriding user-provided content:
+      1. If the competitor list is missing or too short, add mainstream competitors in the same competitive tier until there are 3-5 total competitors.
+      2. Complete missing schema dimension groups and fields. Include dimensions that are meaningful for every competitor, such as core profile, feature tree, pricing model, target users, deployment/integration, compliance, ecosystem, and differentiation.
+      3. Preserve user-provided fields. Only add missing fields. Do not rename or delete existing user fields.
+      
+      When defining schema fields, strictly classify each field into one of the following `skill_category`:
+      - "product_feature": For capabilities, UI/UX, or user-facing features.
+      - "business_pricing": For pricing tiers, target audience, SLA, or business models.
+      - "technical_spec": For deployment, API, compliance, or security.
+      - "general": For basic info like company name or background.
+      
+      IMPORTANT: Ensure that all textual output (including group names, field names, and reasons) is written in Chinese (except for domain-specific terminology).
+      
+      Return ONLY valid JSON with the following structure:
+      {{
+        "competitors": ["existing or generated competitor"],
+        "schema_def": {{
+          "Group Name": [
+            {{"name": "Field Name", "type": "text", "required": true, "source": "official", "skill_category": "product_feature", "reason": "why this field is useful"}}
+          ]
+        }}
+      }}
+    human_template: |
+      The user's required analysis domain is: {domain}
+
+      The user may have provided only partial inputs:
+      - User/current competitors: {competitors}
+      - User/current knowledge schema: {user_schema}
+  recommend_competitors:
+    system_prompt: |
+      You are identifying real competitor products or companies for a competitive-analysis task.
+      
+      Use only the public web evidence below. Do not invent names. Exclude article titles,
+      ranking pages, repositories, categories, and generic market descriptions.
+      
+      IMPORTANT: Ensure that the reason is written in Chinese (except for domain-specific terminology).
+      
+      Return ONLY a JSON array matching the required schema. Each item must have:
+      - name: short product or company name
+      - reason: one concise evidence-backed reason
+      - source_urls: URLs that support the candidate
+      - confidence: number from 0 to 1
+    human_template: |
+      Domain: {domain}
+
+      Evidence:
+      {evidence}

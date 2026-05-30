@@ -30,7 +30,7 @@ async def analyzer_node(state: AgentState):
         state["analysis_results"] = build_deterministic_analysis(state)
         return state
     
-    prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
+    prompt_path = os.path.join(os.path.dirname(__file__), "prompts_analyzer.yaml")
     try:
         with open(prompt_path, "r", encoding="utf-8") as f:
             PROMPT_CONFIG = yaml.safe_load(f)

@@ -126,7 +126,7 @@ async def build_material_from_pages(
     # Perform information extraction using LLM if available
     if llm is not None and excerpt and ChatPromptTemplate is not None:
         try:
-            prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
+            prompt_path = os.path.join(os.path.dirname(__file__), "prompts_collector.yaml")
             with open(prompt_path, "r", encoding="utf-8") as f:
                 PROMPT_CONFIG = yaml.safe_load(f)
                 
