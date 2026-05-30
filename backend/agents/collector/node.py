@@ -138,6 +138,20 @@ async def collector_product_feature_node(state: AgentState): return await run_co
 async def collector_business_pricing_node(state: AgentState): return await run_collector_for_skill(state, "business_pricing")
 async def collector_technical_spec_node(state: AgentState): return await run_collector_for_skill(state, "technical_spec")
 
+async def collector_node(state: AgentState, on_progress: ProgressCallback | None = None) -> AgentState:
+    """Fallback monolithic collector for pipeline.py sequential execution"""
+    all_materials = list(state.get("raw_materials") or [])
+    all_source_ids = list(state.get("source_ids") or [])
+    
+    for skill in ["general", "product_feature", "business_pricing", "technical_spec"]:
+        res = await run_collector_for_skill(state, skill, on_progress)
+        all_materials.extend(res.get("raw_materials", []))
+        all_source_ids.extend(res.get("source_ids", []))
+        
+    state["raw_materials"] = all_materials
+    state["source_ids"] = all_source_ids
+    return state
+
 
 def flatten_schema_fields(schema: dict[str, Any]) -> list[dict[str, Any]]:
     fields: list[dict[str, Any]] = []

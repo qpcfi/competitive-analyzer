@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 
-from agents.orchestrator import recommend_competitors
+from agents.discoverer.node import recommend_competitors
 
 router = APIRouter()
 
