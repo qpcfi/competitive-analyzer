@@ -157,11 +157,23 @@ export default function Home() {
       setTokenUsage(payload.data || payload);
     });
 
-    evtSource.addEventListener('task_completed', (e) => {
+    evtSource.addEventListener('task_completed', async (e) => {
       const data = JSON.parse(e.data);
       rememberSequence(data);
       setProgress(100);
       message.success('分析任务全部完成');
+      if (taskId) {
+        try {
+          const resp = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}`);
+          if (resp.ok) {
+            const taskData = await resp.json();
+            setTaskState(taskData.state);
+            setAnalysisResults(taskData.analysis_results || null);
+          }
+        } catch (err) {
+          console.error('Failed to fetch final task state', err);
+        }
+      }
     });
 
     evtSource.addEventListener('module_updated', (e) => {

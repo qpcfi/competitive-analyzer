@@ -289,12 +289,14 @@ async def process_agent_pipeline(task_id: str):
             return
             
         state = await reporter_node(state)
+        await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": state.get("analysis_results") or {}})
         
         feedback = state.get("critic_feedback") or []
         async with async_session() as session:
             task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
+            task.analysis_results = state.get("analysis_results") or {}
             task.critic_feedback = feedback
-            task.final_report = (task.analysis_results or {}).get("report", {})
+            task.final_report = task.analysis_results.get("report", {})
             task.completed_at = datetime.utcnow()
             await save_quality_feedback(session, task_id, feedback)
             await session.commit()
