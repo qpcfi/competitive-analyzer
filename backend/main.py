@@ -1,3 +1,7 @@
+import sys
+if sys.platform == 'win32':
+    import asyncio
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 import os
 import asyncio
 
@@ -118,7 +122,7 @@ async def get_competitor_recommendations(
         items.append(
             {
                 "name": normalized_name,
-                "reason": f"基于公开网页信号，{normalized_name} 与 {normalized_domain} 存在竞品相关性。",
+                "reason": f"基于公开网页信号，{normalized_name} �?{normalized_domain} 存在竞品相关性�?,
             }
         )
     return {"items": items}
@@ -186,3 +190,4 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
