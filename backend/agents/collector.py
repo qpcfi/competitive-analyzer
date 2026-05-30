@@ -60,22 +60,28 @@ async def collector_node(state: AgentState, on_progress: ProgressCallback | None
             
             results.append(material)
             completed += 1
+            payload = {
+                "query": query,
+                "url": material.get("source_url") or "",
+                "competitor": competitor,
+                "schema_field_id": field.get("id"),
+                "schema_field_name": field.get("name") or field.get("id"),
+                "status": material.get("validation_status"),
+                "access_status": material.get("access_status"),
+                "completed": completed,
+                "total": total,
+                "discovered_results": discovered_results,
+                "degraded_reason": material.get("degraded_reason"),
+            }
             if on_progress:
-                await on_progress(
-                    {
-                        "query": query,
-                        "url": material.get("source_url") or "",
-                        "competitor": competitor,
-                        "schema_field_id": field.get("id"),
-                        "schema_field_name": field.get("name") or field.get("id"),
-                        "status": material.get("validation_status"),
-                        "access_status": material.get("access_status"),
-                        "completed": completed,
-                        "total": total,
-                        "discovered_results": discovered_results,
-                        "degraded_reason": material.get("degraded_reason"),
-                    }
-                )
+                import asyncio
+                if asyncio.iscoroutinefunction(on_progress):
+                    await on_progress(payload)
+                else:
+                    on_progress(payload)
+            else:
+                from services.events import event_broker
+                await event_broker.publish(task_id, "collector_log", payload)
 
     state["raw_materials"] = results
     state["source_ids"] = [item["id"] for item in results]
