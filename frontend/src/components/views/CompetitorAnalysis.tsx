@@ -55,6 +55,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
     const baseRows = rows.map(row => ({ ...row, key: row.key || row.dimension_id }));
     if (!mainProduct) {
       const swotRow: ComparisonRow = {
+        key: 'swot-fallback',
         dimension_id: 'swot-fallback',
         dimension: 'SWOT 分析',
         values: {}
