@@ -129,15 +129,15 @@ export default function Home() {
     });
 
     evtSource.addEventListener('debug_log', (e) => {
-      const data = JSON.parse(e.data);
-      rememberSequence(data);
-      setDebugLogs(prev => [...prev, data]);
+      const payload = JSON.parse(e.data);
+      rememberSequence(payload);
+      setDebugLogs(prev => [...prev, payload.data || payload]);
     });
 
     evtSource.addEventListener('token_update', (e) => {
-      const data = JSON.parse(e.data);
-      rememberSequence(data);
-      setTokenUsage(data);
+      const payload = JSON.parse(e.data);
+      rememberSequence(payload);
+      setTokenUsage(payload.data || payload);
     });
 
     evtSource.addEventListener('task_completed', (e) => {

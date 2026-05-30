@@ -21,6 +21,7 @@ load_dotenv()
 
 from .state import AgentState
 from .schemas import PlanCompletionResult, CompetitorRecommendationResult
+from core.callbacks import RealtimeDebugCallbackHandler
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -42,7 +43,8 @@ class CompetitorCandidate:
 
 async def orchestrator_node(state: AgentState):
     context = state.get("task_context", {})
-    competitors, schema = await generate_complete_plan(context)
+    task_id = state.get("task_id")
+    competitors, schema = await generate_complete_plan(context, task_id)
     context["competitors"] = competitors
     state["task_context"] = context
 
@@ -52,14 +54,15 @@ async def orchestrator_node(state: AgentState):
     return state
 
 
-async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
+async def generate_complete_plan(context: dict, task_id: str = None) -> tuple[list[str], dict]:
     domain = str(context.get("domain") or "").strip()
     user_competitors = normalize_competitor_names(context.get("competitors", []))
     user_schema = build_user_schema_from_context(context)
 
     seed_competitors = list(user_competitors)
     if not user_competitors:
-        discovered_candidates = await recommend_competitors(domain, user_competitors)
+        callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
+        discovered_candidates = await recommend_competitors(domain, user_competitors, callbacks=callbacks)
         discovered = [c.name for c in discovered_candidates]
         seed_competitors = merge_competitors(user_competitors, discovered)
 
@@ -78,7 +81,7 @@ async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
             
             chain = prompt_template | llm
             
-            callbacks = context.get("callbacks") if isinstance(context, dict) else None
+            callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
             config = {"callbacks": callbacks} if callbacks else None
             response = await chain.ainvoke({
                 "domain": domain,
@@ -183,7 +186,7 @@ def fallback_competitors(domain: str, count: int) -> list[str]:
     return [f"{base} {suffix}" for suffix in suffixes[: max(count, 0)]]
 
 
-async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> list[CompetitorCandidate]:
+async def recommend_competitors(domain: str, existing: Iterable[str] = (), callbacks=None) -> list[CompetitorCandidate]:
     existing_names = {name.lower() for name in normalize_competitor_names(existing)}
     candidates: list[CompetitorCandidate] = []
     
@@ -227,11 +230,11 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = ()) -> li
             
             chain = prompt_template | llm
             
-            # No callbacks passed to recommend_competitors yet, can leave it or pass if we add context argument
+            config = {"callbacks": callbacks} if callbacks else None
             res = await chain.ainvoke({
                 "domain": domain,
                 "evidence": evidence
-            })
+            }, config=config)
             
             parsed = json.loads(extract_json_array(str(res.content)))
             parsed_candidates = parsed if isinstance(parsed, list) else []

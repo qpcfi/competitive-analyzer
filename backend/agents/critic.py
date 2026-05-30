@@ -12,6 +12,7 @@ except ImportError:
     ChatPromptTemplate = None
 from .state import AgentState
 from .schemas import CriticResult
+from core.callbacks import RealtimeDebugCallbackHandler
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -48,7 +49,8 @@ async def critic_node(state: AgentState):
     chain = prompt_template | llm
     
     try:
-        callbacks = state.get("task_context", {}).get("callbacks")
+        task_id = state.get("task_id")
+        callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
         config = {"callbacks": callbacks} if callbacks else None
         response = await chain.ainvoke({
             "schema": json.dumps(schema, ensure_ascii=False),

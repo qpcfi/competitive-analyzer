@@ -17,6 +17,7 @@ except ImportError:
 
 import yaml
 from .state import AgentState
+from core.callbacks import RealtimeDebugCallbackHandler
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
 base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
@@ -53,7 +54,7 @@ async def collector_node(state: AgentState, on_progress: ProgressCallback | None
                 # Fetch actual web pages for deeper scraping
                 pages = await fetch_public_web_pages(search_results, limit=2)
                 
-                callbacks = context.get("callbacks") if isinstance(context, dict) else None
+                callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
                 material = await build_material_from_pages(task_id, competitor, field, query, pages, callbacks=callbacks)
             except Exception as exc:
                 material = build_degraded_material(task_id, competitor, field, query, f"{exc.__class__.__name__}:{exc}")
