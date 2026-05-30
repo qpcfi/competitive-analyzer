@@ -12,9 +12,17 @@ analyzer_agent:
       "comparison_rows": [
         {{"dimension_group": "Group", "field_name": "Field", "competitor": "Name", "value": "Extracted text", "confidence": 0.9, "evidence_refs": ["id1"], "degraded_reason": ""}}
       ],
-      "swot_analysis": [
-        {{"competitor": "Name", "strengths": ["..."], "weaknesses": ["..."], "opportunities": ["..."], "threats": ["..."]}}
-      ]
+      "swot_analysis": {
+        "competitor": "Name of the SINGLE target competitor (use main_product if any, else the first competitor)",
+        "strengths": ["..."],
+        "weaknesses": ["..."],
+        "opportunities": ["..."],
+        "threats": ["..."],
+        "so_strategies": ["SO strategies (Strengths x Opportunities)..."],
+        "wo_strategies": ["WO strategies (Weaknesses x Opportunities)..."],
+        "st_strategies": ["ST strategies (Strengths x Threats)..."],
+        "wt_strategies": ["WT strategies (Weaknesses x Threats)..."]
+      }
     }}
   human_template: |
     Schema: {schema}

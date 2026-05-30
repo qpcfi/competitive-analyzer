@@ -30,6 +30,11 @@ class SwotAnalysis(BaseModel):
     weaknesses: List[SwotItem]
     opportunities: List[SwotItem]
     threats: List[SwotItem]
+    so_strategies: List[SwotItem] = []
+    wo_strategies: List[SwotItem] = []
+    st_strategies: List[SwotItem] = []
+    wt_strategies: List[SwotItem] = []
+    competitor: str = ""
 
 class Finding(BaseModel):
     title: str

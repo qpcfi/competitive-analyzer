@@ -71,18 +71,19 @@ async def analyzer_node(state: AgentState):
                             "evidence_refs": old_cell.get("evidence_refs", []),
                             "degraded_reason": cell.get("degraded_reason", "") or old_cell.get("degraded_reason", "")
                         }
-        llm_swot = parsed.get("swot_analysis", [])
-        if isinstance(llm_swot, list) and llm_swot:
-            swot = {"strengths": [], "weaknesses": [], "opportunities": [], "threats": []}
-            for comp_swot in llm_swot:
-                if isinstance(comp_swot, dict):
-                    comp = comp_swot.get("competitor", "General")
-                    for quad in swot.keys():
-                        items = comp_swot.get(quad, [])
-                        if isinstance(items, list):
-                            for item in items:
-                                if isinstance(item, str) and item.strip():
-                                    swot[quad].append({"text": f"[{comp}] {item.strip()}", "evidence_refs": []})
+        llm_swot = parsed.get("swot_analysis", {})
+        if isinstance(llm_swot, dict) and llm_swot:
+            swot = {
+                "competitor": llm_swot.get("competitor", "Target Competitor"),
+                "strengths": [{"text": t, "evidence_refs": []} for t in llm_swot.get("strengths", []) if t],
+                "weaknesses": [{"text": t, "evidence_refs": []} for t in llm_swot.get("weaknesses", []) if t],
+                "opportunities": [{"text": t, "evidence_refs": []} for t in llm_swot.get("opportunities", []) if t],
+                "threats": [{"text": t, "evidence_refs": []} for t in llm_swot.get("threats", []) if t],
+                "so_strategies": [{"text": t, "evidence_refs": []} for t in llm_swot.get("so_strategies", []) if t],
+                "wo_strategies": [{"text": t, "evidence_refs": []} for t in llm_swot.get("wo_strategies", []) if t],
+                "st_strategies": [{"text": t, "evidence_refs": []} for t in llm_swot.get("st_strategies", []) if t],
+                "wt_strategies": [{"text": t, "evidence_refs": []} for t in llm_swot.get("wt_strategies", []) if t],
+            }
             result["swot"] = swot
         if "executive_summary" in parsed and isinstance(parsed.get("executive_summary"), str):
             if "report" not in result:
@@ -134,10 +135,15 @@ def build_deterministic_analysis(state: AgentState) -> dict:
         "comparison_rows": comparison_rows,
         "comparison": legacy_comparison,
         "swot": {
+            "competitor": competitors[0] if competitors else "Unknown",
             "strengths": [{"text": "Public information is available for comparison.", "evidence_refs": evidence_refs[:2]}],
             "weaknesses": [{"text": "Some fields may require manual verification.", "evidence_refs": evidence_refs[:2]}],
             "opportunities": [{"text": "Use verified sources to refine positioning.", "evidence_refs": evidence_refs[:2]}],
             "threats": [{"text": "Source gaps can reduce confidence.", "evidence_refs": evidence_refs[:2]}],
+            "so_strategies": [{"text": "Leverage public info to improve positioning.", "evidence_refs": []}],
+            "wo_strategies": [{"text": "Verify sources to capture opportunities.", "evidence_refs": []}],
+            "st_strategies": [{"text": "Use public info to mitigate gaps.", "evidence_refs": []}],
+            "wt_strategies": [{"text": "Verify fields to prevent source gaps.", "evidence_refs": []}],
         },
         "report": {
             "summary": "Analysis generated from collected public source materials.",
