@@ -20,14 +20,14 @@ analyzer_agent:
       ],
       "swot_analysis": {{
         "competitor": "Name of the SINGLE target competitor (use main_product if any, else the first competitor)",
-        "strengths": ["..."],
-        "weaknesses": ["..."],
-        "opportunities": ["..."],
-        "threats": ["..."],
-        "so_strategies": ["SO strategies (Strengths x Opportunities)..."],
-        "wo_strategies": ["WO strategies (Weaknesses x Opportunities)..."],
-        "st_strategies": ["ST strategies (Strengths x Threats)..."],
-        "wt_strategies": ["WT strategies (Weaknesses x Threats)..."]
+        "strengths": [{"text": "...", "evidence_refs": ["id1"]}],
+        "weaknesses": [{"text": "...", "evidence_refs": ["id1"]}],
+        "opportunities": [{"text": "...", "evidence_refs": ["id1"]}],
+        "threats": [{"text": "...", "evidence_refs": ["id1"]}],
+        "so_strategies": [{"text": "SO strategies (Strengths x Opportunities)...", "evidence_refs": ["id1"]}],
+        "wo_strategies": [{"text": "WO strategies (Weaknesses x Opportunities)...", "evidence_refs": ["id1"]}],
+        "st_strategies": [{"text": "ST strategies (Strengths x Threats)...", "evidence_refs": ["id1"]}],
+        "wt_strategies": [{"text": "WT strategies (Weaknesses x Threats)...", "evidence_refs": ["id1"]}]
       }}
     }}
   human_template: |

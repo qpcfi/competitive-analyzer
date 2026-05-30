@@ -38,18 +38,36 @@ export default function SWOTAnalysis({ taskId, analysisResults, mainProduct, onO
       <div style={{ padding: '8px 0' }}>
         {title && <div style={{ color, fontWeight: 'bold', marginBottom: 8 }}>{title}</div>}
         {items.map((item, index) => {
-          const text = typeof item === 'string' ? item : item?.text;
+          let text = typeof item === 'string' ? item : item?.text;
+          if (typeof text === 'string') {
+            text = text.replace(/[（\(](证据|Evidence)[:：][^）)]*[）\)]/ig, '').trim();
+          }
           const evidenceId = Array.isArray(item?.evidence_refs) ? item.evidence_refs[0] : undefined;
           return (
             <div key={index} style={{ background: '#f5f7fa', padding: '8px', borderRadius: '4px', marginBottom: '8px', borderLeft: `3px solid ${color}`, fontSize: '13px' }}>
               <div style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
-                <ReactMarkdown>{text || '信息缺失'}</ReactMarkdown>
+                <ReactMarkdown
+                  components={{
+                    p: ({ node, ...props }) => (
+                      <span {...props} style={{ display: 'inline' }}>
+                        {props.children}
+                        {evidenceId && (
+                          <sup style={{ marginLeft: 4 }}>
+                            <a onClick={(e) => { e.preventDefault(); onOpenDrawer('source', { sourceId: evidenceId }); }} style={{ cursor: 'pointer', color: '#1677ff' }}>[1]</a>
+                          </sup>
+                        )}
+                      </span>
+                    )
+                  }}
+                >
+                  {text || '信息缺失'}
+                </ReactMarkdown>
+                {!text && evidenceId && (
+                  <sup style={{ marginLeft: 4 }}>
+                    <a onClick={(e) => { e.preventDefault(); onOpenDrawer('source', { sourceId: evidenceId }); }} style={{ cursor: 'pointer', color: '#1677ff' }}>[1]</a>
+                  </sup>
+                )}
               </div>
-              {evidenceId && (
-                <div style={{ marginTop: 4, textAlign: 'right' }}>
-                  <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => onOpenDrawer('source', { sourceId: evidenceId })} style={{ padding: 0, fontSize: '12px' }}>溯源</Button>
-                </div>
-              )}
             </div>
           );
         })}
