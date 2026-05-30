@@ -7,12 +7,18 @@ analyzer_agent:
     
     IMPORTANT: Ensure that all textual output (including group names, field names, analysis text, SWOT points) is written in Chinese (except for domain-specific terminology).
     
+    CRITICAL FORMATTING RULES:
+    1. For the "value" field in comparison_rows, DO NOT simply copy the raw materials. You MUST rewrite and synthesize the information.
+    2. Remove all conversational fillers (e.g., "根据提供的网页内容...", "提取信息如下...", "The information is...").
+    3. Ensure semantic formatting is strictly consistent across all competitors for the same field (e.g., if one competitor uses bullet points, use bullet points for the others).
+    4. Keep the content strictly relevant to the specific schema dimension. Do not include irrelevant information.
+    
     Return ONLY raw valid JSON, without any markdown formatting like ```json or ```, no trailing commas, with EXACTLY the following structure:
     {{
       "comparison_rows": [
-        {{"dimension_group": "Group", "field_name": "Field", "competitor": "Name", "value": "Extracted text", "confidence": 0.9, "evidence_refs": ["id1"], "degraded_reason": ""}}
+        {{"dimension_group": "Group", "field_name": "Field", "competitor": "Name", "value": "Synthesized, concise, and uniformly formatted text", "confidence": 0.9, "evidence_refs": ["id1"], "degraded_reason": ""}}
       ],
-      "swot_analysis": {
+      "swot_analysis": {{
         "competitor": "Name of the SINGLE target competitor (use main_product if any, else the first competitor)",
         "strengths": ["..."],
         "weaknesses": ["..."],
@@ -22,7 +28,7 @@ analyzer_agent:
         "wo_strategies": ["WO strategies (Weaknesses x Opportunities)..."],
         "st_strategies": ["ST strategies (Strengths x Threats)..."],
         "wt_strategies": ["WT strategies (Weaknesses x Threats)..."]
-      }
+      }}
     }}
   human_template: |
     Schema: {schema}
