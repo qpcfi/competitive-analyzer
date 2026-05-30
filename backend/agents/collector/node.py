@@ -51,8 +51,11 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
     task_id = state.get("task_id", "task")
     
     agent_name = f"Collector ({skill_filter})"
-    if schema_fields:
-        await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "start", "message": f"Started collecting {skill_filter} dimensions..."})
+    await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "start", "message": f"Started collecting {skill_filter} dimensions..."})
+
+    if not schema_fields:
+        await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "end", "message": f"Skipped {skill_filter} dimensions (no fields).", "latency": 0.1})
+        return {"raw_materials": [], "source_ids": []}
 
     results: list[dict[str, Any]] = []
     total = len(competitors) * len(schema_fields)
@@ -125,8 +128,7 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
             else:
                 await event_broker.publish(task_id, "collector_log", payload)
 
-    if schema_fields:
-        await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "end", "message": f"Completed collecting {skill_filter} dimensions.", "latency": 1.5})
+    await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "end", "message": f"Completed collecting {skill_filter} dimensions.", "latency": 1.5})
 
     return {
         "raw_materials": results,
@@ -139,12 +141,19 @@ async def collector_business_pricing_node(state: AgentState): return await run_c
 async def collector_technical_spec_node(state: AgentState): return await run_collector_for_skill(state, "technical_spec")
 
 async def collector_node(state: AgentState, on_progress: ProgressCallback | None = None) -> AgentState:
-    """Fallback monolithic collector for pipeline.py sequential execution"""
+    """Fallback monolithic collector for pipeline.py execution, now running skills in PARALLEL"""
     all_materials = list(state.get("raw_materials") or [])
     all_source_ids = list(state.get("source_ids") or [])
     
-    for skill in ["general", "product_feature", "business_pricing", "technical_spec"]:
-        res = await run_collector_for_skill(state, skill, on_progress)
+    import asyncio
+    skills = ["general", "product_feature", "business_pricing", "technical_spec"]
+    
+    results = await asyncio.gather(*[
+        run_collector_for_skill(state, skill, on_progress)
+        for skill in skills
+    ])
+    
+    for res in results:
         all_materials.extend(res.get("raw_materials", []))
         all_source_ids.extend(res.get("source_ids", []))
         
