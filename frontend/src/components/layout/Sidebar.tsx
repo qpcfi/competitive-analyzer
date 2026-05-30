@@ -21,7 +21,7 @@ interface SidebarProps {
   taskState?: string;
 }
 
-export default function Sidebar({ currentView, onChangeView, collapsed, onToggleCollapse, taskState }: SidebarProps) {
+export default function Sidebar({ currentView, onChangeView, collapsed, onToggleCollapse, taskState, showDebug }: SidebarProps & { showDebug?: boolean }) {
   const items = [
     {
       key: '1',
@@ -29,8 +29,6 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
       label: '任务控制台',
       children: [
         { key: 'task-config', label: '1.1 新建/配置任务' },
-        { key: 'dashboard', label: '1.2 信息采集看板' },
-        { key: 'history', label: '1.3 执行历史与快照' },
       ],
     },
     {
@@ -41,6 +39,11 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
           竞品知识框架 {taskState === 'SCHEMA_REVIEW' && <Badge count="待审核" style={{ backgroundColor: '#faad14', marginLeft: 8 }} />}
         </span>
       ),
+    },
+    {
+      key: 'dashboard',
+      icon: <AppstoreAddOutlined />,
+      label: '信息采集看板',
     },
     {
       key: 'analysis',
@@ -63,10 +66,15 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
       ],
     },
     {
+      key: 'history',
+      icon: <FileTextOutlined />,
+      label: '执行历史与快照',
+    },
+    ...(showDebug ? [{
       key: 'debug',
       icon: <BugOutlined />,
       label: '调试与可观测性',
-    },
+    }] : []),
   ];
 
   const handleMenuClick = (e: { key: string }) => {
@@ -75,7 +83,7 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
       targetView = 'report';
     }
     if (e.key === 'debug') {
-      targetView = 'dashboard';
+      targetView = 'debug';
     }
     onChangeView(targetView);
   };

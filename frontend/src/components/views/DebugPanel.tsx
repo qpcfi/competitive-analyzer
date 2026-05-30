@@ -25,9 +25,10 @@ interface DebugPanelProps {
   logs: DebugLog[];
   tokenUsage: TokenUsage | null;
   height: number;
+  taskId?: string | null;
 }
 
-export default function DebugPanel({ logs, tokenUsage, height }: DebugPanelProps) {
+export default function DebugPanel({ logs, tokenUsage, height, taskId }: DebugPanelProps) {
   const percent = tokenUsage ? Math.round((tokenUsage.total_used / tokenUsage.budget) * 100) : 0;
   
   // Find current running agent node and latency
@@ -50,7 +51,21 @@ export default function DebugPanel({ logs, tokenUsage, height }: DebugPanelProps
 
   return (
     <div style={{ height: `${height}px`, borderTop: '1px solid #ccc', background: '#fafafa', overflow: 'auto', padding: '16px' }}>
-      <Title level={5}>调试与可观测性面板 (Debug & Observability)</Title>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Title level={4} style={{ margin: 0 }}>调试与可观测性面板 (Debug & Observability)</Title>
+        <Space>
+          <a href="https://smith.langchain.com/" target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '4px 12px', background: '#fff', border: '1px solid #d9d9d9', borderRadius: 4, color: 'inherit', textDecoration: 'none' }}>
+            🦜🔗 LangSmith Trace 追踪
+          </a>
+          <a 
+            href={taskId ? `http://localhost:8000/api/v1/tasks/${taskId}` : '#'} 
+            target={taskId ? "_blank" : "_self"}
+            style={{ display: 'inline-block', padding: '4px 12px', background: '#1677ff', border: '1px solid #1677ff', borderRadius: 4, color: '#fff', textDecoration: 'none', opacity: taskId ? 1 : 0.5 }}
+          >
+            下载 State Graph 快照
+          </a>
+        </Space>
+      </div>
       
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <Card size="small" title="Token 消耗仪表盘" style={{ flex: '1 1 300px' }}>

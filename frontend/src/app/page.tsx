@@ -211,6 +211,9 @@ export default function Home() {
         <div style={{ display: currentView === 'report' ? 'block' : 'none', height: '100%' }}>
           <StructuredReport taskId={taskId} analysisResults={analysisResults} />
         </div>
+        <div style={{ display: currentView === 'debug' && showDebug ? 'block' : 'none', height: '100%' }}>
+          <DebugPanel logs={debugLogs} tokenUsage={tokenUsage} height={800} taskId={taskId} />
+        </div>
       </>
     );
   };
@@ -223,6 +226,7 @@ export default function Home() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         taskState={taskState}
+        showDebug={showDebug}
       />
       <div className="main-workspace" style={{ display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px 24px', background: '#fff', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -239,22 +243,6 @@ export default function Home() {
         <div className="main-content-inner" style={{ flex: 1, overflow: 'auto' }}>
           {renderWorkspace()}
         </div>
-
-        {showDebug && (
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div
-              onMouseDown={() => setIsResizing(true)}
-              style={{
-                height: '6px',
-                background: isResizing ? '#1677ff' : '#d9d9d9',
-                cursor: 'ns-resize',
-                transition: 'background 0.2s',
-                zIndex: 10
-              }}
-            />
-            <DebugPanel logs={debugLogs} tokenUsage={tokenUsage} height={debugHeight} />
-          </div>
-        )}
       </div>
       <RightDrawer
         isOpen={drawerConfig.isOpen}
