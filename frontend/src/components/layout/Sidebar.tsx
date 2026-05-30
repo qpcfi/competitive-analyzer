@@ -88,7 +88,7 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
   return (
     <div className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
       <div style={{ padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #f0f0f0' }}>
-        {!collapsed && <Title level={4} style={{ margin: 0, color: '#1677ff', whiteSpace: 'nowrap' }}>Agent 分析平台</Title>}
+        {!collapsed && <Title level={4} style={{ margin: 0, color: '#1677ff', whiteSpace: 'normal', }}>AI 驱动的竞品分析 Agent 协作系统</Title>}
         <div style={{ cursor: 'pointer', padding: '4px' }} onClick={onToggleCollapse}>
           {collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
         </div>

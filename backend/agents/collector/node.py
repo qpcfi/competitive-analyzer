@@ -31,19 +31,31 @@ llm = (
 ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
-async def collector_node(state: AgentState, on_progress: ProgressCallback | None = None):
+import asyncio
+from services.events import event_broker
+
+async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progress: ProgressCallback | None = None):
     context = state.get("task_context", {})
     competitors = [str(item) for item in context.get("competitors", []) if str(item).strip()]
     schema_fields = flatten_schema_fields(state.get("dynamic_schema", {}))
+    
+    # Filter fields for this specific collector skill
+    schema_fields = [f for f in schema_fields if (f.get("skill_category") or "general") == skill_filter]
+    
     scope_field_ids = {str(item) for item in context.get("collection_scope_field_ids", []) if str(item).strip()}
     if scope_field_ids:
         schema_fields = [field for field in schema_fields if str(field.get("id")) in scope_field_ids]
     task_id = state.get("task_id", "task")
+    
+    agent_name = f"Collector ({skill_filter})"
+    if schema_fields:
+        await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "start", "message": f"Started collecting {skill_filter} dimensions..."})
 
     results: list[dict[str, Any]] = []
     total = len(competitors) * len(schema_fields)
     completed = 0
     discovered_results = 0
+    
     for competitor in competitors:
         for field in schema_fields:
             query = build_collection_query(competitor, field)
@@ -75,18 +87,25 @@ async def collector_node(state: AgentState, on_progress: ProgressCallback | None
                 "degraded_reason": material.get("degraded_reason"),
             }
             if on_progress:
-                import asyncio
                 if asyncio.iscoroutinefunction(on_progress):
                     await on_progress(payload)
                 else:
                     on_progress(payload)
             else:
-                from services.events import event_broker
                 await event_broker.publish(task_id, "collector_log", payload)
 
-    state["raw_materials"] = results
-    state["source_ids"] = [item["id"] for item in results]
-    return state
+    if schema_fields:
+        await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "end", "message": f"Completed collecting {skill_filter} dimensions.", "latency": 1.5})
+
+    return {
+        "raw_materials": results,
+        "source_ids": [item["id"] for item in results]
+    }
+
+async def collector_general_node(state: AgentState): return await run_collector_for_skill(state, "general")
+async def collector_product_feature_node(state: AgentState): return await run_collector_for_skill(state, "product_feature")
+async def collector_business_pricing_node(state: AgentState): return await run_collector_for_skill(state, "business_pricing")
+async def collector_technical_spec_node(state: AgentState): return await run_collector_for_skill(state, "technical_spec")
 
 
 def flatten_schema_fields(schema: dict[str, Any]) -> list[dict[str, Any]]:

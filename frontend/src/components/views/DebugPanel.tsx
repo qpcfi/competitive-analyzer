@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Card, Typography, Progress, Collapse, Tag, Space } from 'antd';
 import { ClockCircleOutlined, CodeOutlined, SyncOutlined } from '@ant-design/icons';
+import AgentGraph from './AgentGraph';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -101,6 +102,11 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId }: DebugPa
             </div>
           ) : <Text type="secondary">等待 Agent 启动...</Text>}
         </Card>
+      </div>
+
+      <Title level={5} style={{ marginTop: 16 }}>Agent 协作拓扑图与实时状态</Title>
+      <div style={{ marginBottom: '16px' }}>
+        <AgentGraph logs={logs} />
       </div>
 
       <Title level={5} style={{ marginTop: 16 }}>执行日志与 Raw Data</Title>

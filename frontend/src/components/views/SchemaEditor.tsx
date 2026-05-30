@@ -183,9 +183,9 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
           <Text>预计采集复杂度：<Tag color="orange">中等</Tag></Text>
         </Space>
         <Space>
-          <Button danger loading={loading} disabled={!taskId || (taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleReject}>拒绝并重新生成</Button>
-          <Button loading={loading} disabled={!taskId || !hasSchema || (taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleSaveDraft}>保存为草稿</Button>
-          <Button type="primary" loading={loading} disabled={!taskId || !hasSchema || (taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleSaveAndContinue}>保存并继续(放行) →</Button>
+          <Button danger loading={loading} disabled={!taskId || Boolean(taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleReject}>拒绝并重新生成</Button>
+          <Button loading={loading} disabled={!taskId || !hasSchema || Boolean(taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleSaveDraft}>保存为草稿</Button>
+          <Button type="primary" loading={loading} disabled={!taskId || !hasSchema || Boolean(taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleSaveAndContinue}>保存并继续(放行) →</Button>
         </Space>
       </div>
     </div>

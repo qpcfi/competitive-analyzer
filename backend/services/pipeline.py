@@ -135,14 +135,13 @@ async def process_graph_events(task_id: str, graph, initial_state, config):
                     )
                     await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_REVIEW", "progress": 30})
 
-                elif node_name == "collector":
+                elif node_name.startswith("collector_"):
                     materials = state.get("raw_materials") or []
                     async with async_session() as session:
                         await save_source_materials(session, task_id, materials)
                         task = await update_task_state(session, task_id, state="COLLECTING", progress=60)
                         task.raw_materials = materials
                         await session.commit()
-                    await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Data collection completed."})
                     await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
                     await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
                     await publish_event(task_id, "raw_materials_updated", {"data": materials, "source_stats": source_stats(materials)})
