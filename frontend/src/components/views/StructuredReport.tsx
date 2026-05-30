@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Typography, Divider, Button, Space, Tag, App } from 'antd';
 import { FilePdfOutlined, FileMarkdownOutlined, CodeOutlined, ShareAltOutlined } from '@ant-design/icons';
+import ReactMarkdown from 'react-markdown';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -101,7 +102,9 @@ export default function StructuredReport({ taskId, analysisResults }: Structured
         <Title level={3}>一、核心结论与战略建议</Title>
         <Divider />
         <Title level={4}>执行摘要</Title>
-        <Paragraph>{renderableText(report.summary, '等待后端完成分析后生成执行摘要。')}</Paragraph>
+        <div style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 16 }}>
+          <ReactMarkdown>{renderableText(report.summary, '等待后端完成分析后生成执行摘要。')}</ReactMarkdown>
+        </div>
         <Title level={4} style={{ marginTop: 24 }}>关键发现</Title>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {findings.length ? findings.map((item: any, index: number) => (
@@ -117,7 +120,9 @@ export default function StructuredReport({ taskId, analysisResults }: Structured
         <div style={{ display: 'flex', gap: 16 }}>
           {recommendationItems.map((item: RecommendationItem, index: number) => (
             <Card key={index} title={index === 0 ? '短期' : index === 1 ? '中期' : '长期'} size="small" style={{ flex: 1, background: '#f6ffed', borderColor: '#b7eb8f' }}>
-              <Paragraph style={{ marginBottom: item.evidenceRefs.length ? 8 : 0 }}>{item.text}</Paragraph>
+              <div style={{ fontSize: 14, lineHeight: 1.5, marginBottom: item.evidenceRefs.length ? 8 : 0 }}>
+                <ReactMarkdown>{item.text}</ReactMarkdown>
+              </div>
               {item.evidenceRefs.length ? (
                 <Text type="secondary">证据引用: {item.evidenceRefs.join('、')}</Text>
               ) : null}

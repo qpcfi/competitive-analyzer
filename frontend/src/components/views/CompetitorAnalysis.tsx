@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Empty, Table, Radio, Card, Button, Space, Typography, Tag } from 'antd';
 import { LinkOutlined, RetweetOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import ReactMarkdown from 'react-markdown';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -34,9 +35,10 @@ interface CompetitorAnalysisProps {
   } | null;
   mainProduct?: string | null;
   onOpenDrawer: (type: string, data?: any) => void;
+  onNavigateToSwot?: (competitor: string) => void;
 }
 
-export default function CompetitorAnalysis({ taskId, analysisResults, mainProduct, onOpenDrawer }: CompetitorAnalysisProps) {
+export default function CompetitorAnalysis({ taskId, analysisResults, mainProduct, onOpenDrawer, onNavigateToSwot }: CompetitorAnalysisProps) {
   const [viewMode, setViewMode] = useState<'tile' | 'focus'>('tile');
   const competitors = useMemo(() => analysisResults?.discovered_competitors || [], [analysisResults?.discovered_competitors]);
   const rows = useMemo(() => analysisResults?.comparison_rows || [], [analysisResults?.comparison_rows]);
@@ -55,6 +57,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
     const baseRows = rows.map(row => ({ ...row, key: row.key || row.dimension_id }));
     if (!mainProduct) {
       const swotRow: ComparisonRow = {
+        key: 'swot-fallback',
         dimension_id: 'swot-fallback',
         dimension: 'SWOT 分析',
         values: {}
@@ -69,7 +72,9 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
     const evidenceId = data.evidence_refs?.[0];
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <Text>{data.value || '信息缺失'}</Text>
+        <div style={{ fontSize: 14, lineHeight: 1.5 }}>
+          <ReactMarkdown>{data.value || '信息缺失'}</ReactMarkdown>
+        </div>
         <Space size="small">
           <Button
             type="text"
@@ -106,7 +111,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
       width: 260,
       render: (_: unknown, record: ComparisonRow) => {
         if (record.dimension_id === 'swot-fallback') {
-          return <Button type="primary" onClick={() => onOpenDrawer('swot-generate', { competitor })}>生成对于这个产品的SWOT分析</Button>;
+          return <Button type="primary" onClick={() => onNavigateToSwot?.(competitor)}>生成对于这个产品的SWOT分析</Button>;
         }
         return renderCell(record.values?.[competitor]);
       },
@@ -190,7 +195,9 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
               const evidenceId = cell?.evidence_refs?.[0];
               return (
                 <Card title={row.dimension} id={row.dimension_id.replace(/[^a-zA-Z0-9_-]/g, '-')} key={row.dimension_id}>
-                  <Paragraph>{cell?.value || '信息缺失'}</Paragraph>
+                  <div style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 16 }}>
+                    <ReactMarkdown>{cell?.value || '信息缺失'}</ReactMarkdown>
+                  </div>
                   <Space>
                     <Button type="link" size="small" icon={<LinkOutlined />} disabled={!evidenceId} onClick={() => onOpenDrawer('source', { sourceId: evidenceId })}>溯源</Button>
                     <Button size="small" onClick={() => onOpenDrawer('re-run', { moduleId: row.dimension_id, competitor: focusItem })}>局部重跑</Button>

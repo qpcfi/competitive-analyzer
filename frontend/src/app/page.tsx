@@ -115,11 +115,14 @@ export default function Home() {
       rememberSequence(payload);
       const data = payload.data || payload;
       setCollectorLogs(prev => [...prev.slice(-199), data]);
-      setCollectionProgress({
-        completed: data.completed || 0,
-        total: data.total || 0,
-        discovered_results: data.discovered_results || 0,
-      });
+      setCollectionProgress((prev: any) => ({
+        ...(prev || {}),
+        [data.skill || 'general']: {
+          completed: data.completed || 0,
+          total: data.total || 0,
+          discovered_results: data.discovered_results || 0,
+        }
+      }));
     });
 
     evtSource.addEventListener('analysis_progress', (e) => {
@@ -154,11 +157,23 @@ export default function Home() {
       setTokenUsage(payload.data || payload);
     });
 
-    evtSource.addEventListener('task_completed', (e) => {
+    evtSource.addEventListener('task_completed', async (e) => {
       const data = JSON.parse(e.data);
       rememberSequence(data);
       setProgress(100);
       message.success('分析任务全部完成');
+      if (taskId) {
+        try {
+          const resp = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}`);
+          if (resp.ok) {
+            const taskData = await resp.json();
+            setTaskState(taskData.state);
+            setAnalysisResults(taskData.analysis_results || null);
+          }
+        } catch (err) {
+          console.error('Failed to fetch final task state', err);
+        }
+      }
     });
 
     evtSource.addEventListener('module_updated', (e) => {
@@ -218,10 +233,25 @@ export default function Home() {
           <SchemaEditor taskId={taskId} schemaData={schemaData} competitors={competitors} taskState={taskState} onNext={() => setCurrentView('dashboard')} onOpenDrawer={openDrawer} />
         </div>
         <div style={{ display: currentView === 'analysis' ? 'block' : 'none', height: '100%' }}>
-          <CompetitorAnalysis taskId={taskId} analysisResults={analysisResults} mainProduct={mainProduct} onOpenDrawer={openDrawer} />
+          <CompetitorAnalysis 
+            taskId={taskId} 
+            analysisResults={analysisResults} 
+            mainProduct={mainProduct} 
+            onOpenDrawer={openDrawer} 
+            onNavigateToSwot={(competitor) => {
+              setMainProduct(competitor);
+              setCurrentView('swot');
+            }}
+          />
         </div>
         <div style={{ display: currentView === 'swot' ? 'block' : 'none', height: '100%' }}>
-          <SWOTAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />
+          <SWOTAnalysis 
+            taskId={taskId} 
+            analysisResults={analysisResults} 
+            mainProduct={mainProduct}
+            onOpenDrawer={openDrawer} 
+            onChangeView={setCurrentView}
+          />
         </div>
         <div style={{ display: currentView === 'report' ? 'block' : 'none', height: '100%' }}>
           <StructuredReport taskId={taskId} analysisResults={analysisResults} />

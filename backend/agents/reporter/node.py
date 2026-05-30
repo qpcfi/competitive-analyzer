@@ -51,8 +51,16 @@ async def reporter_node(state: AgentState):
         }, config=config)
         
         content = str(response.content)
+        import re
+        content = re.sub(r'```json\s*', '', content)
+        content = re.sub(r'```\s*', '', content)
         match = re.search(r"\{.*\}", content, re.DOTALL)
-        parsed = json.loads(match.group(0) if match else content)
+        clean_content = match.group(0) if match else content
+        try:
+            parsed = json.loads(clean_content)
+        except json.JSONDecodeError:
+            clean_content = re.sub(r',\s*([\]}])', r'\1', clean_content)
+            parsed = json.loads(clean_content)
         
         if "report" not in analysis_results:
             analysis_results["report"] = {}

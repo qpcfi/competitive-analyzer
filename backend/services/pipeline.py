@@ -54,8 +54,15 @@ def make_initial_state(req: TaskCreateRequest, task_id: str, schema_version: int
 
 async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], *, continue_after_schema: bool = False):
     try:
+        from agents.discoverer.node import discoverer_node
+        
+        await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Starting competitor discovery and market context gathering."})
+        state = await discoverer_node(initial_state)
+        await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Competitors discovered and market context loaded."})
+        await publish_event(task_id, "progress_update", {"progress": 15, "stage": "DISCOVERING"})
+        
         await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Completing competitors and schema from domain inputs."})
-        state = await orchestrator_node(initial_state)
+        state = await orchestrator_node(state)
         schema_json = state.get("dynamic_schema") or {}
         discovered_competitors = (state.get("task_context") or {}).get("competitors") or []
         async with async_session() as session:
@@ -280,11 +287,16 @@ async def process_agent_pipeline(task_id: str):
         state, calibration_outcome = await run_schema_calibration(task_id, state)
         if calibration_outcome == "waiting_for_user":
             return
+            
+        state = await reporter_node(state)
+        await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": state.get("analysis_results") or {}})
+        
         feedback = state.get("critic_feedback") or []
         async with async_session() as session:
             task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
+            task.analysis_results = state.get("analysis_results") or {}
             task.critic_feedback = feedback
-            task.final_report = (task.analysis_results or {}).get("report", {})
+            task.final_report = task.analysis_results.get("report", {})
             task.completed_at = datetime.utcnow()
             await save_quality_feedback(session, task_id, feedback)
             await session.commit()

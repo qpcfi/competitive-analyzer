@@ -23,8 +23,18 @@ export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs
   const degraded = rawMaterials.filter(item => item.validation_status === 'degraded').length;
   const blocked = rawMaterials.filter(item => ['blocked', 'failed'].includes(item.access_status)).length;
   const progress = rawMaterials.length ? Math.round((accepted / rawMaterials.length) * 100) : 0;
-  const collectionTotal = collectionProgress?.total || rawMaterials.length || 0;
-  const collectionCompleted = collectionProgress?.completed || rawMaterials.length || 0;
+  const progressMap = collectionProgress || {};
+  let globalCompleted = 0;
+  let globalTotal = 0;
+  let globalDiscovered = 0;
+  Object.values(progressMap).forEach((p: any) => {
+    globalCompleted += p.completed || 0;
+    globalTotal += p.total || 0;
+    globalDiscovered += p.discovered_results || 0;
+  });
+
+  const collectionTotal = globalTotal || rawMaterials.length || 0;
+  const collectionCompleted = globalCompleted || rawMaterials.length || 0;
   const collectionPercent = collectionTotal ? Math.round((collectionCompleted / collectionTotal) * 100) : 0;
 
   const postTaskAction = async (path: string, action: string, body?: any) => {
@@ -94,7 +104,7 @@ export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                 <Text>采集进度</Text>
                 <Text>
-                  已检索到 {collectionProgress?.discovered_results || 0} 个真实搜索结果，
+                  已检索到 {globalDiscovered} 个真实搜索结果，
                   信息搜集 {collectionCompleted}/{collectionTotal}
                 </Text>
               </div>

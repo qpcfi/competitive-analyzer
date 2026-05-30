@@ -1,11 +1,15 @@
 import os
+import sys
+if sys.platform == 'win32':
+    import asyncio
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 import asyncio
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from agents.graph import workflow
-from agents.orchestrator import recommend_competitors
+from agents.discoverer.node import recommend_competitors
 from api.routers import discovery, feedback, recovery, reports, schema, sources, tasks
 from api.routers.discovery import get_competitor_recommendations
 from api.routers.feedback import record_feedback, save_note
@@ -74,10 +78,10 @@ async def on_startup():
         runtime.checkpointer.setup()
 
         runtime.app_auto = workflow.compile(checkpointer=runtime.checkpointer)
-        runtime.app_step = workflow.compile(checkpointer=runtime.checkpointer, interrupt_before=["collector", "analyzer", "critic"])
+        runtime.app_step = workflow.compile(checkpointer=runtime.checkpointer, interrupt_before=["collector_general", "collector_product_feature", "collector_business_pricing", "collector_technical_spec", "analyzer", "critic"])
     else:
         runtime.app_auto = workflow.compile()
-        runtime.app_step = workflow.compile(interrupt_before=["collector", "analyzer", "critic"])
+        runtime.app_step = workflow.compile(interrupt_before=["collector_general", "collector_product_feature", "collector_business_pricing", "collector_technical_spec", "analyzer", "critic"])
 
     app_auto = runtime.app_auto
     app_step = runtime.app_step
@@ -108,7 +112,8 @@ async def get_competitor_recommendations(
     existing_names = {item.strip().lower() for item in existing if item.strip()}
     items = []
     seen = set(existing_names)
-    for candidate in await recommend_competitors(normalized_domain, existing):
+    candidates, _ = await recommend_competitors(normalized_domain, existing)
+    for candidate in candidates:
         normalized_name = str(candidate.name).strip()
         lowered = normalized_name.lower()
         if not normalized_name or lowered in seen:

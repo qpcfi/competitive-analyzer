@@ -1,18 +1,36 @@
 import React from 'react';
 import { Card, Typography, Space, Button, Alert, Empty, Table } from 'antd';
 import { ReloadOutlined, ExportOutlined, LinkOutlined, LikeOutlined } from '@ant-design/icons';
+import ReactMarkdown from 'react-markdown';
 
 const { Title, Text, Paragraph } = Typography;
 
 interface SWOTAnalysisProps {
   taskId?: string | null;
   analysisResults?: any;
+  mainProduct?: string | null;
   onOpenDrawer: (type: string, data?: any) => void;
+  onChangeView?: (view: string) => void;
 }
 
-export default function SWOTAnalysis({ taskId, analysisResults, onOpenDrawer }: SWOTAnalysisProps) {
+export default function SWOTAnalysis({ taskId, analysisResults, mainProduct, onOpenDrawer, onChangeView }: SWOTAnalysisProps) {
   const swot = analysisResults?.swot;
   const hasSwot = !!swot && Object.values(swot).some((items: any) => Array.isArray(items) && items.length > 0);
+
+  if (!mainProduct) {
+    return (
+      <Card>
+        <Empty
+          description={
+            <span>
+              没有指定SWOT分析主体。<br />
+              请先去<Button type="link" onClick={() => onChangeView?.('analysis')} style={{ padding: 0 }}>竞品深度分析</Button>选择SWOT分析主体。
+            </span>
+          }
+        />
+      </Card>
+    );
+  }
 
   const SwotItemList = ({ items, title, color }: { items: any[], title?: string, color: string }) => {
     if (!items || items.length === 0) return <Text type="secondary">暂无数据</Text>;
@@ -20,16 +38,36 @@ export default function SWOTAnalysis({ taskId, analysisResults, onOpenDrawer }: 
       <div style={{ padding: '8px 0' }}>
         {title && <div style={{ color, fontWeight: 'bold', marginBottom: 8 }}>{title}</div>}
         {items.map((item, index) => {
-          const text = typeof item === 'string' ? item : item?.text;
+          let text = typeof item === 'string' ? item : item?.text;
+          if (typeof text === 'string') {
+            text = text.replace(/[（\(](证据|Evidence)[:：][^）)]*[）\)]/ig, '').trim();
+          }
           const evidenceId = Array.isArray(item?.evidence_refs) ? item.evidence_refs[0] : undefined;
           return (
             <div key={index} style={{ background: '#f5f7fa', padding: '8px', borderRadius: '4px', marginBottom: '8px', borderLeft: `3px solid ${color}`, fontSize: '13px' }}>
-              <Paragraph style={{ margin: 0 }}>{text || '信息缺失'}</Paragraph>
-              {evidenceId && (
-                <div style={{ marginTop: 4, textAlign: 'right' }}>
-                  <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => onOpenDrawer('source', { sourceId: evidenceId })} style={{ padding: 0, fontSize: '12px' }}>溯源</Button>
-                </div>
-              )}
+              <div style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
+                <ReactMarkdown
+                  components={{
+                    p: ({ node, ...props }) => (
+                      <span {...props} style={{ display: 'inline' }}>
+                        {props.children}
+                        {evidenceId && (
+                          <sup style={{ marginLeft: 4 }}>
+                            <a onClick={(e) => { e.preventDefault(); onOpenDrawer('source', { sourceId: evidenceId }); }} style={{ cursor: 'pointer', color: '#1677ff' }}>[1]</a>
+                          </sup>
+                        )}
+                      </span>
+                    )
+                  }}
+                >
+                  {text || '信息缺失'}
+                </ReactMarkdown>
+                {!text && evidenceId && (
+                  <sup style={{ marginLeft: 4 }}>
+                    <a onClick={(e) => { e.preventDefault(); onOpenDrawer('source', { sourceId: evidenceId }); }} style={{ cursor: 'pointer', color: '#1677ff' }}>[1]</a>
+                  </sup>
+                )}
+              </div>
             </div>
           );
         })}

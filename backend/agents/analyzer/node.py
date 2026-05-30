@@ -55,8 +55,17 @@ async def analyzer_node(state: AgentState):
         }, config=config)
         
         content = str(response.content)
+        import re
+        content = re.sub(r'```json\s*', '', content)
+        content = re.sub(r'```\s*', '', content)
         match = re.search(r"\{.*\}", content, re.DOTALL)
-        parsed = json.loads(match.group(0) if match else content)
+        clean_content = match.group(0) if match else content
+        try:
+            parsed = json.loads(clean_content)
+        except json.JSONDecodeError:
+            clean_content = re.sub(r',\s*([\]}])', r'\1', clean_content)
+            parsed = json.loads(clean_content)
+            
         result = build_deterministic_analysis(state)
         llm_cells = parsed.get("comparison_rows", [])
         if isinstance(llm_cells, list):
@@ -73,16 +82,20 @@ async def analyzer_node(state: AgentState):
                         }
         llm_swot = parsed.get("swot_analysis", {})
         if isinstance(llm_swot, dict) and llm_swot:
+            def parse_swot_item(t):
+                if isinstance(t, dict):
+                    return {"text": t.get("text", ""), "evidence_refs": t.get("evidence_refs", [])}
+                return {"text": str(t), "evidence_refs": []}
             swot = {
                 "competitor": llm_swot.get("competitor", "Target Competitor"),
-                "strengths": [{"text": t, "evidence_refs": []} for t in llm_swot.get("strengths", []) if t],
-                "weaknesses": [{"text": t, "evidence_refs": []} for t in llm_swot.get("weaknesses", []) if t],
-                "opportunities": [{"text": t, "evidence_refs": []} for t in llm_swot.get("opportunities", []) if t],
-                "threats": [{"text": t, "evidence_refs": []} for t in llm_swot.get("threats", []) if t],
-                "so_strategies": [{"text": t, "evidence_refs": []} for t in llm_swot.get("so_strategies", []) if t],
-                "wo_strategies": [{"text": t, "evidence_refs": []} for t in llm_swot.get("wo_strategies", []) if t],
-                "st_strategies": [{"text": t, "evidence_refs": []} for t in llm_swot.get("st_strategies", []) if t],
-                "wt_strategies": [{"text": t, "evidence_refs": []} for t in llm_swot.get("wt_strategies", []) if t],
+                "strengths": [parse_swot_item(t) for t in llm_swot.get("strengths", []) if t],
+                "weaknesses": [parse_swot_item(t) for t in llm_swot.get("weaknesses", []) if t],
+                "opportunities": [parse_swot_item(t) for t in llm_swot.get("opportunities", []) if t],
+                "threats": [parse_swot_item(t) for t in llm_swot.get("threats", []) if t],
+                "so_strategies": [parse_swot_item(t) for t in llm_swot.get("so_strategies", []) if t],
+                "wo_strategies": [parse_swot_item(t) for t in llm_swot.get("wo_strategies", []) if t],
+                "st_strategies": [parse_swot_item(t) for t in llm_swot.get("st_strategies", []) if t],
+                "wt_strategies": [parse_swot_item(t) for t in llm_swot.get("wt_strategies", []) if t],
             }
             result["swot"] = swot
         if "executive_summary" in parsed and isinstance(parsed.get("executive_summary"), str):
