@@ -102,14 +102,21 @@ async def process_graph_events(task_id: str, graph, initial_state, config):
     try:
         async for event in graph.astream(initial_state, config, stream_mode="updates"):
             for node_name, state in event.items():
-                if node_name == "orchestrator":
-                    schema_json = state.get("dynamic_schema") or {}
-                    schema_version = state.get("schema_version", 1)
+                if node_name == "discoverer":
                     discovered_competitors = (state.get("task_context") or {}).get("competitors") or []
                     async with async_session() as session:
                         task = await get_task(session, task_id)
                         if task and discovered_competitors:
                             task.competitors = discovered_competitors
+                            await session.commit()
+                    await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Competitors discovered successfully."})
+                    await publish_event(task_id, "progress_update", {"progress": 15, "stage": "DISCOVERING"})
+                    await publish_event(task_id, "task_state_changed", {"state": "DISCOVERING", "progress": 15})
+
+                elif node_name == "orchestrator":
+                    schema_json = state.get("dynamic_schema") or {}
+                    schema_version = state.get("schema_version", 1)
+                    async with async_session() as session:
                         await save_schema(session, task_id, schema_json, created_by="agent", status="active")
                         await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
                         await session.commit()
@@ -122,7 +129,7 @@ async def process_graph_events(task_id: str, graph, initial_state, config):
                         {
                             "dynamic_schema": schema_json,
                             "schema_version": schema_version,
-                            "competitors": discovered_competitors,
+                            "competitors": (state.get("task_context") or {}).get("competitors") or [],
                             "stats": count_schema_stats(schema_json)
                         },
                     )

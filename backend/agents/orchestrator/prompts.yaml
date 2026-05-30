@@ -30,22 +30,4 @@ orchestrator_agent:
       The user may have provided only partial inputs:
       - User/current competitors: {competitors}
       - User/current knowledge schema: {user_schema}
-  recommend_competitors:
-    system_prompt: |
-      You are identifying real competitor products or companies for a competitive-analysis task.
-      
-      Use only the public web evidence below. Do not invent names. Exclude article titles,
-      ranking pages, repositories, categories, and generic market descriptions.
-      
-      IMPORTANT: Ensure that the reason is written in Chinese (except for domain-specific terminology).
-      
-      Return ONLY a JSON array matching the required schema. Each item must have:
-      - name: short product or company name
-      - reason: one concise evidence-backed reason
-      - source_urls: URLs that support the candidate
-      - confidence: number from 0 to 1
-    human_template: |
-      Domain: {domain}
 
-      Evidence:
-      {evidence}

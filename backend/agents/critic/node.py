@@ -10,8 +10,8 @@ except ImportError:
     ChatOpenAI = None
     HumanMessage = None
     ChatPromptTemplate = None
-from .state import AgentState
-from .schemas import CriticResult
+from ..state import AgentState
+from ..schemas import CriticResult
 from core.callbacks import RealtimeDebugCallbackHandler
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
@@ -32,7 +32,7 @@ async def critic_node(state: AgentState):
         state["suggested_schema_extensions"] = build_deterministic_schema_extensions(schema, materials)
         return state
     
-    prompt_path = os.path.join(os.path.dirname(__file__), "prompts_critic.yaml")
+    prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
     try:
         with open(prompt_path, "r", encoding="utf-8") as f:
             PROMPT_CONFIG = yaml.safe_load(f)

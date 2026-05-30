@@ -19,8 +19,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-from .state import AgentState
-from .schemas import PlanCompletionResult, CompetitorRecommendationResult
+from ..state import AgentState
+from ..schemas import PlanCompletionResult, CompetitorRecommendationResult
 from core.callbacks import RealtimeDebugCallbackHandler
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
@@ -60,11 +60,6 @@ async def generate_complete_plan(context: dict, task_id: str = None) -> tuple[li
     user_schema = build_user_schema_from_context(context)
 
     seed_competitors = list(user_competitors)
-    if not user_competitors:
-        callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
-        discovered_candidates = await recommend_competitors(domain, user_competitors, callbacks=callbacks)
-        discovered = [c.name for c in discovered_candidates]
-        seed_competitors = merge_competitors(user_competitors, discovered)
 
     generated_schema: dict = {}
     generated_competitors: list[str] = []
@@ -100,12 +95,7 @@ async def generate_complete_plan(context: dict, task_id: str = None) -> tuple[li
             logging.error(f"Error in generate_complete_plan: {e}")
             generated_schema = {}
 
-    if user_competitors:
-        competitors = user_competitors
-    else:
-        competitors = merge_competitors(user_competitors, generated_competitors, seed_competitors)[:5]
-        if len(competitors) < 3:
-            competitors = merge_competitors(competitors, fallback_competitors(domain, 3 - len(competitors)))
+    competitors = seed_competitors[:5]
 
     schema = merge_schema_preserving_user(user_schema, generated_schema or build_schema_from_context({**context, "competitors": competitors}))
     return competitors, schema
@@ -178,109 +168,6 @@ def merge_schema_preserving_user(user_schema: dict, generated_schema: dict) -> d
 
 def field_key(field: dict) -> str:
     return str(field.get("name") or field.get("id") or "").strip().lower()
-
-
-def fallback_competitors(domain: str, count: int) -> list[str]:
-    base = domain or "Market"
-    suffixes = ["Leader", "Challenger", "Specialist", "Enterprise", "Cloud"]
-    return [f"{base} {suffix}" for suffix in suffixes[: max(count, 0)]]
-
-
-async def recommend_competitors(domain: str, existing: Iterable[str] = (), callbacks=None) -> list[CompetitorCandidate]:
-    existing_names = {name.lower() for name in normalize_competitor_names(existing)}
-    candidates: list[CompetitorCandidate] = []
-    
-    if llm is not None and ChatPromptTemplate is not None:
-        from services.web_search import search_public_web, fetch_public_web_pages
-        evidence_blocks = []
-        snippets = []
-        try:
-            results = await search_public_web(f"{domain} top competitors alternatives", limit=5)
-            snippets = [r.snippet for r in results if r.snippet]
-            pages = await fetch_public_web_pages(results, limit=5)
-            for index, page in enumerate(pages, start=1):
-                excerpt = (page.text or page.snippet or "").strip()[:2500]
-                evidence_blocks.append(
-                    "\n".join(
-                        [
-                            f"Source {index}",
-                            f"URL: {page.url}",
-                            f"Search title: {page.search_title}",
-                            f"Page title: {page.page_title}",
-                            f"Search snippet: {page.snippet}",
-                            f"Page excerpt: {excerpt}",
-                        ]
-                    )
-                )
-        except Exception as e:
-            import logging
-            logging.error(f"Search failed in recommend_competitors: {e}")
-            
-        evidence = "\n\n".join(evidence_blocks)
-        
-        try:
-            prompt_path = os.path.join(os.path.dirname(__file__), "prompts_orchestrator.yaml")
-            with open(prompt_path, "r", encoding="utf-8") as f:
-                PROMPT_CONFIG = yaml.safe_load(f)
-
-            prompt_template = ChatPromptTemplate.from_messages([
-                ("system", PROMPT_CONFIG["orchestrator_agent"]["recommend_competitors"]["system_prompt"]),
-                ("human", PROMPT_CONFIG["orchestrator_agent"]["recommend_competitors"]["human_template"])
-            ])
-            
-            chain = prompt_template | llm
-            
-            config = {"callbacks": callbacks} if callbacks else None
-            res = await chain.ainvoke({
-                "domain": domain,
-                "evidence": evidence
-            }, config=config)
-            
-            parsed = json.loads(extract_json_array(str(res.content)))
-            parsed_candidates = parsed if isinstance(parsed, list) else []
-            for item in parsed_candidates:
-                names = normalize_competitor_names([item.get("name", "")])
-                if not names:
-                    continue
-                name = names[0]
-                candidates.append(
-                    CompetitorCandidate(
-                        name=name,
-                        reason=str(item.get("reason") or "").strip(),
-                        source_urls=[str(url).strip() for url in item.get("source_urls", []) if str(url).strip()],
-                        confidence=float(item.get("confidence") or 0.0),
-                    )
-                )
-        except Exception as e:
-            import logging
-            logging.error(f"LLM extraction failed in recommend_competitors: {e}")
-            raise RuntimeError(f"大模型在提取竞品时发生异常: {e}\n(证据片段或网络可能存在问题，或者大模型未能按照指定格式输出。)") from e
-
-    filtered: list[CompetitorCandidate] = []
-    seen = set(existing_names)
-    for candidate in candidates:
-        lowered = candidate.name.lower()
-        if lowered in seen:
-            continue
-        seen.add(lowered)
-        filtered.append(candidate)
-        
-    if filtered:
-        return filtered[:5]
-
-    return [
-        CompetitorCandidate(name=name, reason="Generated fallback candidate from the analysis domain.", source_urls=[], confidence=0.2)
-        for name in fallback_competitors(domain, 3)
-        if name.lower() not in existing_names
-    ]
-
-
-def extract_json_array(content: str) -> str:
-    start = content.find("[")
-    end = content.rfind("]")
-    if start >= 0 and end > start:
-        return content[start : end + 1]
-    return content
 
 
 def normalize_competitor_names(values: Iterable[object]) -> list[str]:
