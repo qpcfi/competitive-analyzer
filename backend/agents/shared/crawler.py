@@ -1,37 +1,75 @@
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
+from collections import OrderedDict
 from typing import Optional
+
+class BlackboardCache:
+    """
+    In-memory LRU Cache for the Blackboard pattern.
+    Default max_size=2000 is enough to hold 2000 web pages (approx 40MB),
+    preventing both memory leaks and redundant Crawl4ai calls.
+    """
+    def __init__(self, max_size: int = 2000):
+        self.cache: OrderedDict[str, str] = OrderedDict()
+        self.max_size = max_size
+        
+    def get(self, key: str) -> str | None:
+        if key in self.cache:
+            self.cache.move_to_end(key)
+            return self.cache[key]
+        return None
+        
+    def set(self, key: str, value: str):
+        if key in self.cache:
+            self.cache.move_to_end(key)
+        self.cache[key] = value
+        if len(self.cache) > self.max_size:
+            self.cache.popitem(last=False)
+
+# Singleton global cache
+_GLOBAL_CACHE = BlackboardCache()
 
 async def crawl_urls(urls: list[str]) -> dict[str, str]:
     """
     Crawls a list of URLs and returns a dictionary mapping the URL to its Markdown content.
-    Uses Crawl4ai for asynchronous, LLM-friendly extraction.
+    Uses Blackboard pattern: checks global memory cache first, and falls back to Crawl4ai if missing.
+    This safely supports Graph checkpoint resumes (it will naturally re-crawl if RAM was wiped).
     """
     if not urls:
         return {}
 
-    browser_config = BrowserConfig(
-        headless=True,
-        verbose=False,
-    )
-    
-    run_config = CrawlerRunConfig(
-        cache_mode=CacheMode.BYPASS, # To ensure we get fresh data, but BYPASS can be slow. Since we cache in memory per task run, BYPASS is fine here.
-        word_count_threshold=10,
-        exclude_external_links=True,
-        remove_overlay_elements=True,
-    )
-
     results = {}
-    async with AsyncWebCrawler(config=browser_config) as crawler:
-        # Crawl concurrently
-        # However, for simplicity and stability, we'll await them sequentially or use a simple gather
-        # crawl4ai arun supports sequential directly in a loop
-        for url in urls:
-            try:
-                result = await crawler.arun(url=url, config=run_config)
-                if result.success and result.markdown:
-                    results[url] = result.markdown
-            except Exception as e:
-                print(f"Failed to crawl {url}: {e}")
+    urls_to_crawl = []
+
+    # 1. Blackboard Check: Fast Memory Access
+    for url in urls:
+        cached_md = _GLOBAL_CACHE.get(url)
+        if cached_md:
+            results[url] = cached_md
+        else:
+            urls_to_crawl.append(url)
+
+    # 2. Fallback: Crawl missing URLs
+    if urls_to_crawl:
+        browser_config = BrowserConfig(
+            headless=True,
+            verbose=False,
+        )
+        
+        run_config = CrawlerRunConfig(
+            cache_mode=CacheMode.BYPASS, # Blackboard handles the cache
+            word_count_threshold=10,
+            exclude_external_links=True,
+            remove_overlay_elements=True,
+        )
+
+        async with AsyncWebCrawler(config=browser_config) as crawler:
+            for url in urls_to_crawl:
+                try:
+                    result = await crawler.arun(url=url, config=run_config)
+                    if result.success and result.markdown:
+                        _GLOBAL_CACHE.set(url, result.markdown)
+                        results[url] = result.markdown
+                except Exception as e:
+                    print(f"Failed to crawl {url}: {e}")
                 
     return results
