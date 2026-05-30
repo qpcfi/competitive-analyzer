@@ -173,7 +173,7 @@ async def build_material_from_pages(
             return None
         return build_degraded_material(task_id, competitor, field, query, "no_search_evidence_found")
 
-    excerpt = (accepted.text or accepted.snippet or "").strip()[:8000] # Increased to 8000 for Crawl4ai Markdown
+    excerpt = (accepted.text or accepted.snippet or "").strip()[:12000] # Increased to 12000 for Crawl4ai Markdown
     extracted_value = excerpt
     is_not_found = False
 
