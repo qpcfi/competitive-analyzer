@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Empty, Table, Radio, Card, Button, Space, Typography, Tag } from 'antd';
 import { LinkOutlined, RetweetOutlined, CheckCircleOutlined, ExclamationCircleOutlined, SettingOutlined } from '@ant-design/icons';
+import ReactMarkdown from 'react-markdown';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -70,7 +71,9 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
     const evidenceId = data.evidence_refs?.[0];
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-        <Text>{data.value || '信息缺失'}</Text>
+        <div style={{ fontSize: 14, lineHeight: 1.5 }}>
+          <ReactMarkdown>{data.value || '信息缺失'}</ReactMarkdown>
+        </div>
         <Space size="small">
           <Button
             type="text"
@@ -191,7 +194,9 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
               const evidenceId = cell?.evidence_refs?.[0];
               return (
                 <Card title={row.dimension} id={row.dimension_id.replace(/[^a-zA-Z0-9_-]/g, '-')} key={row.dimension_id}>
-                  <Paragraph>{cell?.value || '信息缺失'}</Paragraph>
+                  <div style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 16 }}>
+                    <ReactMarkdown>{cell?.value || '信息缺失'}</ReactMarkdown>
+                  </div>
                   <Space>
                     <Button type="link" size="small" icon={<LinkOutlined />} disabled={!evidenceId} onClick={() => onOpenDrawer('source', { sourceId: evidenceId })}>溯源</Button>
                     <Button size="small" onClick={() => onOpenDrawer('re-run', { moduleId: row.dimension_id, competitor: focusItem })}>局部重跑</Button>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, Typography, Space, Button, Alert, Empty, Table } from 'antd';
 import { ReloadOutlined, ExportOutlined, LinkOutlined, LikeOutlined } from '@ant-design/icons';
+import ReactMarkdown from 'react-markdown';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -24,7 +25,9 @@ export default function SWOTAnalysis({ taskId, analysisResults, onOpenDrawer }: 
           const evidenceId = Array.isArray(item?.evidence_refs) ? item.evidence_refs[0] : undefined;
           return (
             <div key={index} style={{ background: '#f5f7fa', padding: '8px', borderRadius: '4px', marginBottom: '8px', borderLeft: `3px solid ${color}`, fontSize: '13px' }}>
-              <Paragraph style={{ margin: 0 }}>{text || '信息缺失'}</Paragraph>
+              <div style={{ margin: 0, fontSize: 13, lineHeight: 1.5 }}>
+                <ReactMarkdown>{text || '信息缺失'}</ReactMarkdown>
+              </div>
               {evidenceId && (
                 <div style={{ marginTop: 4, textAlign: 'right' }}>
                   <Button type="link" size="small" icon={<LinkOutlined />} onClick={() => onOpenDrawer('source', { sourceId: evidenceId })} style={{ padding: 0, fontSize: '12px' }}>溯源</Button>
