@@ -33,9 +33,12 @@ ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 import asyncio
 from services.events import event_broker
+from .router import route_sources
+from .crawler import crawl_urls
 
 async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progress: ProgressCallback | None = None):
     context = state.get("task_context", {})
+    domain = context.get("domain", "unknown domain")
     competitors = [str(item) for item in context.get("competitors", []) if str(item).strip()]
     schema_fields = flatten_schema_fields(state.get("dynamic_schema", {}))
     
@@ -57,19 +60,47 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
     discovered_results = 0
     
     for competitor in competitors:
+        # Route sources for this competitor
+        routed_sources = await route_sources(domain, competitor)
+        routed_urls = [src["url"] for src in routed_sources if "url" in src]
+        
+        # Crawl and cache Markdown
+        cached_markdowns = await crawl_urls(routed_urls)
+        
         for field in schema_fields:
             query = build_collection_query(competitor, field)
-            try:
-                search_results = await search_public_web(query, limit=3)
-                discovered_results += len(search_results)
+            material = None
+            callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
+            
+            # 1. Try to extract from curated URLs first
+            for src in routed_sources:
+                url = src["url"]
+                markdown_content = cached_markdowns.get(url)
+                if not markdown_content:
+                    continue
+                    
+                # Create a pseudo PageEvidence for the LLM extraction
+                pseudo_page = PageEvidence(
+                    query=query, search_title=src.get("name", ""), url=url, snippet="", page_title="", text=markdown_content
+                )
                 
-                # Fetch actual web pages for deeper scraping
-                pages = await fetch_public_web_pages(search_results, limit=2)
+                extracted_material = await build_material_from_pages(
+                    task_id, competitor, field, query, [pseudo_page], callbacks=callbacks, strict_not_found=True
+                )
                 
-                callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
-                material = await build_material_from_pages(task_id, competitor, field, query, pages, callbacks=callbacks)
-            except Exception as exc:
-                material = build_degraded_material(task_id, competitor, field, query, f"{exc.__class__.__name__}:{exc}")
+                if extracted_material and extracted_material.get("extracted_value", {}).get("value") != "NOT_FOUND":
+                    material = extracted_material
+                    break # Found it!
+                    
+            # 2. Fallback to DuckDuckGo search if not found
+            if not material:
+                try:
+                    search_results = await search_public_web(query, limit=3)
+                    discovered_results += len(search_results)
+                    pages = await fetch_public_web_pages(search_results, limit=2)
+                    material = await build_material_from_pages(task_id, competitor, field, query, pages, callbacks=callbacks, strict_not_found=False)
+                except Exception as exc:
+                    material = build_degraded_material(task_id, competitor, field, query, f"{exc.__class__.__name__}:{exc}")
             
             results.append(material)
             completed += 1
@@ -134,13 +165,17 @@ async def build_material_from_pages(
     query: str,
     pages: list[PageEvidence],
     callbacks: list = None,
-) -> dict[str, Any]:
+    strict_not_found: bool = False,
+) -> dict[str, Any] | None:
     accepted = next((item for item in pages if item.text or item.snippet), None)
     if not accepted:
+        if strict_not_found:
+            return None
         return build_degraded_material(task_id, competitor, field, query, "no_search_evidence_found")
 
-    excerpt = (accepted.text or accepted.snippet or "").strip()[:4000]
+    excerpt = (accepted.text or accepted.snippet or "").strip()[:8000] # Increased to 8000 for Crawl4ai Markdown
     extracted_value = excerpt
+    is_not_found = False
 
     # Perform information extraction using LLM if available
     if llm is not None and excerpt and ChatPromptTemplate is not None:
@@ -169,10 +204,15 @@ async def build_material_from_pages(
                 "excerpt": excerpt
             }, config=config)
             ans = res.content.strip()
-            if ans and ans != "NOT_FOUND":
+            if ans == "NOT_FOUND":
+                is_not_found = True
+            elif ans:
                 extracted_value = ans
         except Exception:
             pass
+
+    if is_not_found and strict_not_found:
+        return None
 
     pii_redacted = contains_pii(extracted_value)
     redacted = redact_pii(extracted_value)

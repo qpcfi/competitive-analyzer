@@ -1,0 +1,110 @@
+sources:
+  - url: "https://openai.com/pricing"
+    name: "OpenAI 官方 API 定价"
+    description: "包含 GPT-4, GPT-3.5 等大语言模型的 Token 计费标准和速率限制。"
+    tags: ["LLM", "AI", "Pricing"]
+    competitors: ["OpenAI", "ChatGPT"]
+
+    # ==================== 豆包相关 ====================
+  - url: "https://www.donews.com/news/detail/4/6333039.html"
+    name: "抖音豆包日活突破1亿，构建AI生态闭环"
+    description: "报道豆包DAU突破1亿里程碑，披露其获客成本为字节历史最低，得益于抖音生态的内嵌入口与高频交互场景。"
+    tags: ["AI", "Product", "UserScale", "UserGrowth"]
+    competitors: ["豆包", "字节跳动"]
+
+  - url: "https://www.tmtpost.com/7824417.html"
+    name: "豆包，正在成为「新字节」"
+    description: "钛媒体深度报道，分析豆包DAU破亿、获客成本最低、字节跳动All in AI战略及豆包生态布局。"
+    tags: ["AI", "Product", "Strategy", "UserGrowth"]
+    competitors: ["豆包", "字节跳动"]
+
+  - url: "https://www.lanjinger.com/d/1767012877166280251"
+    name: "豆包，正在成为「新字节」"
+    description: "蓝鲸财经转载报道，内容与钛媒体同源，涵盖豆包DAU破亿、获客成本最低及字节AI战略。"
+    tags: ["AI", "Product", "UserScale"]
+    competitors: ["豆包", "字节跳动"]
+
+  - url: "https://k.sina.com.cn/article_1644114654_61ff32de020025j7m.html"
+    name: "4月'全媒介之星'：千问终结豆包九连冠，细分赛道AI应用月活承压"
+    description: "新京报AI研究院与Xsignal联合编制的2026年4月中国TOP20 AI应用榜单，显示豆包MAU约5.02亿，位居第一但环比下滑4%。"
+    tags: ["AI", "Market", "UserScale", "Ranking"]
+    competitors: ["豆包", "千问", "夸克", "DeepSeek", "腾讯元宝"]
+
+  - url: "https://www.bbtnews.com.cn/2026/0505/592582.shtml"
+    name: "豆包'付费版' AI变现分水岭"
+    description: "北京商报报道豆包付费订阅三档定价（68元/200元/500元），披露QuestMobile数据显示截至2026年3月豆包月活3.45亿。"
+    tags: ["AI", "Business", "Pricing", "UserScale"]
+    competitors: ["豆包", "字节跳动"]
+
+  - url: "https://www.donews.com/article/detail/7430/100901.html"
+    name: "中国AI商业化，需要豆包跨出这一步"
+    description: "DoNews专栏深度分析豆包付费逻辑，引用QuestMobile 2026年Q1数据（豆包月活3.45亿），以及火山引擎2026年3月Token调用量数据（日均120万亿）。"
+    tags: ["AI", "Business", "Pricing", "CostStructure"]
+    competitors: ["豆包", "字节跳动", "火山引擎"]
+
+  - url: "https://guba.eastmoney.com/news,hk09988,1717647182.html"
+    name: "豆包月活数据转载（新京报来源）"
+    description: "东方财富股吧转载新京报AI研究院榜单，显示豆包4月MAU约5.02亿。"
+    tags: ["AI", "UserScale"]
+    competitors: ["豆包"]
+
+  # ==================== 千问相关 ====================
+  - url: "https://finance.sina.cn/tech/2026-03-19/detail-inhrpnfx7441183.d.html"
+    name: "阿里Q3财报：千问C端应用月活超3亿"
+    description: "新浪财经报道阿里2026财年Q3财报，显示千问全端MAU突破3亿，近1.4亿用户通过千问智能体首次体验AI购物，千问与阿里生态11个业务打通。"
+    tags: ["AI", "UserScale", "Business", "Earnings"]
+    competitors: ["千问", "阿里巴巴"]
+
+  - url: "https://www.36kr.com/p/3650100286480771"
+    name: "千问补课：阿里在AI时代缺少的是流量入口，还是数据容器"
+    description: "36氪深度分析，披露千问面市时间线（2025年11月）、月活破亿时间（2026年1月14日）、以及打通11个阿里生态业务的细节。引用QuestMobile淘宝MAU约9.8亿、DAU约5.08亿等数据。"
+    tags: ["AI", "Strategy", "Data", "UserScale"]
+    competitors: ["千问", "阿里巴巴", "腾讯", "字节跳动"]
+
+  - url: "https://www.dzwww.com/xinwen/shehuixinwen/202603/t20260306_17513737.htm"
+    name: "阿里否认大模型核心团队集体离职"
+    description: "大众网转载澎湃新闻报道，澄清林俊旸（Justin Lin）离职为个人原因，否认千问核心团队集体离职传言，确认千问坚持开源策略。"
+    tags: ["AI", "Company", "Talent", "OpenSource"]
+    competitors: ["千问", "阿里巴巴"]
+
+  - url: "https://ctdsb.net/c1666_202603/2674378.html"
+    name: "千问AI眼镜开启全渠道预约：3月8日现货发售"
+    description: "极目新闻报道千问首款AI硬件G1系列售价1997元（国补后），具备5麦克风阵列、3K视频录制等功能，接入千问APP支持点外卖、订酒店等。"
+    tags: ["AI", "Hardware", "Product"]
+    competitors: ["千问", "阿里巴巴", "Meta", "Apple"]
+
+  - url: "https://36kr.com/p/3814213017657604"
+    name: "千问、淘宝打通后，消费者更理智了？"
+    description: "36氪报道千问与淘宝打通后的购物体验，分析其推荐机制偏向淘宝/天猫商家、无法调用京东美团等竞品、以及'裁判兼运动员'的利益冲突问题。"
+    tags: ["AI", "Product", "E-commerce", "Trust"]
+    competitors: ["千问", "阿里巴巴", "淘宝"]
+
+  - url: "https://www.cnstock.com/commonDetail/716853"
+    name: "2025年中国AI云市场规模达567亿元 阿里云占比38.1%稳居第一"
+    description: "上海证券报报道Omdia《中国AI云市场份额2025》报告，显示阿里云AI云总份额38.1%，AI IaaS份额38.6%，MaaS份额第一。"
+    tags: ["AI", "Cloud", "MarketShare", "Research"]
+    competitors: ["阿里云", "阿里巴巴"]
+
+  - url: "https://www.chinaz.com/2026/0519/1753161.shtml"
+    name: "阿里AI，进入以战养战"
+    description: "站长之家转载光子星球报道，分析千问App单季度投入超30亿买量费用，披露阿里单季度销售费用增至534.2亿元、自由现金流由正转负等财务数据。"
+    tags: ["AI", "Business", "CostStructure", "Strategy"]
+    competitors: ["千问", "阿里巴巴", "字节跳动"]
+
+  # ==================== 宏观/行业数据 ====================
+  - url: "https://www.jiqizhixin.com/articles/2026-04-15-10"
+    name: "斯坦福AI指数报告：中美顶级模型差距缩至0.3%"
+    description: "机器之心报道斯坦福AI指数报告，显示Qwen模型贡献度位列全球第三，中美顶级模型性能差距已缩至0.3%，仅次于OpenAI和Google。"
+    tags: ["AI", "LLM", "Research", "Benchmark"]
+    competitors: ["千问", "阿里巴巴", "OpenAI", "Google"]
+    
+  - url: "https://www.razer.com/cn-zh/gaming-mice"
+    name: "Razer (雷蛇) 电竞鼠标产品线"
+    description: "雷蛇各型号游戏鼠标的传感器 DPI、微动、重量等硬件参数说明。"
+    tags: ["Hardware", "Gaming", "Mice"]
+    competitors: ["Razer", "雷蛇"]
+    
+  - url: "https://www.rtings.com/mouse/reviews/best/by-usage/gaming"
+    name: "Rtings 最佳游戏鼠标综合评测"
+    description: "涵盖主流品牌电竞鼠标的综合对比、延迟测试与微动寿命数据。"
+    tags: ["Hardware", "Gaming", "Review"]
