@@ -9,6 +9,7 @@ interface DebugLog {
   event: string;
   message: string;
   latency?: number;
+  tokens?: number;
   prompt?: string;
   input_json?: any;
   output_json?: any;
@@ -103,6 +104,7 @@ export default function DebugPanel({ logs, tokenUsage, height }: DebugPanelProps
                 <Space>
                   <Text type="secondary" style={{ fontSize: 12 }}>{new Date().toLocaleTimeString()}</Text>
                   {log.latency && <Text type="secondary"><ClockCircleOutlined /> {log.latency.toFixed(2)}s</Text>}
+                  {log.tokens !== undefined && <Tag color="gold" style={{ margin: 0 }}>{log.tokens} tokens</Tag>}
                 </Space>
               </div>
               

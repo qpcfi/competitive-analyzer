@@ -109,6 +109,7 @@ class RealtimeDebugCallbackHandler(AsyncCallbackHandler):
                 "event": "end",
                 "message": f"LLM execution finished",
                 "latency": latency,
+                "tokens": used,
                 "output_json": llm_output_text
             }
         )
