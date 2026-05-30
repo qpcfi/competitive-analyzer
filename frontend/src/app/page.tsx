@@ -221,10 +221,25 @@ export default function Home() {
           <SchemaEditor taskId={taskId} schemaData={schemaData} competitors={competitors} taskState={taskState} onNext={() => setCurrentView('dashboard')} onOpenDrawer={openDrawer} />
         </div>
         <div style={{ display: currentView === 'analysis' ? 'block' : 'none', height: '100%' }}>
-          <CompetitorAnalysis taskId={taskId} analysisResults={analysisResults} mainProduct={mainProduct} onOpenDrawer={openDrawer} />
+          <CompetitorAnalysis 
+            taskId={taskId} 
+            analysisResults={analysisResults} 
+            mainProduct={mainProduct} 
+            onOpenDrawer={openDrawer} 
+            onNavigateToSwot={(competitor) => {
+              setMainProduct(competitor);
+              setCurrentView('swot');
+            }}
+          />
         </div>
         <div style={{ display: currentView === 'swot' ? 'block' : 'none', height: '100%' }}>
-          <SWOTAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />
+          <SWOTAnalysis 
+            taskId={taskId} 
+            analysisResults={analysisResults} 
+            mainProduct={mainProduct}
+            onOpenDrawer={openDrawer} 
+            onChangeView={setCurrentView}
+          />
         </div>
         <div style={{ display: currentView === 'report' ? 'block' : 'none', height: '100%' }}>
           <StructuredReport taskId={taskId} analysisResults={analysisResults} />

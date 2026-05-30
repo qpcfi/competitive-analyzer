@@ -8,12 +8,29 @@ const { Title, Text, Paragraph } = Typography;
 interface SWOTAnalysisProps {
   taskId?: string | null;
   analysisResults?: any;
+  mainProduct?: string | null;
   onOpenDrawer: (type: string, data?: any) => void;
+  onChangeView?: (view: string) => void;
 }
 
-export default function SWOTAnalysis({ taskId, analysisResults, onOpenDrawer }: SWOTAnalysisProps) {
+export default function SWOTAnalysis({ taskId, analysisResults, mainProduct, onOpenDrawer, onChangeView }: SWOTAnalysisProps) {
   const swot = analysisResults?.swot;
   const hasSwot = !!swot && Object.values(swot).some((items: any) => Array.isArray(items) && items.length > 0);
+
+  if (!mainProduct) {
+    return (
+      <Card>
+        <Empty
+          description={
+            <span>
+              没有指定SWOT分析主体。<br />
+              请先去<Button type="link" onClick={() => onChangeView?.('analysis')} style={{ padding: 0 }}>竞品深度分析</Button>选择SWOT分析主体。
+            </span>
+          }
+        />
+      </Card>
+    );
+  }
 
   const SwotItemList = ({ items, title, color }: { items: any[], title?: string, color: string }) => {
     if (!items || items.length === 0) return <Text type="secondary">暂无数据</Text>;

@@ -35,9 +35,10 @@ interface CompetitorAnalysisProps {
   } | null;
   mainProduct?: string | null;
   onOpenDrawer: (type: string, data?: any) => void;
+  onNavigateToSwot?: (competitor: string) => void;
 }
 
-export default function CompetitorAnalysis({ taskId, analysisResults, mainProduct, onOpenDrawer }: CompetitorAnalysisProps) {
+export default function CompetitorAnalysis({ taskId, analysisResults, mainProduct, onOpenDrawer, onNavigateToSwot }: CompetitorAnalysisProps) {
   const [viewMode, setViewMode] = useState<'tile' | 'focus'>('tile');
   const competitors = useMemo(() => analysisResults?.discovered_competitors || [], [analysisResults?.discovered_competitors]);
   const rows = useMemo(() => analysisResults?.comparison_rows || [], [analysisResults?.comparison_rows]);
@@ -110,7 +111,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
       width: 260,
       render: (_: unknown, record: ComparisonRow) => {
         if (record.dimension_id === 'swot-fallback') {
-          return <Button type="primary" onClick={() => onOpenDrawer('swot-generate', { competitor })}>生成对于这个产品的SWOT分析</Button>;
+          return <Button type="primary" onClick={() => onNavigateToSwot?.(competitor)}>生成对于这个产品的SWOT分析</Button>;
         }
         return renderCell(record.values?.[competitor]);
       },
