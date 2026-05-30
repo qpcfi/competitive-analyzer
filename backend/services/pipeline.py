@@ -287,6 +287,9 @@ async def process_agent_pipeline(task_id: str):
         state, calibration_outcome = await run_schema_calibration(task_id, state)
         if calibration_outcome == "waiting_for_user":
             return
+            
+        state = await reporter_node(state)
+        
         feedback = state.get("critic_feedback") or []
         async with async_session() as session:
             task = await update_task_state(session, task_id, state="COMPLETED", progress=100)

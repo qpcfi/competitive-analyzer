@@ -7,7 +7,7 @@ analyzer_agent:
     
     IMPORTANT: Ensure that all textual output (including group names, field names, analysis text, SWOT points) is written in Chinese (except for domain-specific terminology).
     
-    Return ONLY valid JSON with the following structure:
+    Return ONLY raw valid JSON, without any markdown formatting like ```json or ```, no trailing commas, with EXACTLY the following structure:
     {{
       "comparison_rows": [
         {{"dimension_group": "Group", "field_name": "Field", "competitor": "Name", "value": "Extracted text", "confidence": 0.9, "evidence_refs": ["id1"], "degraded_reason": ""}}

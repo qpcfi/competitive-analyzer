@@ -6,7 +6,7 @@ reporter_agent:
     
     IMPORTANT: Ensure that all textual output is written in Chinese (except for domain-specific terminology).
     
-    Return ONLY valid JSON with the following structure:
+    Return ONLY raw valid JSON, without any markdown formatting like ```json or ```, no trailing commas, with EXACTLY the following structure:
     {{
       "executive_summary": "Overall comprehensive summary and strategic insights...",
       "key_takeaways": ["Insight 1", "Insight 2", "Insight 3"]
