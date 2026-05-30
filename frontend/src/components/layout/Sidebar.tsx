@@ -24,12 +24,9 @@ interface SidebarProps {
 export default function Sidebar({ currentView, onChangeView, collapsed, onToggleCollapse, taskState, showDebug }: SidebarProps & { showDebug?: boolean }) {
   const items = [
     {
-      key: '1',
+      key: 'task-config',
       icon: <AppstoreAddOutlined />,
       label: '任务控制台',
-      children: [
-        { key: 'task-config', label: '1.1 新建/配置任务' },
-      ],
     },
     {
       key: 'schema',
@@ -100,7 +97,7 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
         <Menu
           mode="inline"
           selectedKeys={[currentView]}
-          defaultOpenKeys={['1', '5']}
+          defaultOpenKeys={['5']}
           items={items}
           onClick={handleMenuClick}
           style={{ borderRight: 0 }}
