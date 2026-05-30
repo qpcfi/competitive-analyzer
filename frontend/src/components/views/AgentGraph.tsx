@@ -61,6 +61,7 @@ const AgentNode = ({ data }: { data: any }) => {
       )}
       <Handle type="source" position={Position.Right} id="right" style={{ background: '#555' }} />
       <Handle type="source" position={Position.Bottom} id="bottom" style={{ background: '#555' }} />
+      <Handle type="target" position={Position.Bottom} id="bottom-target" style={{ opacity: 0 }} />
     </div>
   );
 };
@@ -148,7 +149,7 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
     { id: 'e-crit-repo', source: 'critic', target: 'reporter', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.reporter.status === 'running' },
     { 
       id: 'e-crit-orch', source: 'critic', target: 'orchestrator', 
-      sourceHandle: 'bottom', targetHandle: 'bottom',
+      sourceHandle: 'bottom', targetHandle: 'bottom-target',
       type: 'smoothstep', 
       animated: true, 
       style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }, 
@@ -157,7 +158,7 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
     },
     { 
       id: 'e-crit-coll-pf', source: 'critic', target: 'collector_product_feature', 
-      sourceHandle: 'bottom', targetHandle: 'bottom',
+      sourceHandle: 'bottom', targetHandle: 'bottom-target',
       type: 'smoothstep', 
       animated: true, 
       style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }, 
@@ -166,28 +167,28 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
     },
     { 
       id: 'e-crit-coll-ts', source: 'critic', target: 'collector_technical_spec', 
-      sourceHandle: 'bottom', targetHandle: 'bottom',
+      sourceHandle: 'bottom', targetHandle: 'bottom-target',
       type: 'smoothstep', 
       animated: true, 
       style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }
     },
     { 
       id: 'e-crit-coll-bp', source: 'critic', target: 'collector_business_pricing', 
-      sourceHandle: 'bottom', targetHandle: 'bottom',
+      sourceHandle: 'bottom', targetHandle: 'bottom-target',
       type: 'smoothstep', 
       animated: true, 
       style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }
     },
     { 
       id: 'e-crit-coll-ge', source: 'critic', target: 'collector_general', 
-      sourceHandle: 'bottom', targetHandle: 'bottom',
+      sourceHandle: 'bottom', targetHandle: 'bottom-target',
       type: 'smoothstep', 
       animated: true, 
       style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }
     },
     { 
       id: 'e-crit-analy', source: 'critic', target: 'analyzer', 
-      sourceHandle: 'bottom', targetHandle: 'bottom',
+      sourceHandle: 'bottom', targetHandle: 'bottom-target',
       type: 'smoothstep', 
       animated: true, 
       style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }, 
