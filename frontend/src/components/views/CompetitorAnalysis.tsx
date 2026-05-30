@@ -32,10 +32,11 @@ interface CompetitorAnalysisProps {
     schema_dimensions?: SchemaDimension[];
     comparison_rows?: ComparisonRow[];
   } | null;
+  mainProduct?: string | null;
   onOpenDrawer: (type: string, data?: any) => void;
 }
 
-export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDrawer }: CompetitorAnalysisProps) {
+export default function CompetitorAnalysis({ taskId, analysisResults, mainProduct, onOpenDrawer }: CompetitorAnalysisProps) {
   const [viewMode, setViewMode] = useState<'tile' | 'focus'>('tile');
   const competitors = useMemo(() => analysisResults?.discovered_competitors || [], [analysisResults?.discovered_competitors]);
   const rows = useMemo(() => analysisResults?.comparison_rows || [], [analysisResults?.comparison_rows]);
@@ -50,7 +51,18 @@ export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDraw
     }
   }, [competitors, focusItem]);
 
-  const tableRows = useMemo(() => rows.map(row => ({ ...row, key: row.key || row.dimension_id })), [rows]);
+  const tableRows = useMemo(() => {
+    const baseRows = rows.map(row => ({ ...row, key: row.key || row.dimension_id }));
+    if (!mainProduct) {
+      const swotRow: ComparisonRow = {
+        dimension_id: 'swot-fallback',
+        dimension: 'SWOT 分析',
+        values: {}
+      };
+      baseRows.push(swotRow);
+    }
+    return baseRows;
+  }, [rows, mainProduct]);
 
   const renderCell = useCallback((cell?: AnalysisCell) => {
     const data = cell || { value: '信息缺失', status: 'degraded' };
@@ -92,7 +104,12 @@ export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDraw
       title: competitor,
       key: competitor,
       width: 260,
-      render: (_: unknown, record: ComparisonRow) => renderCell(record.values?.[competitor]),
+      render: (_: unknown, record: ComparisonRow) => {
+        if (record.dimension_id === 'swot-fallback') {
+          return <Button type="primary" onClick={() => onOpenDrawer('swot-generate', { competitor })}>生成对于这个产品的SWOT分析</Button>;
+        }
+        return renderCell(record.values?.[competitor]);
+      },
     })),
     {
       title: '操作',
@@ -181,6 +198,11 @@ export default function CompetitorAnalysis({ taskId, analysisResults, onOpenDraw
                 </Card>
               );
             })}
+            {!mainProduct && (
+              <Card title="SWOT 分析" id="swot-fallback" key="swot-fallback">
+                <Button type="primary" onClick={() => onOpenDrawer('swot-generate', { competitor: focusItem })}>生成对于这个产品的SWOT分析</Button>
+              </Card>
+            )}
           </div>
         </div>
       )}

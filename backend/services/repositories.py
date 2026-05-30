@@ -35,6 +35,7 @@ async def create_task_record(
     task_id: str,
     task_name: str,
     domain: str,
+    main_product: str | None = None,
     competitors: list[str],
     execution_mode: str,
 ) -> TaskRecord:
@@ -43,6 +44,7 @@ async def create_task_record(
         id=task_id,
         task_name=task_name,
         domain=domain,
+        main_product=main_product,
         competitors=competitors,
         execution_mode=execution_mode,
         state="INITIALIZING",

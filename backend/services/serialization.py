@@ -8,6 +8,7 @@ def serialize_task(db_task: TaskRecord) -> dict[str, Any]:
         "task_id": db_task.id,
         "task_name": db_task.task_name,
         "domain": db_task.domain,
+        "main_product": db_task.main_product,
         "competitors": db_task.competitors or [],
         "execution_mode": db_task.execution_mode,
         "state": db_task.state,

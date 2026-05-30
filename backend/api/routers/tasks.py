@@ -25,6 +25,7 @@ async def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks)
             task_id=task_id,
             task_name=req.task_name or f"{req.domain}_{datetime.now().strftime('%Y%m%d')}",
             domain=req.domain,
+            main_product=req.main_product,
             competitors=req.competitors,
             execution_mode=req.execution_mode,
         )
@@ -70,6 +71,7 @@ async def list_tasks(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le
                     "task_id": task.id,
                     "task_name": task.task_name,
                     "domain": task.domain,
+                    "main_product": task.main_product,
                     "state": task.state,
                     "progress": task.progress or 0,
                     "snapshot_count": snapshot_count,
@@ -159,6 +161,7 @@ async def restore_snapshot(task_id: str, req: Request):
                 task_id=clone_id,
                 task_name=f"{task.task_name} copy",
                 domain=task.domain,
+                main_product=task.main_product,
                 competitors=task.competitors or [],
                 execution_mode=task.execution_mode,
             )

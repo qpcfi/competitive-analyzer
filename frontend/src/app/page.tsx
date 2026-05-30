@@ -25,6 +25,7 @@ export default function Home() {
   });
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mainProduct, setMainProduct] = useState<string | null>(null);
   const [schemaData, setSchemaData] = useState<any>(null);
   const [competitors, setCompetitors] = useState<string[]>([]);
   const [rawMaterials, setRawMaterials] = useState<any[]>([]);
@@ -60,6 +61,19 @@ export default function Home() {
     const savedTaskId = window.localStorage.getItem("competitive-analyzer:last-task-id");
     if (savedTaskId && !taskId) {
       setTaskId(savedTaskId);
+    }
+  }, [taskId]);
+
+  useEffect(() => {
+    if (taskId) {
+      fetch(`http://localhost:8000/api/v1/tasks/${taskId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.main_product !== undefined) {
+            setMainProduct(data.main_product);
+          }
+        })
+        .catch(console.error);
     }
   }, [taskId]);
 
@@ -174,6 +188,7 @@ export default function Home() {
     }
     const data = await response.json();
     setTaskId(data.task_id);
+    setMainProduct(data.main_product || null);
     setTaskState(data.state || 'INITIALIZING');
     setProgress(data.progress || 0);
     setSchemaData(data.dynamic_schema || null);
@@ -203,7 +218,7 @@ export default function Home() {
           <SchemaEditor taskId={taskId} schemaData={schemaData} competitors={competitors} taskState={taskState} onNext={() => setCurrentView('dashboard')} onOpenDrawer={openDrawer} />
         </div>
         <div style={{ display: currentView === 'analysis' ? 'block' : 'none', height: '100%' }}>
-          <CompetitorAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />
+          <CompetitorAnalysis taskId={taskId} analysisResults={analysisResults} mainProduct={mainProduct} onOpenDrawer={openDrawer} />
         </div>
         <div style={{ display: currentView === 'swot' ? 'block' : 'none', height: '100%' }}>
           <SWOTAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />

@@ -19,6 +19,7 @@ class TaskRecord(Base):
     id = Column(String, primary_key=True)
     task_name = Column(String)
     domain = Column(String)
+    main_product = Column(String, nullable=True)
     competitors = Column(JSON, default=list)
     execution_mode = Column(String)
     state = Column(String)
@@ -186,6 +187,7 @@ async def init_db():
         if engine.dialect.name == "postgresql":
             await conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS task_name VARCHAR"))
             await conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS domain VARCHAR"))
+            await conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS main_product VARCHAR"))
             await conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS competitors JSON DEFAULT '[]'::json"))
             await conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS execution_mode VARCHAR"))
             await conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS state VARCHAR"))

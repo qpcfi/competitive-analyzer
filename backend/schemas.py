@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 class TaskCreateRequest(BaseModel):
     task_name: str | None = None
     domain: str
+    main_product: str | None = None
     competitors: list[str] = []
     execution_mode: Literal["step_by_step", "auto"] = "step_by_step"
     predefined_schema: list[dict[str, Any]] | None = None

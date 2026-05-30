@@ -151,6 +151,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
   const [currentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [domain, setDomain] = useState('');
+  const [mainProduct, setMainProduct] = useState('');
   const [taskName, setTaskName] = useState('');
   const [executionMode, setExecutionMode] = useState('step');
   const [competitors, setCompetitors] = useState<string[]>([]);
@@ -284,6 +285,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
         body: JSON.stringify({
           task_name: taskName,
           domain: submittedDomain,
+          main_product: mainProduct.trim() || undefined,
           competitors,
           execution_mode: executionMode === 'step' ? 'step_by_step' : 'auto',
           predefined_schema: schemaData.map(item => ({
@@ -354,8 +356,12 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
         <Card title="基本信息" style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', gap: '32px', flexWrap: 'wrap' }}>
             <div style={{ flex: 1, minWidth: '300px' }}>
-              <div style={{ marginBottom: 8 }}>分析领域</div>
+              <div style={{ marginBottom: 8 }}>分析领域 <span style={{ color: 'red' }}>*</span></div>
               <Input ref={domainInputRef} placeholder="例如：AI大模型、企业级SaaS" value={domain} onChange={e => setDomain(e.target.value)} onInput={e => setDomain(e.currentTarget.value)} size="large" />
+            </div>
+            <div style={{ flex: 1, minWidth: '300px' }}>
+              <div style={{ marginBottom: 8 }}>主体产品</div>
+              <Input placeholder="输入你想进行SWOT分析的自身产品" value={mainProduct} onChange={e => setMainProduct(e.target.value)} size="large" />
             </div>
             <div style={{ flex: 1, minWidth: '300px' }}>
               <div style={{ marginBottom: 8 }}>任务名称</div>
