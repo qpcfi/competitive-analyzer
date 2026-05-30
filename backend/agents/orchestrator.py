@@ -57,9 +57,11 @@ async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
     user_competitors = normalize_competitor_names(context.get("competitors", []))
     user_schema = build_user_schema_from_context(context)
 
-    discovered_candidates = await recommend_competitors(domain, user_competitors)
-    discovered = [c.name for c in discovered_candidates]
-    seed_competitors = merge_competitors(user_competitors, discovered)
+    seed_competitors = list(user_competitors)
+    if not user_competitors:
+        discovered_candidates = await recommend_competitors(domain, user_competitors)
+        discovered = [c.name for c in discovered_candidates]
+        seed_competitors = merge_competitors(user_competitors, discovered)
 
     generated_schema: dict = {}
     generated_competitors: list[str] = []
@@ -95,9 +97,12 @@ async def generate_complete_plan(context: dict) -> tuple[list[str], dict]:
             logging.error(f"Error in generate_complete_plan: {e}")
             generated_schema = {}
 
-    competitors = merge_competitors(user_competitors, generated_competitors, seed_competitors)[:5]
-    if len(competitors) < 3:
-        competitors = merge_competitors(competitors, fallback_competitors(domain, 3 - len(competitors)))
+    if user_competitors:
+        competitors = user_competitors
+    else:
+        competitors = merge_competitors(user_competitors, generated_competitors, seed_competitors)[:5]
+        if len(competitors) < 3:
+            competitors = merge_competitors(competitors, fallback_competitors(domain, 3 - len(competitors)))
 
     schema = merge_schema_preserving_user(user_schema, generated_schema or build_schema_from_context({**context, "competitors": competitors}))
     return competitors, schema

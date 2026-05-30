@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Alert, Card, Tree, Button, Space, Typography, Tag, Tooltip, App } from 'antd';
 import { CheckOutlined, CloseOutlined, MessageOutlined, EditOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
 
@@ -8,14 +8,35 @@ interface SchemaEditorProps {
   taskId?: string | null;
   schemaData?: any;
   competitors?: string[];
+  taskState?: string;
   onNext: () => void;
   onOpenDrawer: (type: string, data?: any) => void;
 }
 
-export default function SchemaEditor({ taskId, schemaData, competitors = [], onNext, onOpenDrawer }: SchemaEditorProps) {
+export default function SchemaEditor({ taskId, schemaData, competitors = [], taskState, onNext, onOpenDrawer }: SchemaEditorProps) {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const hasSchema = !!schemaData && Object.keys(schemaData).length > 0;
+  const [checkedKeys, setCheckedKeys] = useState<React.Key[]>([]);
+  const [initialized, setInitialized] = useState(false);
+
+  useEffect(() => {
+    if (hasSchema && !initialized) {
+      const keys: React.Key[] = [];
+      Object.entries(schemaData).forEach(([groupName, fields]: any, groupIndex) => {
+        keys.push(`group-${groupIndex}`);
+        (Array.isArray(fields) ? fields : []).forEach((field: any, fieldIndex: number) => {
+          keys.push(field.id || `field-${groupIndex}-${fieldIndex}`);
+        });
+      });
+      setCheckedKeys(keys);
+      setInitialized(true);
+    }
+  }, [hasSchema, schemaData, initialized]);
+
+  const onCheck = (checked: any) => {
+    setCheckedKeys(checked);
+  };
 
   const handleReject = async () => {
     if (!taskId) return;
@@ -33,10 +54,26 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], onN
 
   const saveDraft = async () => {
     if (!taskId) return;
+    
+    let activeSchema = schemaData || {};
+    if (hasSchema) {
+      const filtered: any = {};
+      Object.entries(schemaData).forEach(([groupName, fields]: any, groupIndex) => {
+        const validFields = (Array.isArray(fields) ? fields : []).filter((field: any, fieldIndex: number) => {
+          const fieldKey = field.id || `field-${groupIndex}-${fieldIndex}`;
+          return checkedKeys.includes(fieldKey);
+        });
+        if (validFields.length > 0) {
+          filtered[groupName] = validFields;
+        }
+      });
+      activeSchema = filtered;
+    }
+
     const response = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/schema`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ dynamic_schema: schemaData || {} }),
+      body: JSON.stringify({ dynamic_schema: activeSchema }),
     });
     if (!response.ok) throw new Error(await response.text());
   };
@@ -111,8 +148,8 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], onN
   return (
     <div>
       <Alert
-        title={hasSchema ? '系统已完成初版Schema生成，请审核确认后继续' : '等待后端生成Schema，当前展示默认结构'}
-        type="warning"
+        title={taskState && ['SCHEMA_REVIEW', 'SCHEMA_GENERATING', 'INITIALIZING', 'PAUSED'].indexOf(taskState) === -1 ? 'Schema 已确认放行' : (hasSchema ? '系统已完成初版Schema生成，请审核确认后继续' : '等待后端生成Schema，当前展示默认结构')}
+        type={taskState && ['SCHEMA_REVIEW', 'SCHEMA_GENERATING', 'INITIALIZING', 'PAUSED'].indexOf(taskState) === -1 ? 'success' : 'warning'}
         showIcon
         style={{ marginBottom: 24 }}
       />
@@ -136,7 +173,7 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], onN
           </Space>
         }
       >
-        <Tree checkable defaultExpandAll treeData={treeData} style={{ fontSize: 16 }} />
+        <Tree checkable checkedKeys={checkedKeys} onCheck={onCheck} defaultExpandAll treeData={treeData} style={{ fontSize: 16 }} />
       </Card>
 
       <div style={{ marginTop: 24, padding: '16px', background: '#f5f5f5', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -146,9 +183,9 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], onN
           <Text>预计采集复杂度：<Tag color="orange">中等</Tag></Text>
         </Space>
         <Space>
-          <Button danger loading={loading} disabled={!taskId} onClick={handleReject}>拒绝并重新生成</Button>
-          <Button loading={loading} disabled={!taskId || !hasSchema} onClick={handleSaveDraft}>保存为草稿</Button>
-          <Button type="primary" loading={loading} disabled={!taskId || !hasSchema} onClick={handleSaveAndContinue}>保存并继续(放行) →</Button>
+          <Button danger loading={loading} disabled={!taskId || (taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleReject}>拒绝并重新生成</Button>
+          <Button loading={loading} disabled={!taskId || !hasSchema || (taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleSaveDraft}>保存为草稿</Button>
+          <Button type="primary" loading={loading} disabled={!taskId || !hasSchema || (taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleSaveAndContinue}>保存并继续(放行) →</Button>
         </Space>
       </div>
     </div>

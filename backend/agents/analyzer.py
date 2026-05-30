@@ -54,7 +54,37 @@ async def analyzer_node(state: AgentState):
         
         content = str(response.content)
         match = re.search(r"\{.*\}", content, re.DOTALL)
-        result = json.loads(match.group(0) if match else content)
+        parsed = json.loads(match.group(0) if match else content)
+        result = build_deterministic_analysis(state)
+        llm_cells = parsed.get("comparison_rows", [])
+        if isinstance(llm_cells, list):
+            for row in result.get("comparison_rows", []):
+                for comp in result.get("discovered_competitors", []):
+                    cell = next((c for c in llm_cells if isinstance(c, dict) and c.get("field_name") == row.get("dimension") and c.get("competitor") == comp), None)
+                    if cell:
+                        row["values"][comp] = {
+                            "value": cell.get("value", ""),
+                            "status": "accepted" if cell.get("value") else "degraded",
+                            "evidence_refs": cell.get("evidence_refs", []) if isinstance(cell.get("evidence_refs"), list) else [],
+                            "degraded_reason": cell.get("degraded_reason", "")
+                        }
+        llm_swot = parsed.get("swot_analysis", [])
+        if isinstance(llm_swot, list) and llm_swot:
+            swot = {"strengths": [], "weaknesses": [], "opportunities": [], "threats": []}
+            for comp_swot in llm_swot:
+                if isinstance(comp_swot, dict):
+                    comp = comp_swot.get("competitor", "General")
+                    for quad in swot.keys():
+                        items = comp_swot.get(quad, [])
+                        if isinstance(items, list):
+                            for item in items:
+                                if isinstance(item, str) and item.strip():
+                                    swot[quad].append({"text": f"[{comp}] {item.strip()}", "evidence_refs": []})
+            result["swot"] = swot
+        if "executive_summary" in parsed and isinstance(parsed.get("executive_summary"), str):
+            if "report" not in result:
+                result["report"] = {}
+            result["report"]["summary"] = parsed["executive_summary"]
     except Exception as e:
         import logging
         logging.error(f"Error in analyzer_node: {e}")
@@ -94,17 +124,7 @@ def build_deterministic_analysis(state: AgentState) -> dict:
         )
     evidence_refs = [item.get("id") for item in materials if item.get("id")]
     legacy_comparison = build_legacy_comparison(competitors, materials)
-    findings = [
-        {
-            "dimension": row["dimension"],
-            "covered_competitors": [
-                competitor
-                for competitor, cell in row["values"].items()
-                if cell.get("status") == "accepted"
-            ],
-        }
-        for row in comparison_rows
-    ]
+    findings = build_report_findings(competitors, materials)
     return {
         "discovered_competitors": competitors,
         "schema_dimensions": schema_dimensions,
@@ -187,3 +207,30 @@ def build_legacy_comparison(competitors: list[str], materials: list[dict]) -> li
             }
         )
     return comparison
+
+
+def build_report_findings(competitors: list[str], materials: list[dict]) -> list[dict]:
+    findings = []
+    for competitor in competitors:
+        evidence = [item for item in materials if item.get("competitor") == competitor]
+        accepted = next((item for item in evidence if item.get("validation_status") == "accepted" and item.get("quote_text")), None)
+        degraded = next((item for item in evidence if item.get("validation_status") == "degraded"), None)
+        selected = accepted or degraded
+        if accepted:
+            summary = accepted.get("quote_text", "")
+            status = "accepted"
+        elif degraded:
+            summary = degraded.get("degraded_reason") or degraded.get("quote_text") or "degraded_source"
+            status = "degraded"
+        else:
+            summary = "no_evidence"
+            status = "degraded"
+        findings.append(
+            {
+                "competitor": competitor,
+                "summary": summary[:240] if isinstance(summary, str) else str(summary)[:240],
+                "status": status,
+                "evidence_refs": [item.get("id") for item in evidence if item.get("id")],
+            }
+        )
+    return findings

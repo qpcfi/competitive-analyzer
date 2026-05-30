@@ -50,7 +50,16 @@ async def update_schema(task_id: str, req: SchemaUpdateRequest):
             runtime.app_step.update_state(config, {"dynamic_schema": req.dynamic_schema, "schema_version": record.version})
         except Exception:
             pass
-    await publish_event(task_id, "schema_ready", {"dynamic_schema": req.dynamic_schema, "schema_version": record.version, "stats": count_schema_stats(req.dynamic_schema)})
+    await publish_event(
+        task_id, 
+        "schema_ready", 
+        {
+            "dynamic_schema": req.dynamic_schema, 
+            "schema_version": record.version, 
+            "competitors": db_task.competitors or [],
+            "stats": count_schema_stats(req.dynamic_schema)
+        }
+    )
     await publish_event(task_id, "debug_log", {"agent": "System", "event": "info", "message": "Schema draft saved."})
     return {"status": "updated", "schema_version": record.version, "state": "SCHEMA_REVIEW"}
 

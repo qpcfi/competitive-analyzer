@@ -18,9 +18,10 @@ interface SidebarProps {
   onChangeView: (view: string) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  taskState?: string;
 }
 
-export default function Sidebar({ currentView, onChangeView, collapsed, onToggleCollapse }: SidebarProps) {
+export default function Sidebar({ currentView, onChangeView, collapsed, onToggleCollapse, taskState }: SidebarProps) {
   const items = [
     {
       key: '1',
@@ -37,7 +38,7 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
       icon: <PartitionOutlined />,
       label: (
         <span>
-          竞品知识框架 <Badge count="待审核" style={{ backgroundColor: '#faad14', marginLeft: 8 }} />
+          竞品知识框架 {taskState === 'SCHEMA_REVIEW' && <Badge count="待审核" style={{ backgroundColor: '#faad14', marginLeft: 8 }} />}
         </span>
       ),
     },

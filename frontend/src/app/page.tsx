@@ -32,6 +32,7 @@ export default function Home() {
   const [collectionProgress, setCollectionProgress] = useState<any>(null);
   const [analysisResults, setAnalysisResults] = useState<any>(null);
   const [progress, setProgress] = useState<number>(0);
+  const [taskState, setTaskState] = useState<string>('INITIALIZING');
   const [showDebug, setShowDebug] = useState<boolean>(false);
   const [debugLogs, setDebugLogs] = useState<any[]>([]);
   const [tokenUsage, setTokenUsage] = useState<any>(null);
@@ -92,12 +93,13 @@ export default function Home() {
     evtSource.addEventListener('raw_materials_updated', (e) => {
       const data = JSON.parse(e.data);
       rememberSequence(data);
-      setRawMaterials(data.data || []);
+      setRawMaterials(data.data?.data || []);
     });
 
     evtSource.addEventListener('collector_log', (e) => {
-      const data = JSON.parse(e.data);
-      rememberSequence(data);
+      const payload = JSON.parse(e.data);
+      rememberSequence(payload);
+      const data = payload.data || payload;
       setCollectorLogs(prev => [...prev.slice(-199), data]);
       setCollectionProgress({
         completed: data.completed || 0,
@@ -109,7 +111,15 @@ export default function Home() {
     evtSource.addEventListener('analysis_progress', (e) => {
       const data = JSON.parse(e.data);
       rememberSequence(data);
-      setAnalysisResults(data.data);
+      setAnalysisResults(data.data?.data || data.data);
+    });
+
+    evtSource.addEventListener('task_state_changed', (e) => {
+      const data = JSON.parse(e.data);
+      rememberSequence(data);
+      if (data.state) {
+        setTaskState(data.state);
+      }
     });
 
     evtSource.addEventListener('progress_update', (e) => {
@@ -164,6 +174,7 @@ export default function Home() {
     }
     const data = await response.json();
     setTaskId(data.task_id);
+    setTaskState(data.state || 'INITIALIZING');
     setProgress(data.progress || 0);
     setSchemaData(data.dynamic_schema || null);
     setCompetitors(Array.isArray(data.competitors) ? data.competitors : []);
@@ -189,7 +200,7 @@ export default function Home() {
           <HistoryView currentTaskId={taskId} onRestoreTask={restoreHistoricalTask} />
         </div>
         <div style={{ display: currentView === 'schema' ? 'block' : 'none', height: '100%' }}>
-          <SchemaEditor taskId={taskId} schemaData={schemaData} competitors={competitors} onNext={() => setCurrentView('analysis')} onOpenDrawer={openDrawer} />
+          <SchemaEditor taskId={taskId} schemaData={schemaData} competitors={competitors} taskState={taskState} onNext={() => setCurrentView('analysis')} onOpenDrawer={openDrawer} />
         </div>
         <div style={{ display: currentView === 'analysis' ? 'block' : 'none', height: '100%' }}>
           <CompetitorAnalysis taskId={taskId} analysisResults={analysisResults} onOpenDrawer={openDrawer} />
@@ -211,6 +222,7 @@ export default function Home() {
         onChangeView={setCurrentView}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        taskState={taskState}
       />
       <div className="main-workspace" style={{ display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '16px 24px', background: '#fff', borderBottom: '1px solid #f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

@@ -119,7 +119,12 @@ async def process_graph_events(task_id: str, graph, initial_state, config):
                     await publish_event(
                         task_id,
                         "schema_ready",
-                        {"dynamic_schema": schema_json, "schema_version": schema_version, "stats": count_schema_stats(schema_json)},
+                        {
+                            "dynamic_schema": schema_json,
+                            "schema_version": schema_version,
+                            "competitors": discovered_competitors,
+                            "stats": count_schema_stats(schema_json)
+                        },
                     )
                     await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_REVIEW", "progress": 30})
 
@@ -400,5 +405,14 @@ async def regenerate_schema(task_id: str):
         record = await save_schema(session, task_id, schema_json, created_by="agent", status="active")
         await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
         await session.commit()
-    await publish_event(task_id, "schema_ready", {"dynamic_schema": schema_json, "schema_version": record.version, "stats": count_schema_stats(schema_json)})
+    await publish_event(
+        task_id, 
+        "schema_ready", 
+        {
+            "dynamic_schema": schema_json, 
+            "schema_version": record.version, 
+            "competitors": discovered_competitors,
+            "stats": count_schema_stats(schema_json)
+        }
+    )
     await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_REVIEW", "progress": 30})
