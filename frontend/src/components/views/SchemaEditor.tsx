@@ -17,11 +17,12 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const hasSchema = !!schemaData && Object.keys(schemaData).length > 0;
+  const isSchemaPending = !taskId || !taskState || ['INITIALIZING', 'SCHEMA_GENERATING'].includes(taskState);
   const [checkedKeys, setCheckedKeys] = useState<React.Key[]>([]);
   const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (hasSchema && !initialized) {
+    if (hasSchema) {
       const keys: React.Key[] = [];
       Object.entries(schemaData).forEach(([groupName, fields]: any, groupIndex) => {
         keys.push(`group-${groupIndex}`);
@@ -32,7 +33,7 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
       setCheckedKeys(keys);
       setInitialized(true);
     }
-  }, [hasSchema, schemaData, initialized]);
+  }, [hasSchema, schemaData]);
 
   const onCheck = (checked: any) => {
     setCheckedKeys(checked);
@@ -148,8 +149,8 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
   return (
     <div>
       <Alert
-        title={taskState && ['SCHEMA_REVIEW', 'SCHEMA_GENERATING', 'INITIALIZING', 'PAUSED'].indexOf(taskState) === -1 ? 'Schema 已确认放行' : (hasSchema ? '系统已完成初版Schema生成，请审核确认后继续' : '等待后端生成Schema，当前展示默认结构')}
-        type={taskState && ['SCHEMA_REVIEW', 'SCHEMA_GENERATING', 'INITIALIZING', 'PAUSED'].indexOf(taskState) === -1 ? 'success' : 'warning'}
+        title={isSchemaPending ? 'Schema生成中，请耐心等待...' : (hasSchema && ['SCHEMA_REVIEW', 'PAUSED'].includes(taskState || '') ? '系统已完成初版Schema生成，请审核确认后继续' : 'Schema 已确认放行')}
+        type={isSchemaPending ? 'info' : (['SCHEMA_REVIEW', 'PAUSED'].includes(taskState || '') ? 'warning' : 'success')}
         showIcon
         style={{ marginBottom: 24 }}
       />
@@ -168,8 +169,8 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
         title={<div>竞品知识框架 v1.2 <Text type="secondary" style={{ fontSize: 14, fontWeight: 'normal' }}>（Agent生成）</Text></div>}
         extra={
           <Space>
-            <Button size="small" icon={<EditOutlined />}>编辑</Button>
-            <Button size="small" danger icon={<CloseOutlined />}>禁用选中</Button>
+            <Button size="small" icon={<EditOutlined />} disabled={isSchemaPending}>编辑</Button>
+            <Button size="small" danger icon={<CloseOutlined />} disabled={isSchemaPending}>禁用选中</Button>
           </Space>
         }
       >
@@ -183,9 +184,9 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
           <Text>预计采集复杂度：<Tag color="orange">中等</Tag></Text>
         </Space>
         <Space>
-          <Button danger loading={loading} disabled={!taskId || Boolean(taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleReject}>拒绝并重新生成</Button>
-          <Button loading={loading} disabled={!taskId || !hasSchema || Boolean(taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleSaveDraft}>保存为草稿</Button>
-          <Button type="primary" loading={loading} disabled={!taskId || !hasSchema || Boolean(taskState && ['SCHEMA_REVIEW', 'PAUSED', 'INITIALIZING', 'SCHEMA_GENERATING'].indexOf(taskState) === -1)} onClick={handleSaveAndContinue}>保存并继续(放行) →</Button>
+          <Button danger loading={loading} disabled={isSchemaPending} onClick={handleReject}>拒绝并重新生成</Button>
+          <Button loading={loading} disabled={isSchemaPending || !hasSchema} onClick={handleSaveDraft}>保存为草稿</Button>
+          <Button type="primary" loading={loading} disabled={isSchemaPending || !hasSchema} onClick={handleSaveAndContinue}>保存并继续(放行) →</Button>
         </Space>
       </div>
     </div>
