@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { Alert, Card, Tree, Button, Space, Typography, Tag, Tooltip, App } from 'antd';
 import { CheckOutlined, CloseOutlined, MessageOutlined, EditOutlined, RobotOutlined, UserOutlined } from '@ant-design/icons';
 
@@ -19,21 +19,28 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
   const hasSchema = !!schemaData && Object.keys(schemaData).length > 0;
   const isSchemaPending = !taskId || !taskState || ['INITIALIZING', 'SCHEMA_GENERATING'].includes(taskState);
   const [checkedKeys, setCheckedKeys] = useState<React.Key[]>([]);
-  const [initialized, setInitialized] = useState(false);
+  const schemaRef = useRef(schemaData);
 
-  useEffect(() => {
-    if (hasSchema) {
-      const keys: React.Key[] = [];
-      Object.entries(schemaData).forEach(([groupName, fields]: any, groupIndex) => {
-        keys.push(`group-${groupIndex}`);
-        (Array.isArray(fields) ? fields : []).forEach((field: any, fieldIndex: number) => {
-          keys.push(field.id || `field-${groupIndex}-${fieldIndex}`);
-        });
+  // Compute all keys for the current schema
+  const allSchemaKeys = useMemo(() => {
+    if (!hasSchema) return [];
+    const keys: React.Key[] = [];
+    Object.entries(schemaData).forEach(([groupName, fields]: any, groupIndex) => {
+      keys.push(`group-${groupIndex}`);
+      (Array.isArray(fields) ? fields : []).forEach((field: any, fieldIndex: number) => {
+        keys.push(field.id || `field-${groupIndex}-${fieldIndex}`);
       });
-      setCheckedKeys(keys);
-      setInitialized(true);
-    }
+    });
+    return keys;
   }, [hasSchema, schemaData]);
+
+  // Reset checkedKeys when schema changes
+  useEffect(() => {
+    if (schemaData !== schemaRef.current) {
+      schemaRef.current = schemaData;
+      setCheckedKeys(allSchemaKeys);
+    }
+  }, [allSchemaKeys, schemaData]);
 
   const onCheck = (checked: any) => {
     setCheckedKeys(checked);
@@ -143,6 +150,15 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
     }));
   }, [hasSchema, onOpenDrawer, schemaData]);
 
+  // Filter out stale keys at render time to prevent Ant Design Tree warning
+  const activeCheckedKeys = useMemo(() => {
+    if (!treeData.length) return checkedKeys;
+    const validKeys = new Set<React.Key>();
+    const walk = (nodes: any[]) => nodes.forEach(n => { validKeys.add(n.key); if (n.children) walk(n.children); });
+    walk(treeData);
+    return checkedKeys.filter(k => validKeys.has(k));
+  }, [checkedKeys, treeData]);
+
   const fields = Object.values(schemaData || {}).flatMap((items: any) => Array.isArray(items) ? items : []);
   const userFields = fields.filter((field: any) => field.origin === 'user').length;
 
@@ -174,7 +190,7 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
           </Space>
         }
       >
-        <Tree checkable checkedKeys={checkedKeys} onCheck={onCheck} defaultExpandAll treeData={treeData} style={{ fontSize: 16 }} />
+        <Tree checkable checkedKeys={activeCheckedKeys} onCheck={onCheck} defaultExpandAll treeData={treeData} style={{ fontSize: 16 }} />
       </Card>
 
       <div style={{ marginTop: 24, padding: '16px', background: '#f5f5f5', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
