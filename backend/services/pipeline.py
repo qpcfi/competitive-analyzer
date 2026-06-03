@@ -250,6 +250,7 @@ async def process_agent_pipeline(task_id: str):
         async def publish_collector_progress(payload: dict[str, Any]):
             await publish_event(task_id, "collector_log", payload)
 
+        await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Starting data collection for all competitors."})
         state = await collector_node(state, on_progress=publish_collector_progress)
         materials = state.get("raw_materials") or []
         async with async_session() as session:
@@ -262,6 +263,7 @@ async def process_agent_pipeline(task_id: str):
         await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
         await publish_event(task_id, "raw_materials_updated", {"data": materials, "source_stats": source_stats(materials)})
 
+        await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "start", "message": "Starting comparative analysis."})
         state = await analyzer_node(state)
         analysis = state.get("analysis_results") or {}
         async with async_session() as session:
@@ -283,11 +285,13 @@ async def process_agent_pipeline(task_id: str):
         await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90})
         await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis})
 
+        await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Starting critic quality evaluation."})
         state = await critic_node(state)
         state, calibration_outcome = await run_schema_calibration(task_id, state)
         if calibration_outcome == "waiting_for_user":
             return
             
+        await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final structured report."})
         state = await reporter_node(state)
         await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": state.get("analysis_results") or {}})
         
