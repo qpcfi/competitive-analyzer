@@ -253,11 +253,31 @@ async def process_agent_pipeline(task_id: str):
         await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Starting data collection for all competitors."})
         state = await collector_node(state, on_progress=publish_collector_progress)
         materials = state.get("raw_materials") or []
+        competitor_counts = {}
+        status_counts = {}
+        for m in materials:
+            comp = m.get("competitor", "unknown")
+            competitor_counts[comp] = competitor_counts.get(comp, 0) + 1
+            status = m.get("validation_status", "unknown")
+            status_counts[status] = status_counts.get(status, 0) + 1
+
+        # Show first few materials as sample data (for debug expandable view)
+        material_sample = [{
+            "competitor": m.get("competitor"),
+            "schema_field_name": m.get("schema_field_name"),
+            "status": m.get("validation_status"),
+            "value": m.get("extracted_value", {}).get("value", "")[:200] if m.get("extracted_value") else "",
+            "source_url": m.get("source_url"),
+            "quote": (m.get("quote_text") or "")[:200],
+            "degraded_reason": m.get("degraded_reason"),
+        } for m in materials[:6]]
+        await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": f"Collector returned {len(materials)} materials: {competitor_counts}, status: {status_counts}, saving to DB...", "output_json": {"total": len(materials), "per_competitor": competitor_counts, "per_status": status_counts, "sample": material_sample}})
         async with async_session() as session:
             task = await update_task_state(session, task_id, state="COLLECTING", progress=60)
             task.raw_materials = materials
             await save_source_materials(session, task_id, materials)
             await session.commit()
+        await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": "DB save complete."})
         await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Data collection completed."})
         await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
         await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})

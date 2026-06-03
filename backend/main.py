@@ -5,6 +5,13 @@ if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 import asyncio
 
+# Configure uvicorn log format with timestamps (module-level for reload subprocess)
+from uvicorn.config import LOGGING_CONFIG as _uvicorn_log_config
+_uvicorn_log_config["formatters"]["default"]["fmt"] = "%(asctime)s [%(levelname)s] %(message)s"
+_uvicorn_log_config["formatters"]["default"]["datefmt"] = "%Y-%m-%d %H:%M:%S"
+_uvicorn_log_config["formatters"]["access"]["fmt"] = "%(asctime)s [%(levelname)s] %(client_addr)s - %(request_line)s %(status_code)s"
+_uvicorn_log_config["formatters"]["access"]["datefmt"] = "%Y-%m-%d %H:%M:%S"
+
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -188,5 +195,4 @@ async def resume_task(task_id: str, background_tasks: BackgroundTasks):
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -166,7 +166,7 @@ async def save_source_materials(
     materials: list[dict[str, Any]],
 ) -> list[SourceMaterialRecord]:
     records: list[SourceMaterialRecord] = []
-    for material in materials:
+    for i, material in enumerate(materials):
         record = SourceMaterialRecord(
             id=material.get("id") or new_id("src"),
             task_id=task_id,
@@ -187,6 +187,8 @@ async def save_source_materials(
         )
         session.add(record)
         records.append(record)
+        if i > 0 and i % 100 == 0:
+            await session.flush()
     await session.flush()
     return records
 
