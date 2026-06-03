@@ -1,4 +1,5 @@
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
+import sys
 from collections import OrderedDict
 from typing import Optional
 
@@ -51,7 +52,6 @@ async def crawl_urls(urls: list[str]) -> dict[str, str]:
     # 2. Fallback: Crawl missing URLs
     if urls_to_crawl:
         def _run_crawler_in_thread(urls):
-            import sys
             import asyncio
             if sys.platform == 'win32':
                 asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())

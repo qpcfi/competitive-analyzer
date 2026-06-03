@@ -47,8 +47,8 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId }: DebugPa
     return null;
   }, [logs]);
 
-  // Reverse logs to show newest first for easier viewing
-  const reversedLogs = useMemo(() => [...logs].reverse(), [logs]);
+  // Natural order: oldest at top, newest at bottom
+  const orderedLogs = useMemo(() => [...logs], [logs]);
 
   return (
     <div style={{ height: `${height}px`, borderTop: '1px solid #ccc', background: '#fafafa', overflow: 'auto', padding: '16px' }}>
@@ -111,10 +111,10 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId }: DebugPa
 
       <Title level={5} style={{ marginTop: 16 }}>执行日志与 Raw Data</Title>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {reversedLogs.length === 0 ? (
+        {orderedLogs.length === 0 ? (
           <Text type="secondary">暂无日志</Text>
         ) : (
-          reversedLogs.map((log, i) => (
+          orderedLogs.map((log, i) => (
             <Card key={i} size="small" styles={{ body: { padding: '8px 12px' } }} variant="borderless" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                 <Space>
@@ -123,7 +123,7 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId }: DebugPa
                   <Text strong>{log.message}</Text>
                 </Space>
                 <Space>
-                  <Text type="secondary" style={{ fontSize: 12 }}>{new Date().toLocaleTimeString()}</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>{log.receivedAt ? new Date(log.receivedAt).toLocaleTimeString() : ''}</Text>
                   {log.latency && <Text type="secondary"><ClockCircleOutlined /> {log.latency.toFixed(2)}s</Text>}
                   {log.tokens !== undefined && <Tag color="gold" style={{ margin: 0 }}>{log.tokens} tokens</Tag>}
                 </Space>

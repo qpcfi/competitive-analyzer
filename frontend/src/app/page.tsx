@@ -148,7 +148,8 @@ export default function Home() {
     evtSource.addEventListener('debug_log', (e) => {
       const payload = JSON.parse(e.data);
       rememberSequence(payload);
-      setDebugLogs(prev => [...prev, payload.data || payload]);
+      const log = payload.data || payload;
+      setDebugLogs(prev => [...prev, { ...log, receivedAt: new Date().toISOString() }]);
     });
 
     evtSource.addEventListener('token_update', (e) => {

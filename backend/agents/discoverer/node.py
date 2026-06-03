@@ -77,7 +77,8 @@ def fallback_competitors(domain: str, count: int) -> list[str]:
 async def recommend_competitors(domain: str, existing: Iterable[str] = (), callbacks=None) -> tuple[list[CompetitorCandidate], str]:
     existing_names = {name.lower() for name in normalize_competitor_names(existing)}
     candidates: list[CompetitorCandidate] = []
-    
+    evidence = ""
+
     if llm is not None and ChatPromptTemplate is not None:
         from services.web_search import search_public_web, fetch_public_web_pages
         from ..shared.router import route_sources
