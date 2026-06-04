@@ -19,7 +19,7 @@ critic_agent:
       "feedback": [
         {{"competitor": "Competitor Name", "field_name": "Field", "issue_type": "missing_evidence", "comment": "Description of issue", "suggested_action": "retry_collection"}}
       ],
-      "schema_extensions": [
+      "suggested_schema_extensions": [
         {{"dimension_group": "Group", "new_field": "Field Name", "type": "text", "reason": "Why to add", "confidence": 0.9}}
       ]
     }}
