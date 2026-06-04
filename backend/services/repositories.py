@@ -158,7 +158,7 @@ async def add_intervention(session: AsyncSession, task_id: str, action_type: str
     session.add(record)
     await session.flush()
     return record
-
+# 这个方法会导致后端卡住，不明原因 Todo 注意
 
 async def save_source_materials(
     session: AsyncSession,
@@ -188,9 +188,9 @@ async def save_source_materials(
         }
         for m in materials
     ]
-    stmt = insert(SourceMaterialRecord).returning(SourceMaterialRecord)
-    result = await session.execute(stmt, records_data)
-    return list(result.scalars())
+    stmt = insert(SourceMaterialRecord)
+    await session.execute(stmt, records_data)
+    return []
 
 
 async def save_analysis_module(

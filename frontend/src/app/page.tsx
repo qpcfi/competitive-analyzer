@@ -11,7 +11,7 @@ import CompetitorAnalysis from '@/components/views/CompetitorAnalysis';
 import SWOTAnalysis from '@/components/views/SWOTAnalysis';
 import StructuredReport from '@/components/views/StructuredReport';
 import DebugPanel from '@/components/views/DebugPanel';
-import { App, Progress, Switch, Card, Typography } from 'antd';
+import { App, Modal, Progress, Switch, Card, Typography } from 'antd';
 
 const { Title, Text } = Typography;
 
@@ -39,6 +39,7 @@ export default function Home() {
   const [tokenUsage, setTokenUsage] = useState<any>(null);
   const [debugHeight, setDebugHeight] = useState<number>(300);
   const [isResizing, setIsResizing] = useState<boolean>(false);
+  const [extensionRequest, setExtensionRequest] = useState<{ visible: boolean; suggestions: any[] }>({ visible: false, suggestions: [] });
 
   useEffect(() => {
     if (!isResizing) return;
@@ -104,6 +105,13 @@ export default function Home() {
       message.success('Critic 已完成一轮 Schema 后校验微调');
     });
 
+    evtSource.addEventListener('schema_extension_request', (e) => {
+      const data = JSON.parse(e.data);
+      rememberSequence(data);
+      const suggestions = data.suggested_schema_extensions || [];
+      setExtensionRequest({ visible: true, suggestions });
+    });
+
     evtSource.addEventListener('raw_materials_updated', (e) => {
       const data = JSON.parse(e.data);
       rememberSequence(data);
@@ -136,6 +144,10 @@ export default function Home() {
       rememberSequence(data);
       if (data.state) {
         setTaskState(data.state);
+        if (data.state === 'NEEDS_INTERVENTION' && data.suggested_schema_extensions) {
+          console.log('[EXTENSION] received NEEDS_INTERVENTION with:', JSON.stringify(data.suggested_schema_extensions));
+          setExtensionRequest({ visible: true, suggestions: data.suggested_schema_extensions });
+        }
       }
     });
 
@@ -195,6 +207,38 @@ export default function Home() {
 
   const closeDrawer = () => {
     setDrawerConfig({ ...drawerConfig, isOpen: false });
+  };
+
+  const handleCalibrationConfirm = async () => {
+    if (!taskId) return;
+    try {
+      await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/calibration`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'confirm' }),
+      });
+      setExtensionRequest({ visible: false, suggestions: [] });
+      message.info('正在执行 Schema 扩展和数据补充采集...');
+    } catch (err) {
+      console.error('Calibration confirm failed', err);
+      message.error('操作失败');
+    }
+  };
+
+  const handleCalibrationReject = async () => {
+    if (!taskId) return;
+    try {
+      await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/calibration`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject' }),
+      });
+      setExtensionRequest({ visible: false, suggestions: [] });
+      message.info('已跳过 Schema 扩展，继续生成报告');
+    } catch (err) {
+      console.error('Calibration reject failed', err);
+      message.error('操作失败');
+    }
   };
 
   const restoreHistoricalTask = async (restoredTaskId: string) => {
@@ -306,6 +350,26 @@ export default function Home() {
           </div>
         )}
       </div>
+      <Modal
+        title="Critic 建议扩展 Schema 维度"
+        open={extensionRequest.visible}
+        onOk={handleCalibrationConfirm}
+        onCancel={handleCalibrationReject}
+        okText="确认扩展"
+        cancelText="跳过"
+        width={600}
+      >
+        <p style={{ marginBottom: 16 }}>Critic 发现以下可能缺失的维度字段，确认后系统将自动补充采集和重新分析：</p>
+        {extensionRequest.suggestions.map((s: any, i: number) => (
+          <Card key={i} size="small" style={{ marginBottom: 8 }}>
+            <div><strong>维度分组：</strong>{s.dimension_group || '未分组'}</div>
+            <div><strong>字段名：</strong>{s.new_field}</div>
+            {s.confidence !== undefined && <div><strong>置信度：</strong>{(s.confidence * 100).toFixed(0)}%</div>}
+            {s.evidence && s.evidence.length > 0 && <div><strong>证据：</strong>{s.evidence.join('；')}</div>}
+            {s.affected_competitors && s.affected_competitors.length > 0 && <div><strong>涉及竞品：</strong>{s.affected_competitors.join('、')}</div>}
+          </Card>
+        ))}
+      </Modal>
       <RightDrawer
         isOpen={drawerConfig.isOpen}
         type={drawerConfig.type}

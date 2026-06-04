@@ -9,7 +9,7 @@ DATABASE_URL = os.environ.get(
     "postgresql+asyncpg://postgres:123456@localhost:5432/competitive_analyzer",
 )
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+engine = create_async_engine(DATABASE_URL, echo=False, pool_pre_ping=True, connect_args={"command_timeout": 60})
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 Base = declarative_base()

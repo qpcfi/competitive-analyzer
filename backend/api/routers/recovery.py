@@ -1,10 +1,16 @@
 from datetime import datetime
 
+import asyncio
+
 from fastapi import APIRouter, HTTPException, Request
 
 from core import runtime
 from models_db import async_session
-from services.pipeline import publish_event
+from services.pipeline import (
+    publish_event,
+    calibration_confirm,
+    calibration_reject,
+)
 from services.repositories import add_intervention, get_task, save_analysis_module, update_task_state
 
 router = APIRouter()
@@ -75,3 +81,22 @@ async def partial_rerun(task_id: str, req: Request):
         await session.commit()
     await publish_event(task_id, "module_updated", {"module_id": module_id, "new_content": new_content, "version": record.version, "updated_at": datetime.utcnow().isoformat()})
     return {"status": "rerunning", "module_id": module_id, "state": "ANALYZING"}
+
+
+@router.post("/api/v1/tasks/{task_id}/calibration")
+async def calibration_action(task_id: str, req: Request):
+    body = await req.json()
+    action = body.get("action", "")
+    if action not in ("confirm", "reject"):
+        raise HTTPException(status_code=400, detail="action must be 'confirm' or 'reject'")
+    async with async_session() as session:
+        db_task = await get_task(session, task_id)
+        if not db_task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        if db_task.state not in ("NEEDS_INTERVENTION",):
+            raise HTTPException(status_code=409, detail=f"Cannot calibrate while task is {db_task.state}")
+    if action == "confirm":
+        asyncio.create_task(calibration_confirm(task_id))
+    else:
+        asyncio.create_task(calibration_reject(task_id))
+    return {"status": "calibrating", "action": action, "state": "PROCESSING"}
