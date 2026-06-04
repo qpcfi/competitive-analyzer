@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models_db import (
@@ -165,32 +165,32 @@ async def save_source_materials(
     task_id: str,
     materials: list[dict[str, Any]],
 ) -> list[SourceMaterialRecord]:
-    records: list[SourceMaterialRecord] = []
-    for i, material in enumerate(materials):
-        record = SourceMaterialRecord(
-            id=material.get("id") or new_id("src"),
-            task_id=task_id,
-            schema_field_id=material.get("schema_field_id"),
-            competitor=material.get("competitor") or "",
-            source_url=material.get("source_url"),
-            source_type=material.get("source_type") or "web",
-            quote_text=material.get("quote_text") or material.get("content") or "",
-            extracted_value=material.get("extracted_value"),
-            agent_node=material.get("agent_node") or "collector",
-            access_status=material.get("access_status") or "accessible",
-            validation_status=material.get("validation_status") or "accepted",
-            trust_status=material.get("trust_status") or "third_party",
-            retry_count=int(material.get("retry_count") or 0),
-            degraded_reason=material.get("degraded_reason"),
-            pii_redacted=bool(material.get("pii_redacted", False)),
-            is_noise=bool(material.get("is_noise", False)),
-        )
-        session.add(record)
-        records.append(record)
-        if i > 0 and i % 100 == 0:
-            await session.flush()
-    await session.flush()
-    return records
+    if not materials:
+        return []
+    records_data = [
+        {
+            "id": m.get("id") or new_id("src"),
+            "task_id": task_id,
+            "schema_field_id": m.get("schema_field_id"),
+            "competitor": m.get("competitor") or "",
+            "source_url": m.get("source_url"),
+            "source_type": m.get("source_type") or "web",
+            "quote_text": m.get("quote_text") or m.get("content") or "",
+            "extracted_value": m.get("extracted_value"),
+            "agent_node": m.get("agent_node") or "collector",
+            "access_status": m.get("access_status") or "accessible",
+            "validation_status": m.get("validation_status") or "accepted",
+            "trust_status": m.get("trust_status") or "third_party",
+            "retry_count": int(m.get("retry_count") or 0),
+            "degraded_reason": m.get("degraded_reason"),
+            "pii_redacted": bool(m.get("pii_redacted", False)),
+            "is_noise": bool(m.get("is_noise", False)),
+        }
+        for m in materials
+    ]
+    stmt = insert(SourceMaterialRecord).returning(SourceMaterialRecord)
+    result = await session.execute(stmt, records_data)
+    return list(result.scalars())
 
 
 async def save_analysis_module(
