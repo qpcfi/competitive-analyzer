@@ -69,6 +69,7 @@ class SourceMaterialRecord(Base):
     degraded_reason = Column(Text, nullable=True)
     pii_redacted = Column(Boolean, default=False)
     is_noise = Column(Boolean, default=False)
+    source_stage = Column(String, default="search")
 
 
 class AnalysisResultRecord(Base):
@@ -203,3 +204,4 @@ async def init_db():
             await conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS created_at TIMESTAMP"))
             await conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP"))
             await conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP"))
+            await conn.execute(text("ALTER TABLE source_materials ADD COLUMN IF NOT EXISTS source_stage VARCHAR DEFAULT 'search'"))

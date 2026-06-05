@@ -70,6 +70,11 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
         
         # Crawl and cache Markdown
         cached_markdowns = await crawl_urls(routed_urls)
+        cached_hits = sum(1 for v in cached_markdowns.values() if v)
+        if routed_sources:
+            await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[curated] {competitor}: {cached_hits}/{len(routed_sources)} knowledge_base URLs crawled successfully"})
+        else:
+            await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[curated] {competitor}: no knowledge_base URLs configured, will skip to DuckDuckGo"})
         
         for field in schema_fields:
             query = build_collection_query(competitor, field)
@@ -82,28 +87,35 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
                 markdown_content = cached_markdowns.get(url)
                 if not markdown_content:
                     continue
-                    
+
                 # Create a pseudo PageEvidence for the LLM extraction
                 pseudo_page = PageEvidence(
                     query=query, search_title=src.get("name", ""), url=url, snippet="", page_title="", text=markdown_content
                 )
-                
+
                 extracted_material = await build_material_from_pages(
-                    task_id, competitor, field, query, [pseudo_page], callbacks=callbacks, strict_not_found=True
+                    task_id, competitor, field, query, [pseudo_page], callbacks=callbacks, strict_not_found=True, source_stage="curated"
                 )
-                
+
                 if extracted_material and extracted_material.get("extracted_value", {}).get("value") != "NOT_FOUND":
                     material = extracted_material
-                    break # Found it!
+                    break  # Found it!
+                else:
+                    await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[curated] NOT_FOUND: {src.get('name', url)} → {query}"})
                     
             # 2. Fallback to DuckDuckGo search if not found
             if not material:
+                await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[fallback] curated sources exhausted for {field.get('name') or field.get('id')}, searching DuckDuckGo..."})
                 try:
-                    search_results = await search_public_web(query, limit=3)
+                    search_results  = await search_public_web(query, limit=3)
                     discovered_results += len(search_results)
+                    await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] DuckDuckGo returned {len(search_results)} results for: {query}"})
                     pages = await fetch_public_web_pages(search_results, limit=2)
-                    material = await build_material_from_pages(task_id, competitor, field, query, pages, callbacks=callbacks, strict_not_found=False)
+                    material = await build_material_from_pages(task_id, competitor, field, query, pages, callbacks=callbacks, strict_not_found=False, source_stage="search")
+                    if material.get("validation_status") == "degraded":
+                        await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] degraded result for: {query} (reason: {material.get('degraded_reason')})"})
                 except Exception as exc:
+                    await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] ERROR: {query} → {exc.__class__.__name__}: {exc}"})
                     material = build_degraded_material(task_id, competitor, field, query, f"{exc.__class__.__name__}:{exc}")
             
             results.append(material)
@@ -116,6 +128,7 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
                 "schema_field_name": field.get("name") or field.get("id"),
                 "status": material.get("validation_status"),
                 "access_status": material.get("access_status"),
+                "source_stage": material.get("source_stage"),
                 "completed": completed,
                 "total": total,
                 "discovered_results": discovered_results,
@@ -191,6 +204,7 @@ async def build_material_from_pages(
     pages: list[PageEvidence],
     callbacks: list = None,
     strict_not_found: bool = False,
+    source_stage: str = "search",
 ) -> dict[str, Any] | None:
     accepted = next((item for item in pages if item.text or item.snippet), None)
     if not accepted:
@@ -253,6 +267,7 @@ async def build_material_from_pages(
         "quote_text": redacted,
         "extracted_value": {"value": redacted, "query": query},
         "agent_node": "collector",
+        "source_stage": source_stage,
         "access_status": "allowed",
         "validation_status": "accepted" if redacted else "degraded",
         "trust_status": "third_party",
@@ -273,6 +288,7 @@ def build_degraded_material(task_id: str, competitor: str, field: dict[str, Any]
         "quote_text": "",
         "extracted_value": {"query": query, "error": reason},
         "agent_node": "collector",
+        "source_stage": "degraded",
         "access_status": "failed",
         "validation_status": "degraded",
         "trust_status": "degraded",

@@ -185,6 +185,7 @@ async def save_source_materials(
             "degraded_reason": m.get("degraded_reason"),
             "pii_redacted": bool(m.get("pii_redacted", False)),
             "is_noise": bool(m.get("is_noise", False)),
+            "source_stage": m.get("source_stage") or "search",
         }
         for m in materials
     ]
