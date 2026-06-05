@@ -49,9 +49,21 @@ async def analyzer_node(state: AgentState):
         task_id = state.get("task_id")
         callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
         config = {"callbacks": callbacks} if callbacks else None
+        materials_input = json.dumps(materials, ensure_ascii=False)
+        critic_feedback = state.get("critic_feedback") or []
+        if critic_feedback:
+            feedback_text = "\n\n=== CRITIC质量审查-请修复以下问题 ===\n"
+            for item in critic_feedback:
+                if isinstance(item, dict):
+                    target = item.get("target") or item.get("target_id", "")
+                    issue = item.get("issue") or item.get("message", "")
+                    feedback_text += f"- [{target}] {issue}\n"
+                else:
+                    feedback_text += f"- {item}\n"
+            materials_input = feedback_text + "\n" + materials_input
         response = await chain.ainvoke({
             "schema": json.dumps(schema, ensure_ascii=False),
-            "materials": json.dumps(materials, ensure_ascii=False)
+            "materials": materials_input
         }, config=config)
         
         content = str(response.content)

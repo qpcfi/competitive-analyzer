@@ -82,3 +82,8 @@ class NoteRequest(BaseModel):
     target_type: str
     target_id: str
     note: str
+
+
+class FeedbackApplyRequest(BaseModel):
+    confirmed_feedback_ids: list[str] = []
+    rejected_feedback_ids: list[str] = []

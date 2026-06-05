@@ -7,6 +7,7 @@ import TaskConsole from '@/components/views/TaskConsole';
 import InfoDashboard from '@/components/views/InfoDashboard';
 import HistoryView from '@/components/views/HistoryView';
 import SchemaEditor from '@/components/views/SchemaEditor';
+import CriticReview from '@/components/views/CriticReview';
 import CompetitorAnalysis from '@/components/views/CompetitorAnalysis';
 import SWOTAnalysis from '@/components/views/SWOTAnalysis';
 import StructuredReport from '@/components/views/StructuredReport';
@@ -144,9 +145,12 @@ export default function Home() {
       rememberSequence(data);
       if (data.state) {
         setTaskState(data.state);
-        if (data.state === 'NEEDS_INTERVENTION' && data.suggested_schema_extensions) {
-          console.log('[EXTENSION] received NEEDS_INTERVENTION with:', JSON.stringify(data.suggested_schema_extensions));
-          setExtensionRequest({ visible: true, suggestions: data.suggested_schema_extensions });
+        if (data.state === 'NEEDS_INTERVENTION') {
+          if (data.suggested_schema_extensions) {
+            console.log('[EXTENSION] received NEEDS_INTERVENTION with:', JSON.stringify(data.suggested_schema_extensions));
+            setExtensionRequest({ visible: true, suggestions: data.suggested_schema_extensions });
+          }
+          setCurrentView('critic-review');
         }
       }
     });
@@ -298,6 +302,16 @@ export default function Home() {
             onChangeView={setCurrentView}
           />
         </div>
+        <div style={{ display: currentView === 'critic-review' ? 'block' : 'none', height: '100%' }}>
+          <CriticReview
+            taskId={taskId}
+            extensionRequest={extensionRequest}
+            onApplied={() => {
+              setExtensionRequest({ visible: false, suggestions: [] });
+              setCurrentView('dashboard');
+            }}
+          />
+        </div>
         <div style={{ display: currentView === 'report' ? 'block' : 'none', height: '100%' }}>
           <StructuredReport taskId={taskId} analysisResults={analysisResults} />
         </div>
@@ -351,24 +365,21 @@ export default function Home() {
         )}
       </div>
       <Modal
-        title="Critic 建议扩展 Schema 维度"
+        title="Critic 发现待审查建议"
         open={extensionRequest.visible}
-        onOk={handleCalibrationConfirm}
-        onCancel={handleCalibrationReject}
-        okText="确认扩展"
-        cancelText="跳过"
-        width={600}
+        onOk={() => {
+          setExtensionRequest(prev => ({ ...prev, visible: false }));
+          setCurrentView('critic-review');
+        }}
+        onCancel={() => {
+          setExtensionRequest(prev => ({ ...prev, visible: false }));
+        }}
+        okText="前往审查"
+        cancelText="稍后处理"
+        width={400}
       >
-        <p style={{ marginBottom: 16 }}>Critic 发现以下可能缺失的维度字段，确认后系统将自动补充采集和重新分析：</p>
-        {extensionRequest.suggestions.map((s: any, i: number) => (
-          <Card key={i} size="small" style={{ marginBottom: 8 }}>
-            <div><strong>维度分组：</strong>{s.dimension_group || '未分组'}</div>
-            <div><strong>字段名：</strong>{s.new_field}</div>
-            {s.confidence !== undefined && <div><strong>置信度：</strong>{(s.confidence * 100).toFixed(0)}%</div>}
-            {s.evidence && s.evidence.length > 0 && <div><strong>证据：</strong>{s.evidence.join('；')}</div>}
-            {s.affected_competitors && s.affected_competitors.length > 0 && <div><strong>涉及竞品：</strong>{s.affected_competitors.join('、')}</div>}
-          </Card>
-        ))}
+        <p>Critic 已完成一轮质量审查，发现了 Schema 扩展建议和材料质量问题。</p>
+        <p>请前往 <strong>Critic 审查页</strong> 逐项审核并决定如何处理。</p>
       </Modal>
       <RightDrawer
         isOpen={drawerConfig.isOpen}

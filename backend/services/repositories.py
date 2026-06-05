@@ -158,7 +158,7 @@ async def add_intervention(session: AsyncSession, task_id: str, action_type: str
     session.add(record)
     await session.flush()
     return record
-# 这个方法会导致后端卡住，不明原因 Todo 注意
+# 这个方法会导致后端卡住，不明原因 Todo
 
 async def save_source_materials(
     session: AsyncSession,
@@ -252,6 +252,38 @@ async def save_quality_feedback(
     return records
 
 
+async def get_pending_feedback(
+    session: AsyncSession,
+    task_id: str,
+) -> list[QualityFeedbackRecord]:
+    result = await session.execute(
+        select(QualityFeedbackRecord)
+        .where(QualityFeedbackRecord.task_id == task_id, QualityFeedbackRecord.resolved == False)
+        .order_by(QualityFeedbackRecord.created_at.desc())
+    )
+    return list(result.scalars())
+
+
+async def resolve_feedback_items(
+    session: AsyncSession,
+    task_id: str,
+    feedback_ids: list[str],
+) -> int:
+    if not feedback_ids:
+        return 0
+    from sqlalchemy import update
+    stmt = (
+        update(QualityFeedbackRecord)
+        .where(
+            QualityFeedbackRecord.id.in_(feedback_ids),
+            QualityFeedbackRecord.task_id == task_id,
+        )
+        .values(resolved=True, resolved_at=datetime.utcnow())
+    )
+    result = await session.execute(stmt)
+    return result.rowcount
+
+
 __all__ = [
     "AnalysisResultRecord",
     "DynamicSchemaRecord",
@@ -270,12 +302,14 @@ __all__ = [
     "build_field_index",
     "create_task_record",
     "get_task",
+    "get_pending_feedback",
     "latest_schema",
     "list_events",
     "new_id",
     "save_analysis_module",
     "save_quality_feedback",
     "save_schema",
+    "resolve_feedback_items",
     "save_source_materials",
     "update_task_state",
 ]

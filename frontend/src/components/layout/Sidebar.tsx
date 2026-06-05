@@ -8,7 +8,8 @@ import {
   FileTextOutlined,
   BugOutlined,
   MenuFoldOutlined,
-  MenuUnfoldOutlined
+  MenuUnfoldOutlined,
+  SafetyCertificateOutlined,
 } from '@ant-design/icons';
 
 const { Title } = Typography;
@@ -41,6 +42,15 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
       key: 'dashboard',
       icon: <AppstoreAddOutlined />,
       label: '信息采集看板',
+    },
+    {
+      key: 'critic-review',
+      icon: <SafetyCertificateOutlined />,
+      label: (
+        <span>
+          Critic 审查 {taskState === 'NEEDS_INTERVENTION' && <Badge status="processing" text="待处理" />}
+        </span>
+      ),
     },
     {
       key: 'analysis',
@@ -81,6 +91,9 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
     }
     if (e.key === 'debug') {
       targetView = 'debug';
+    }
+    if (e.key === 'critic-review') {
+      targetView = 'critic-review';
     }
     onChangeView(targetView);
   };
