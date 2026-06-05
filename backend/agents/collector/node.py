@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from services.privacy import contains_pii, redact_pii
-from services.web_search import PageEvidence, SearchResult, fetch_public_web_pages, search_public_web
+from services.web_search import PageEvidence, SearchResult, search_public_web
 from .retrieval import process_page
 
 try:
@@ -103,17 +103,35 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
                 else:
                     await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[curated] NOT_FOUND: {src.get('name', url)} → {query}"})
                     
-            # 2. Fallback to DuckDuckGo search if not found
+            # 2. Fallback to DuckDuckGo search + Crawl4ai fetching
             if not material:
                 await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[fallback] curated sources exhausted for {field.get('name') or field.get('id')}, searching DuckDuckGo..."})
                 try:
-                    search_results  = await search_public_web(query, limit=3)
+                    search_results = await search_public_web(query, limit=5)
                     discovered_results += len(search_results)
                     await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] DuckDuckGo returned {len(search_results)} results for: {query}"})
-                    pages = await fetch_public_web_pages(search_results, limit=2)
-                    material = await build_material_from_pages(task_id, competitor, field, query, pages, callbacks=callbacks, strict_not_found=False, source_stage="search")
-                    if material.get("validation_status") == "degraded":
-                        await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] degraded result for: {query} (reason: {material.get('degraded_reason')})"})
+
+                    # Use Crawl4ai to fetch pages as clean Markdown (JS rendering, anti-bot)
+                    search_urls = [r.url for r in search_results[:3]]
+                    crawled_markdowns = await crawl_urls(search_urls)
+
+                    for sr in search_results:
+                        md = crawled_markdowns.get(sr.url)
+                        if not md:
+                            continue
+                        pseudo_page = PageEvidence(
+                            query=query, search_title=sr.title, url=sr.url,
+                            snippet=sr.snippet, page_title="", text=md,
+                        )
+                        material = await build_material_from_pages(
+                            task_id, competitor, field, query, [pseudo_page],
+                            callbacks=callbacks, strict_not_found=False, source_stage="search",
+                        )
+                        if material and material.get("validation_status") != "degraded":
+                            break
+
+                    if not material:
+                        material = build_degraded_material(task_id, competitor, field, query, "crawl4ai_all_failed")
                 except Exception as exc:
                     await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] ERROR: {query} → {exc.__class__.__name__}: {exc}"})
                     material = build_degraded_material(task_id, competitor, field, query, f"{exc.__class__.__name__}:{exc}")
