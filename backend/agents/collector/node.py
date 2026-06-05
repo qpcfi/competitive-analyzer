@@ -5,6 +5,7 @@ from typing import Any
 
 from services.privacy import contains_pii, redact_pii
 from services.web_search import PageEvidence, SearchResult, fetch_public_web_pages, search_public_web
+from .retrieval import process_page
 
 try:
     from langchain_core.messages import HumanMessage
@@ -197,7 +198,8 @@ async def build_material_from_pages(
             return None
         return build_degraded_material(task_id, competitor, field, query, "no_search_evidence_found")
 
-    excerpt = (accepted.text or accepted.snippet or "").strip()[:12000] # Increased to 12000 for Crawl4ai Markdown
+    _text = (accepted.text or accepted.snippet or "").strip()
+    excerpt = process_page(_text, query, max_chars=12000)
     extracted_value = excerpt
     is_not_found = False
 

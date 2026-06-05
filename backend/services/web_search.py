@@ -51,7 +51,7 @@ async def search_public_web(query: str, limit: int = 5, timeout: float = 15.0) -
     return parse_duckduckgo_results(response.text, query=query, limit=limit)
 
 
-def extract_page_text(html: str, max_chars: int = 4000) -> str:
+def extract_page_text(html: str, max_chars: int = 50000) -> str:
     soup = BeautifulSoup(html or "", "html.parser")
     for node in soup(["script", "style", "noscript", "svg"]):
         node.decompose()
@@ -64,7 +64,7 @@ async def fetch_public_web_pages(
     results: list[SearchResult],
     limit: int = 5,
     timeout: float = 12.0,
-    max_chars: int = 4000,
+    max_chars: int = 50000,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> list[PageEvidence]:
     pages: list[PageEvidence] = []

@@ -15,3 +15,4 @@ playwright
 pytest
 pytest-asyncio
 crawl4ai
+sentence-transformers>=2.2.0
