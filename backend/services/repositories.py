@@ -158,6 +158,37 @@ async def add_intervention(session: AsyncSession, task_id: str, action_type: str
     session.add(record)
     await session.flush()
     return record
+
+
+async def write_checkpoint(
+    session: AsyncSession,
+    task_id: str,
+    checkpoint_id: str,
+    phase: str,
+    summary: str,
+    snapshot_data: dict[str, Any],
+) -> TaskSnapshotRecord:
+    record = TaskSnapshotRecord(
+        id=new_id("ckpt"),
+        task_id=task_id,
+        checkpoint_id=checkpoint_id,
+        state=phase,
+        summary=summary,
+        snapshot_data=snapshot_data,
+    )
+    session.add(record)
+    await session.flush()
+    return record
+
+
+async def get_checkpoint(session: AsyncSession, task_id: str, checkpoint_id: str) -> TaskSnapshotRecord | None:
+    result = await session.execute(
+        select(TaskSnapshotRecord).where(
+            TaskSnapshotRecord.task_id == task_id,
+            TaskSnapshotRecord.checkpoint_id == checkpoint_id,
+        )
+    )
+    return result.scalar_one_or_none()
 # 这个方法会导致后端卡住，不明原因 Todo
 
 async def save_source_materials(
@@ -302,6 +333,7 @@ __all__ = [
     "add_intervention",
     "build_field_index",
     "create_task_record",
+    "get_checkpoint",
     "get_task",
     "get_pending_feedback",
     "latest_schema",
@@ -313,4 +345,5 @@ __all__ = [
     "resolve_feedback_items",
     "save_source_materials",
     "update_task_state",
+    "write_checkpoint",
 ]

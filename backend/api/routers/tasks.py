@@ -12,6 +12,9 @@ from services.pipeline import event_generator, make_initial_state, process_initi
 from services.repositories import add_intervention, create_task_record, get_task, save_schema, update_task_state
 from services.serialization import serialize_task
 
+# Keep references to background tasks to prevent garbage collection
+_background_tasks: set[asyncio.Task] = set()
+
 router = APIRouter()
 
 
@@ -140,7 +143,7 @@ async def list_snapshots(task_id: str):
 
 
 @router.post("/api/v1/tasks/{task_id}/restore_snapshot")
-async def restore_snapshot(task_id: str, req: Request):
+async def restore_snapshot(task_id: str, req: Request, background_tasks: BackgroundTasks):
     body = await req.json()
     checkpoint_id = body.get("checkpoint_id")
     async with async_session() as session:
@@ -153,7 +156,11 @@ async def restore_snapshot(task_id: str, req: Request):
         snapshot = result.scalar_one_or_none()
         if not snapshot:
             raise HTTPException(status_code=404, detail="Snapshot not found")
-        if body.get("mode") == "clone":
+
+        snap_data = snapshot.snapshot_data or {}
+        mode = body.get("mode")
+
+        if mode == "clone":
             clone_id = f"task_{uuid.uuid4().hex[:8]}"
             await create_task_record(
                 session,
@@ -161,17 +168,47 @@ async def restore_snapshot(task_id: str, req: Request):
                 task_name=f"{task.task_name} copy",
                 domain=task.domain,
                 main_product=task.main_product,
-                competitors=task.competitors or [],
+                competitors=snap_data.get("competitors", task.competitors or []),
                 execution_mode=task.execution_mode,
             )
-            await update_task_state(session, clone_id, state=snapshot.state, progress=task.progress or 0)
+            await update_task_state(session, clone_id, state=snapshot.state, progress=snap_data.get("progress", 0))
+            if snap_data.get("dynamic_schema"):
+                await save_schema(session, clone_id, snap_data["dynamic_schema"], created_by="agent", status="active")
             await session.commit()
             return {"task_id": clone_id, "state": snapshot.state}
-        task.state = snapshot.state
-        task.dynamic_schema = (snapshot.snapshot_data or {}).get("dynamic_schema", task.dynamic_schema)
-        task.raw_materials = (snapshot.snapshot_data or {}).get("raw_materials", task.raw_materials)
-        task.analysis_results = (snapshot.snapshot_data or {}).get("analysis_results", task.analysis_results)
+
+        # restore mode: restore data and resume pipeline directly
+        task.state = "COLLECTING"
+        task.progress = 40
+        task.competitors = snap_data.get("competitors", task.competitors or [])
+        if "dynamic_schema" in snap_data:
+            task.dynamic_schema = snap_data["dynamic_schema"]
+        task.raw_materials = []
+        task.analysis_results = {}
+        task.critic_feedback = []
+        task.error = None
+        task.final_report = {}
+        task.completed_at = None
         await add_intervention(session, task_id, "restore_snapshot", {"checkpoint_id": checkpoint_id})
         await session.commit()
-    await publish_event(task_id, "task_state_changed", {"state": snapshot.state})
-    return {"task_id": task_id, "state": snapshot.state}
+
+    await publish_event(task_id, "task_state_changed", {
+        "state": "COLLECTING", "progress": 40, "restored_from": checkpoint_id,
+    })
+    from services.pipeline import process_agent_pipeline
+
+    async def _run_pipeline(tid: str):
+        try:
+            await process_agent_pipeline(tid, start_from="collector")
+        except Exception as e:
+            import traceback, sys
+            print(f"[RESTORE] pipeline error: {e}\n{traceback.format_exc()}", flush=True)
+            async with async_session() as session:
+                from services.repositories import update_task_state as uts
+                await uts(session, tid, state="ERROR", error={"message": str(e), "type": type(e).__name__})
+                await session.commit()
+
+    task = asyncio.create_task(_run_pipeline(task_id))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return {"task_id": task_id, "state": "COLLECTING", "resumed": True}

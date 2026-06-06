@@ -263,7 +263,9 @@ export default function Home() {
     setCollectionProgress(null);
     setDebugLogs([]);
     setTokenUsage(null);
+    window.localStorage.removeItem(`competitive-analyzer:${restoredTaskId}:last-sequence`);
     window.localStorage.setItem("competitive-analyzer:last-task-id", data.task_id);
+    setCurrentView('dashboard');
   };
 
   const renderWorkspace = () => {

@@ -1,4 +1,3 @@
-import sys
 from datetime import datetime
 from typing import Any
 
@@ -77,7 +76,20 @@ async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], 
                 task.competitors = discovered_competitors
             record = await save_schema(session, task_id, schema_json, created_by="agent", status="active")
             await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
+            print(f"[SNAPSHOT] writing pre_collection checkpoint for {task_id}...", flush=True)
+            from services.repositories import write_checkpoint
+            await write_checkpoint(
+                session, task_id, "pre_collection", "SCHEMA_READY",
+                f"Schema ready: {len(discovered_competitors)} competitors, {sum(len(v) if isinstance(v, list) else 0 for v in schema_json.values())} fields",
+                {
+                    "competitors": discovered_competitors,
+                    "progress": 30,
+                    "dynamic_schema": schema_json,
+                    "state": "SCHEMA_REVIEW",
+                },
+            )
             await session.commit()
+            print(f"[SNAPSHOT] checkpoint committed for {task_id}", flush=True)
         await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Competitor list and schema completed."})
         await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"})
         await publish_event(
@@ -225,7 +237,7 @@ async def process_graph_events(task_id: str, graph, initial_state, config):
         await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True})
 
 
-async def process_agent_pipeline(task_id: str):
+async def process_agent_pipeline(task_id: str, start_from: str = "collector"):
     async with async_session() as session:
         db_task = await get_task(session, task_id)
         if not db_task:
@@ -241,10 +253,10 @@ async def process_agent_pipeline(task_id: str):
             },
             "schema_version": schema_record.version if schema_record else 1,
             "dynamic_schema": schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
-            "raw_materials": [],
+            "raw_materials": list(db_task.raw_materials or []) if start_from != "collector" else [],
             "source_ids": [],
-            "analysis_results": {},
-            "critic_feedback": [],
+            "analysis_results": dict(db_task.analysis_results or {}) if start_from in ("critic", "reporter") else {},
+            "critic_feedback": list(db_task.critic_feedback or []) if start_from == "reporter" else [],
             "suggested_schema_extensions": [],
             "task_events": [],
             "progress": db_task.progress or 40,
@@ -256,89 +268,109 @@ async def process_agent_pipeline(task_id: str):
         async def publish_collector_progress(payload: dict[str, Any]):
             await publish_event(task_id, "collector_log", payload)
 
-        await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Starting data collection for all competitors."})
-        state = await collector_node(state, on_progress=publish_collector_progress)
-        materials = state.get("raw_materials") or []
-        competitor_counts = {}
-        status_counts = {}
-        for m in materials:
-            comp = m.get("competitor", "unknown")
-            competitor_counts[comp] = competitor_counts.get(comp, 0) + 1
-            status = m.get("validation_status", "unknown")
-            status_counts[status] = status_counts.get(status, 0) + 1
+        # ── Emit synthetic end events for skipped earlier phases ──
+        if start_from in ("collector",):
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Skipped (restored from snapshot)."})
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Completed (restored from snapshot)."})
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (restored from snapshot)."})
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Completed (restored from snapshot)."})
+            await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"})
 
-        # Show first few materials as sample data (for debug expandable view)
-        material_sample = [{
-            "competitor": m.get("competitor"),
-            "schema_field_name": m.get("schema_field_name"),
-            "status": m.get("validation_status"),
-            "value": m.get("extracted_value", {}).get("value", "")[:200] if m.get("extracted_value") else "",
-            "source_url": m.get("source_url"),
-            "quote": (m.get("quote_text") or "")[:200],
-            "degraded_reason": m.get("degraded_reason"),
-        } for m in materials[:6]]
-        await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": f"Collector returned {len(materials)} materials: {competitor_counts}, status: {status_counts}, saving to DB...", "output_json": {"total": len(materials), "per_competitor": competitor_counts, "per_status": status_counts, "sample": material_sample}})
-        async with async_session() as session:
-            import sys; sys.stdout.write("[PIPELINE-DB] COLLECTING session acquired\n"); sys.stdout.flush()
-            task = await update_task_state(session, task_id, state="COLLECTING", progress=60)
-            sys.stdout.write("[PIPELINE-DB] after update_task_state\n"); sys.stdout.flush()
-            task.raw_materials = materials
-            await save_source_materials(session, task_id, materials)
-            sys.stdout.write("[PIPELINE-DB] after save_source_materials\n"); sys.stdout.flush()
-            await session.commit()
-        await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": "DB save complete."})
-        await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Data collection completed."})
-        await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
-        await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
-        await publish_event(task_id, "raw_materials_updated", {"data": materials, "source_stats": source_stats(materials)})
+        # ── COLLECTOR PHASE ──
+        if start_from in ("collector",):
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Starting data collection for all competitors."})
+            state = await collector_node(state, on_progress=publish_collector_progress)
+            materials = state.get("raw_materials") or []
+            competitor_counts = {}
+            status_counts = {}
+            for m in materials:
+                comp = m.get("competitor", "unknown")
+                competitor_counts[comp] = competitor_counts.get(comp, 0) + 1
+                status = m.get("validation_status", "unknown")
+                status_counts[status] = status_counts.get(status, 0) + 1
+            material_sample = [{
+                "competitor": m.get("competitor"),
+                "schema_field_name": m.get("schema_field_name"),
+                "status": m.get("validation_status"),
+                "value": m.get("extracted_value", {}).get("value", "")[:200] if m.get("extracted_value") else "",
+                "source_url": m.get("source_url"),
+                "quote": (m.get("quote_text") or "")[:200],
+                "degraded_reason": m.get("degraded_reason"),
+            } for m in materials[:6]]
+            await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": f"Collector returned {len(materials)} materials: {competitor_counts}, status: {status_counts}, saving to DB...", "output_json": {"total": len(materials), "per_competitor": competitor_counts, "per_status": status_counts, "sample": material_sample}})
+            async with async_session() as session:
+                import sys; print("[PIPELINE-DB] COLLECTING session acquired", file=sys.stderr, flush=True)
+                task = await update_task_state(session, task_id, state="COLLECTING", progress=60)
+                print("[PIPELINE-DB] after update_task_state", file=sys.stderr, flush=True)
+                task.raw_materials = materials
+                await save_source_materials(session, task_id, materials)
+                print("[PIPELINE-DB] after save_source_materials, committing...", file=sys.stderr, flush=True)
+                await session.commit()
+            await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": "DB save complete."})
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Data collection completed."})
+            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
+            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
+            await publish_event(task_id, "raw_materials_updated", {"data": materials, "source_stats": source_stats(materials)})
+        else:
+            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
+            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
 
-        await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "start", "message": "Starting comparative analysis."})
-        state = await analyzer_node(state)
-        analysis = state.get("analysis_results") or {}
-        async with async_session() as session:
-            task = await update_task_state(session, task_id, state="ANALYZING", progress=90)
-            task.analysis_results = analysis
-            for module_id in ("comparison", "swot", "report"):
-                content = analysis.get(module_id, {}) if isinstance(analysis, dict) else {}
-                await save_analysis_module(
-                    session,
-                    task_id,
-                    module_id=module_id,
-                    module_type=module_id,
-                    content=content if isinstance(content, dict) else {"items": content},
-                    evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
-                )
-            await session.commit()
-        await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": "Analysis completed."})
-        await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"})
-        await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90})
-        await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis})
+        # ── ANALYZER PHASE ──
+        if start_from in ("collector", "analyzer"):
+            await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "start", "message": "Starting comparative analysis."})
+            state = await analyzer_node(state)
+            analysis = state.get("analysis_results") or {}
+            async with async_session() as session:
+                task = await update_task_state(session, task_id, state="ANALYZING", progress=90)
+                task.analysis_results = analysis
+                for module_id in ("comparison", "swot", "report"):
+                    content = analysis.get(module_id, {}) if isinstance(analysis, dict) else {}
+                    await save_analysis_module(
+                        session,
+                        task_id,
+                        module_id=module_id,
+                        module_type=module_id,
+                        content=content if isinstance(content, dict) else {"items": content},
+                        evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
+                    )
+                await session.commit()
+            await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": "Analysis completed."})
+            await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"})
+            await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90})
+            await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis})
+        else:
+            await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"})
+            await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90})
 
-        await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Starting critic quality evaluation."})
-        state = await critic_node(state)
-        state, calibration_outcome = await run_schema_calibration(task_id, state)
-        if calibration_outcome == "waiting_for_user":
-            return
-            
-        await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final structured report."})
-        import sys; print("[PIPELINE] calling reporter_node...", flush=True)
-        state = await reporter_node(state)
-        print("[PIPELINE] reporter_node returned", flush=True)
-        await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": state.get("analysis_results") or {}})
-        
-        feedback = state.get("critic_feedback") or []
-        async with async_session() as session:
-            task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
-            task.analysis_results = state.get("analysis_results") or {}
-            task.critic_feedback = feedback
-            task.final_report = task.analysis_results.get("report", {})
-            task.completed_at = datetime.utcnow()
-            await save_quality_feedback(session, task_id, feedback)
-            await session.commit()
-        await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "end", "message": "Critic evaluation completed."})
-        await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"})
-        await publish_event(task_id, "task_state_changed", {"state": "COMPLETED", "progress": 100})
-        await publish_event(task_id, "task_completed", {"final_report_url": f"/api/v1/tasks/{task_id}/report", "state": "COMPLETED"})
+        # ── CRITIC PHASE ──
+        if start_from in ("collector", "analyzer", "critic"):
+            await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Starting critic quality evaluation."})
+            state = await critic_node(state)
+            state, calibration_outcome = await run_schema_calibration(task_id, state)
+            if calibration_outcome == "waiting_for_user":
+                return
+
+        # ── REPORTER PHASE ──
+        if start_from in ("collector", "analyzer", "critic", "reporter"):
+            await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final structured report."})
+            import sys; print("[PIPELINE] calling reporter_node...", file=sys.stderr, flush=True)
+            state = await reporter_node(state)
+            print("[PIPELINE] reporter_node returned", file=sys.stderr, flush=True)
+            await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": state.get("analysis_results") or {}})
+
+            feedback = state.get("critic_feedback") or []
+            async with async_session() as session:
+                task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
+                task.analysis_results = state.get("analysis_results") or {}
+                task.critic_feedback = feedback
+                task.final_report = task.analysis_results.get("report", {})
+                task.completed_at = datetime.utcnow()
+                await save_quality_feedback(session, task_id, feedback)
+                await session.commit()
+            await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "end", "message": "Critic evaluation completed."})
+            await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"})
+            await publish_event(task_id, "task_state_changed", {"state": "COMPLETED", "progress": 100})
+            await publish_event(task_id, "task_completed", {"final_report_url": f"/api/v1/tasks/{task_id}/report", "state": "COMPLETED"})
     except Exception as exc:
         async with async_session() as session:
             try:
@@ -359,15 +391,15 @@ async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[d
     context = state.get("task_context") or {}
     execution_mode = context.get("execution_mode", "step_by_step")
     if execution_mode != "auto":
-        sys.stdout.write("[CALIBRATION] acquiring session...\n"); sys.stdout.flush()
+        import sys; print("[CALIBRATION] acquiring session...", file=sys.stderr, flush=True)
         async with async_session() as session:
             await update_task_state(session, task_id, state="NEEDS_INTERVENTION", progress=95)
             await add_intervention(session, task_id, "schema_extension_request", {"suggestions": suggestions, "feedback_count": len(feedback)})
             if feedback:
                 await save_quality_feedback(session, task_id, feedback)
-            sys.stdout.write("[CALIBRATION] update_task_state + add_intervention + save_quality_feedback done, committing...\n"); sys.stdout.flush()
+            print("[CALIBRATION] update + intervention + feedback done, committing...", file=sys.stderr, flush=True)
             await session.commit()
-        sys.stdout.write("[CALIBRATION] DB done, publishing events...\n"); sys.stdout.flush()
+        print("[CALIBRATION] DB done, publishing events...", file=sys.stderr, flush=True)
         await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "debug", "message": f"Intervention saved, {len(suggestions)} extensions + {len(feedback)} feedback items pending user review."})
         await publish_event(
             task_id,
