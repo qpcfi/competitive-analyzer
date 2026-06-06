@@ -30,7 +30,7 @@ def load_knowledge_base() -> list[dict[str, Any]]:
         data = yaml.safe_load(f)
     return data.get("sources", [])
 
-async def route_sources(domain: str, competitor: str) -> list[dict[str, Any]]:
+async def route_sources(domain: str, competitor: str, skill_filter: str | None = None) -> list[dict[str, Any]]:
     sources = load_knowledge_base()
     if not sources:
         return []
@@ -38,6 +38,11 @@ async def route_sources(domain: str, competitor: str) -> list[dict[str, Any]]:
     # 1. Hard Filtering
     hard_filtered = []
     for src in sources:
+        # Skill filter: if source specifies skills, must match; if no skills field, apply to all
+        src_skills = src.get("skills")
+        if skill_filter and src_skills:
+            if skill_filter not in src_skills:
+                continue
         target_competitors = src.get("competitors")
         if target_competitors:
             # If target competitors are specified, the current competitor must match one of them
@@ -64,15 +69,16 @@ async def route_sources(domain: str, competitor: str) -> list[dict[str, Any]]:
     } for i, src in enumerate(hard_filtered)], ensure_ascii=False)
 
     system_prompt = """You are a highly accurate routing agent.
-Your task is to select which data sources are potentially relevant for a given domain and competitor.
-Only select sources that have a high likelihood of containing information about the requested domain.
+Your task is to select which data sources are potentially relevant for a given domain, competitor, and analysis dimension.
+Only select sources that have a high likelihood of containing information about the requested domain and dimension.
 Return a JSON array of integers representing the 'id' of the selected sources.
 If no sources are relevant, return an empty array: []
 Do not return anything else except the JSON array.
 """
-    
+
     human_prompt = f"""Domain: {domain}
 Competitor: {competitor}
+Analysis Dimension: {skill_filter or "general"}
 
 Available Sources:
 {sources_json}

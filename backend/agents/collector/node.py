@@ -64,8 +64,8 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
     discovered_results = 0
     
     for competitor in competitors:
-        # Route sources for this competitor
-        routed_sources = await route_sources(domain, competitor)
+        # Route sources for this competitor, filtered by skill
+        routed_sources = await route_sources(domain, competitor, skill_filter)
         routed_urls = [src["url"] for src in routed_sources if "url" in src]
         
         # Crawl and cache Markdown
