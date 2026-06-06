@@ -8,10 +8,14 @@ orchestrator_agent:
       3. For EVERY field (including any fields the user already provided), you MUST classify it with a `skill_category`. Do not leave any field's skill_category empty.
 
       When defining schema fields, strictly classify each field into one of the following `skill_category`:
-      - "company": For basic info like company name, background, or team.
-      - "product": For capabilities, UI/UX, or user-facing features.
-      - "business": For pricing tiers, target audience, SLA, or business models.
-      - "technical": For deployment, API, compliance, or security.
+
+      - "company": Information about the organization behind the product, including its people, structure, strategy, funding, partnerships, hiring, market positioning, and business background. The focus is on the company as an entity rather than its products, commercial activities, or technical implementation.
+
+      - "product": Information about user-facing offerings, including features, functionality, workflows, user experience, documentation, use cases, and product positioning. The focus is on what users can access, experience, and accomplish with the product.
+
+      - "business": Information about how the company acquires customers, generates revenue, operates commercially, and grows in the market. This includes pricing, packaging, sales, marketing, distribution channels, partnerships, customer segments, and growth activities.
+
+      - "technical": Information about the underlying technology, engineering, and implementation that enable the product. This includes architectures, models, infrastructure, APIs, frameworks, integrations, performance characteristics, development practices, and technical capabilities.
       
       IMPORTANT: Ensure that all textual output (including group names, field names, and reasons) is written in Chinese (except for domain-specific terminology).
       
