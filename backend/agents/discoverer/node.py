@@ -80,7 +80,7 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = (), callb
     evidence = ""
 
     if llm is not None and ChatPromptTemplate is not None:
-        from services.web_search import search_public_web, fetch_public_web_pages
+        from services.web_search import search_multi_engine, fetch_public_web_pages
         from ..shared.router import route_sources
         from ..shared.crawler import crawl_urls
         
@@ -106,7 +106,7 @@ async def recommend_competitors(domain: str, existing: Iterable[str] = (), callb
             
             # 2. Fallback or augment with DuckDuckGo search if curated evidence is insufficient
             if not evidence_blocks:
-                results = await search_public_web(f"{domain} top competitors alternatives", limit=5)
+                results = await search_multi_engine(f"{domain} top competitors alternatives", limit=5)
                 snippets = [r.snippet for r in results if r.snippet]
                 pages = await fetch_public_web_pages(results, limit=5)
                 for index, page in enumerate(pages, start=1):

@@ -1,4 +1,5 @@
 import pytest
+from services.web_search import SearchResult
 
 from agents import collector
 
@@ -7,8 +8,8 @@ from agents import collector
 async def test_collector_reports_real_query_progress(monkeypatch):
     async def fake_search(query: str, limit: int = 3):
         return [
-            collector.SearchResult(query=query, title="One", url="https://example.com/one", snippet="First result"),
-            collector.SearchResult(query=query, title="Two", url="https://example.com/two", snippet="Second result"),
+            SearchResult(query=query, title="One", url="https://example.com/one", snippet="First result"),
+            SearchResult(query=query, title="Two", url="https://example.com/two", snippet="Second result"),
         ]
 
     progress_events = []
@@ -16,7 +17,7 @@ async def test_collector_reports_real_query_progress(monkeypatch):
     async def record_progress(payload):
         progress_events.append(payload)
 
-    monkeypatch.setattr(collector, "search_public_web", fake_search)
+    monkeypatch.setattr("agents.collector.node.search_multi_engine", fake_search)
 
     state = {
         "task_id": "task_progress",

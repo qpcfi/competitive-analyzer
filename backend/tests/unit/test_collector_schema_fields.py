@@ -1,4 +1,5 @@
 import pytest
+from services.web_search import SearchResult
 
 from agents import collector
 
@@ -7,7 +8,7 @@ from agents import collector
 async def test_collector_collects_each_competitor_schema_field(monkeypatch):
     async def fake_search(query: str, limit: int = 3):
         return [
-            collector.SearchResult(
+            SearchResult(
                 query=query,
                 title=f"Result for {query}",
                 url=f"https://evidence.example/{query.replace(' ', '-')}",
@@ -15,7 +16,7 @@ async def test_collector_collects_each_competitor_schema_field(monkeypatch):
             )
         ]
 
-    monkeypatch.setattr(collector, "search_public_web", fake_search)
+    monkeypatch.setattr("agents.collector.node.search_multi_engine", fake_search)
 
     state = {
         "task_id": "task_test",

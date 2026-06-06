@@ -1,9 +1,22 @@
+import asyncio
+import os
 from dataclasses import dataclass
 import re
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 
 import httpx
 from bs4 import BeautifulSoup
+
+# ── Tavily client (optional, no crash if key is missing) ──
+_tavily_client = None
+_tavily_api_key = os.environ.get("TAVILY_API_KEY")
+if _tavily_api_key:
+    try:
+        from tavily import TavilyClient
+
+        _tavily_client = TavilyClient(api_key=_tavily_api_key)
+    except ImportError:
+        pass
 
 
 @dataclass(slots=True)
@@ -111,3 +124,71 @@ def _normalize_duckduckgo_href(href: str) -> str:
         target = parse_qs(parsed.query).get("uddg", [""])[0]
         return unquote(target)
     return href
+
+
+# ── Tavily search ──
+
+async def search_tavily(query: str, limit: int = 5) -> list[SearchResult]:
+    """Search via Tavily API. Returns empty list if Tavily is unavailable."""
+    if _tavily_client is None:
+        return []
+    loop = asyncio.get_running_loop()
+
+    def _sync_search():
+        return _tavily_client.search(
+            query=query,
+            search_depth="advanced",
+            max_results=limit,
+        )
+
+    try:
+        response = await loop.run_in_executor(None, _sync_search)
+        results = response if isinstance(response, dict) else {}
+        return [
+            SearchResult(
+                query=query,
+                title=r.get("title", ""),
+                url=r.get("url", ""),
+                snippet=r.get("content", ""),
+            )
+            for r in results.get("results", [])
+            if r.get("url")
+        ]
+    except Exception:
+        return []
+
+
+# ── Multi-engine search (Tavily + DuckDuckGo) ──
+
+async def search_multi_engine(
+    query: str, limit: int = 5, timeout: float = 15.0
+) -> list[SearchResult]:
+    """Run Tavily and DuckDuckGo in parallel, deduplicate by URL.
+
+    Tavily results are preferred (listed first); DDG fills remaining slots.
+    """
+    ddg_coro = search_public_web(query, limit=limit, timeout=timeout)
+    tavily_coro = search_tavily(query, limit=limit)
+
+    ddg_results, tavily_results = await asyncio.gather(
+        ddg_coro, tavily_coro, return_exceptions=True
+    )
+
+    if isinstance(ddg_results, Exception):
+        ddg_results = []
+    if isinstance(tavily_results, Exception):
+        tavily_results = []
+
+    seen_urls: set[str] = set()
+    merged: list[SearchResult] = []
+
+    for r in tavily_results + ddg_results:
+        normalized = r.url.rstrip("/").lower()
+        if normalized in seen_urls or not r.url:
+            continue
+        seen_urls.add(normalized)
+        merged.append(r)
+        if len(merged) >= limit:
+            break
+
+    return merged[:limit]
