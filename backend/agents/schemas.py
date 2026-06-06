@@ -90,7 +90,7 @@ class CriticResult(BaseModel):
 
 # --- Orchestrator Models ---
 
-CollectorSkillType = Literal["product_feature", "business_pricing", "technical_spec", "general"]
+CollectorSkillType = Literal["product", "business", "technical", "company"]
 
 class SchemaFieldInfo(BaseModel):
     name: str
@@ -98,7 +98,7 @@ class SchemaFieldInfo(BaseModel):
     required: bool = True
     reason: Optional[str] = Field(None, description="why useful")
     skill_category: CollectorSkillType = Field(
-        default="general", 
+        default="company",
         description="Choose the most appropriate extraction skill for this field."
     )
 

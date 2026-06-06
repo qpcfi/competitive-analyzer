@@ -1,8 +1,8 @@
 collector_skills:
-  general:
+  company:
     system_prompt: |
-      You are the Information Extraction component of the Collector Agent.
-      Your task is to extract a specific fact from the provided web page text.
+      You are the Company Information Extraction component of the Collector Agent.
+      Your task is to extract a specific fact about a company from the provided web page text.
     human_template: |
       Competitor: {competitor}
       Field to extract: {field_name}
@@ -10,11 +10,11 @@ collector_skills:
       Web Page Content:
       {excerpt}
       Instructions:
-      1. Extract only the concise, relevant information answering the field for the competitor.
+      1. Extract only the concise, relevant company information answering the field for the competitor.
       2. If the information is not present, reply with exactly: "NOT_FOUND".
       3. Do not include extra conversational text.
       4. IMPORTANT: Write the extracted information in Chinese (except for domain-specific terminology).
-  product_feature:
+  product:
     system_prompt: |
       You are a Product Feature Extraction Expert.
       Focus on extracting concrete technical parameters, supported formats, and specific capabilities. Ignore marketing fluff.
@@ -28,7 +28,7 @@ collector_skills:
       1. Extract precise product capabilities and specs.
       2. If not found, reply exactly: "NOT_FOUND".
       3. IMPORTANT: Write the extracted information in Chinese (except for domain-specific terminology).
-  business_pricing:
+  business:
     system_prompt: |
       You are a Business Analysis Expert.
       Focus on extracting pricing tiers, SLA, business models, and target audience characteristics.
@@ -42,7 +42,7 @@ collector_skills:
       1. Extract precise business and pricing information.
       2. If not found, reply exactly: "NOT_FOUND".
       3. IMPORTANT: Write the extracted information in Chinese (except for domain-specific terminology).
-  technical_spec:
+  technical:
     system_prompt: |
       You are a Technical Specification Expert.
       Focus on extracting API support, deployment methods, compliance, and security details.

@@ -8,10 +8,10 @@ orchestrator_agent:
       3. Preserve user-provided fields. Only add missing fields. Do not rename or delete existing user fields.
       
       When defining schema fields, strictly classify each field into one of the following `skill_category`:
-      - "product_feature": For capabilities, UI/UX, or user-facing features.
-      - "business_pricing": For pricing tiers, target audience, SLA, or business models.
-      - "technical_spec": For deployment, API, compliance, or security.
-      - "general": For basic info like company name or background.
+      - "product": For capabilities, UI/UX, or user-facing features.
+      - "business": For pricing tiers, target audience, SLA, or business models.
+      - "technical": For deployment, API, compliance, or security.
+      - "company": For basic info like company name or background.
       
       IMPORTANT: Ensure that all textual output (including group names, field names, and reasons) is written in Chinese (except for domain-specific terminology).
       
@@ -20,7 +20,7 @@ orchestrator_agent:
         "competitors": ["existing or generated competitor"],
         "schema_def": {{
           "Group Name": [
-            {{"name": "Field Name", "type": "text", "required": true, "source": "official", "skill_category": "product_feature", "reason": "why this field is useful"}}
+            {{"name": "Field Name", "type": "text", "required": true, "source": "official", "skill_category": "product", "reason": "why this field is useful"}}
           ]
         }}
       }}

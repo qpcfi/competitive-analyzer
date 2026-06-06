@@ -44,7 +44,7 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
     schema_fields = flatten_schema_fields(state.get("dynamic_schema", {}))
     
     # Filter fields for this specific collector skill
-    schema_fields = [f for f in schema_fields if (f.get("skill_category") or "general") == skill_filter]
+    schema_fields = [f for f in schema_fields if (f.get("skill_category") or "company") == skill_filter]
     
     scope_field_ids = {str(item) for item in context.get("collection_scope_field_ids", []) if str(item).strip()}
     if scope_field_ids:
@@ -168,10 +168,10 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
         "source_ids": [item["id"] for item in results]
     }
 
-async def collector_general_node(state: AgentState): return await run_collector_for_skill(state, "general")
-async def collector_product_feature_node(state: AgentState): return await run_collector_for_skill(state, "product_feature")
-async def collector_business_pricing_node(state: AgentState): return await run_collector_for_skill(state, "business_pricing")
-async def collector_technical_spec_node(state: AgentState): return await run_collector_for_skill(state, "technical_spec")
+async def collector_company_node(state: AgentState): return await run_collector_for_skill(state, "company")
+async def collector_product_node(state: AgentState): return await run_collector_for_skill(state, "product")
+async def collector_business_node(state: AgentState): return await run_collector_for_skill(state, "business")
+async def collector_technical_node(state: AgentState): return await run_collector_for_skill(state, "technical")
 
 async def collector_node(state: AgentState, on_progress: ProgressCallback | None = None) -> AgentState:
     """Fallback monolithic collector for pipeline.py execution, now running skills in PARALLEL"""
@@ -179,7 +179,7 @@ async def collector_node(state: AgentState, on_progress: ProgressCallback | None
     all_source_ids = list(state.get("source_ids") or [])
     
     import asyncio
-    skills = ["general", "product_feature", "business_pricing", "technical_spec"]
+    skills = ["company", "product", "business", "technical"]
     
     results = await asyncio.gather(*[
         run_collector_for_skill(state, skill, on_progress)
@@ -242,9 +242,9 @@ async def build_material_from_pages(
             with open(prompt_path, "r", encoding="utf-8") as f:
                 PROMPT_CONFIG = yaml.safe_load(f)
                 
-            skill_type = field.get("skill_category") or "general"
+            skill_type = field.get("skill_category") or "company"
             skills_config = PROMPT_CONFIG.get("collector_skills", {})
-            prompt_config = skills_config.get(skill_type, skills_config.get("general", {}))
+            prompt_config = skills_config.get(skill_type, skills_config.get("company", {}))
 
             if not prompt_config:
                 raise ValueError("Missing prompt config")

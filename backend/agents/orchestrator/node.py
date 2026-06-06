@@ -226,7 +226,7 @@ def ensure_schema_metadata(schema: dict) -> dict:
                 "source": field.get("source") or "public_web",
                 "origin": field.get("origin") or "agent",
                 "feasibility": field.get("feasibility") or "medium",
-                "skill_category": field.get("skill_category") or "general",
+                "skill_category": field.get("skill_category") or "company",
             }
             for metadata_key in ("confidence", "reason", "evidence", "affected_competitors"):
                 if metadata_key in field:

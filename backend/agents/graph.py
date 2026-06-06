@@ -3,10 +3,10 @@ from .state import AgentState
 from .discoverer import discoverer_node
 from .orchestrator import orchestrator_node
 from .collector import (
-    collector_general_node,
-    collector_product_feature_node,
-    collector_business_pricing_node,
-    collector_technical_spec_node
+    collector_company_node,
+    collector_product_node,
+    collector_business_node,
+    collector_technical_node
 )
 from .analyzer import analyzer_node
 from .critic import critic_node
@@ -30,18 +30,18 @@ def human_review_node(state: AgentState):
 def route_after_orchestrator(state: AgentState) -> list[str]:
     # Parallel Map-Reduce fan-out
     return [
-        "collector_general",
-        "collector_product_feature",
-        "collector_business_pricing",
-        "collector_technical_spec"
+        "collector_company",
+        "collector_product",
+        "collector_business",
+        "collector_technical"
     ]
 
 def route_after_critic(state: AgentState) -> str:
     feedback = state.get("critic_feedback", [])
     retry_counts = state.get("retry_counts", {})
-    
+
     total_retries = sum(retry_counts.values()) if isinstance(retry_counts, dict) else 0
-        
+
     for item in feedback:
         if not isinstance(item, dict):
             continue
@@ -50,12 +50,12 @@ def route_after_critic(state: AgentState) -> str:
             # Target specific collector based on field category
             failed_dimension = str(item.get("failed_dimension", "")).lower()
             if "技术" in failed_dimension or "technical" in failed_dimension:
-                return "collector_technical_spec"
+                return "collector_technical"
             if "定价" in failed_dimension or "business" in failed_dimension:
-                return "collector_business_pricing"
+                return "collector_business"
             if "特性" in failed_dimension or "功能" in failed_dimension or "feature" in failed_dimension:
-                return "collector_product_feature"
-            return "collector_general"
+                return "collector_product"
+            return "collector_company"
             
         if action == "extend_schema":
             return "orchestrator"
@@ -75,10 +75,10 @@ workflow = StateGraph(AgentState)
 
 workflow.add_node("discoverer", discoverer_node)
 workflow.add_node("orchestrator", orchestrator_node)
-workflow.add_node("collector_general", collector_general_node)
-workflow.add_node("collector_product_feature", collector_product_feature_node)
-workflow.add_node("collector_business_pricing", collector_business_pricing_node)
-workflow.add_node("collector_technical_spec", collector_technical_spec_node)
+workflow.add_node("collector_company", collector_company_node)
+workflow.add_node("collector_product", collector_product_node)
+workflow.add_node("collector_business", collector_business_node)
+workflow.add_node("collector_technical", collector_technical_node)
 workflow.add_node("analyzer", analyzer_node)
 workflow.add_node("critic", critic_node)
 workflow.add_node("reporter", reporter_node)
@@ -88,20 +88,20 @@ workflow.add_edge(START, "discoverer")
 workflow.add_edge("discoverer", "orchestrator")
 
 workflow.add_conditional_edges(
-    "orchestrator", 
+    "orchestrator",
     route_after_orchestrator,
     {
-        "collector_general": "collector_general",
-        "collector_product_feature": "collector_product_feature",
-        "collector_business_pricing": "collector_business_pricing",
-        "collector_technical_spec": "collector_technical_spec"
+        "collector_company": "collector_company",
+        "collector_product": "collector_product",
+        "collector_business": "collector_business",
+        "collector_technical": "collector_technical"
     }
 )
 
-workflow.add_edge("collector_general", "analyzer")
-workflow.add_edge("collector_product_feature", "analyzer")
-workflow.add_edge("collector_business_pricing", "analyzer")
-workflow.add_edge("collector_technical_spec", "analyzer")
+workflow.add_edge("collector_company", "analyzer")
+workflow.add_edge("collector_product", "analyzer")
+workflow.add_edge("collector_business", "analyzer")
+workflow.add_edge("collector_technical", "analyzer")
 
 workflow.add_edge("analyzer", "critic")
 
@@ -109,10 +109,10 @@ workflow.add_conditional_edges(
     "critic",
     route_after_critic,
     {
-        "collector_general": "collector_general",
-        "collector_product_feature": "collector_product_feature",
-        "collector_business_pricing": "collector_business_pricing",
-        "collector_technical_spec": "collector_technical_spec",
+        "collector_company": "collector_company",
+        "collector_product": "collector_product",
+        "collector_business": "collector_business",
+        "collector_technical": "collector_technical",
         "orchestrator": "orchestrator",
         "analyzer": "analyzer",
         "reporter": "reporter"
