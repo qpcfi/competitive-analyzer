@@ -41,6 +41,7 @@ export default function Home() {
   const [debugHeight, setDebugHeight] = useState<number>(300);
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const [extensionRequest, setExtensionRequest] = useState<{ visible: boolean; suggestions: any[] }>({ visible: false, suggestions: [] });
+  const [backendConnected, setBackendConnected] = useState<boolean>(false);
 
   useEffect(() => {
     if (!isResizing) return;
@@ -84,6 +85,9 @@ export default function Home() {
     window.localStorage.setItem("competitive-analyzer:last-task-id", taskId);
     const lastSequence = window.localStorage.getItem(`competitive-analyzer:${taskId}:last-sequence`) || "0";
     const evtSource = new EventSource(`http://localhost:8000/api/v1/tasks/${taskId}/stream?since=${lastSequence}`);
+
+    evtSource.onopen = () => setBackendConnected(true);
+    evtSource.onerror = () => setBackendConnected(false);
 
     const rememberSequence = (data: any) => {
       if (data?.sequence) {
@@ -341,6 +345,8 @@ export default function Home() {
             <Progress percent={progress} status={progress === 100 ? "success" : "active"} />
           </div>
           <div>
+            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', marginRight: 8, background: backendConnected ? '#52c41a' : '#ff4d4f' }} />
+            <Text style={{ marginRight: 16, color: backendConnected ? '#52c41a' : '#ff4d4f' }}>{backendConnected ? '已连接' : '连接断开'}</Text>
             <Text style={{ marginRight: 8 }}>Debug 模式</Text>
             <Switch checked={showDebug} onChange={setShowDebug} />
           </div>

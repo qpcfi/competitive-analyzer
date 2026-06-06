@@ -81,6 +81,11 @@ export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryVie
     loadTasks();
   }, [loadTasks]);
 
+  const selectTask = async (taskId: string) => {
+    setSelectedTaskId(taskId);
+    await loadSnapshots(taskId);
+  };
+
   const restoreTask = async (taskId: string) => {
     setRestoring(taskId);
     setSelectedTaskId(taskId);
@@ -137,14 +142,16 @@ export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryVie
                 <Card
                   key={task.task_id}
                   size="small"
+                  hoverable
                   styles={{ body: { padding: 16 } }}
-                  style={{ borderColor: task.task_id === selectedTaskId ? '#1677ff' : undefined }}
+                  style={{ borderColor: task.task_id === selectedTaskId ? '#1677ff' : undefined, cursor: 'pointer' }}
+                  onClick={() => selectTask(task.task_id)}
                   extra={
                     <Button
                       type={task.task_id === selectedTaskId ? 'primary' : 'default'}
                       icon={<HistoryOutlined />}
                       loading={restoring === task.task_id}
-                      onClick={() => restoreTask(task.task_id)}
+                      onClick={(e) => { e.stopPropagation(); restoreTask(task.task_id); }}
                     >
                       Restore
                     </Button>

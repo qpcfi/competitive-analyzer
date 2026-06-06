@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Any
 
@@ -237,6 +238,16 @@ async def process_graph_events(task_id: str, graph, initial_state, config):
         await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True})
 
 
+async def _with_timeout(task_id: str, label: str, coro):
+    """Run a coro with 30s timeout, publishing debug events on success/failure."""
+    try:
+        result = await asyncio.wait_for(coro, timeout=30)
+        return result
+    except asyncio.TimeoutError:
+        await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "error", "message": f"[TIMEOUT] {label} timed out after 30s"})
+        raise
+
+
 async def process_agent_pipeline(task_id: str, start_from: str = "collector"):
     async with async_session() as session:
         db_task = await get_task(session, task_id)
@@ -299,12 +310,9 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector"):
             } for m in materials[:6]]
             await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": f"Collector returned {len(materials)} materials: {competitor_counts}, status: {status_counts}, saving to DB...", "output_json": {"total": len(materials), "per_competitor": competitor_counts, "per_status": status_counts, "sample": material_sample}})
             async with async_session() as session:
-                import sys; print("[PIPELINE-DB] COLLECTING session acquired", file=sys.stderr, flush=True)
-                task = await update_task_state(session, task_id, state="COLLECTING", progress=60)
-                print("[PIPELINE-DB] after update_task_state", file=sys.stderr, flush=True)
+                task = await _with_timeout(task_id, "update_task_state", update_task_state(session, task_id, state="COLLECTING", progress=60))
                 task.raw_materials = materials
-                await save_source_materials(session, task_id, materials)
-                print("[PIPELINE-DB] after save_source_materials, committing...", file=sys.stderr, flush=True)
+                await _with_timeout(task_id, "save_source_materials", save_source_materials(session, task_id, materials))
                 await session.commit()
             await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": "DB save complete."})
             await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Data collection completed."})
@@ -321,18 +329,16 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector"):
             state = await analyzer_node(state)
             analysis = state.get("analysis_results") or {}
             async with async_session() as session:
-                task = await update_task_state(session, task_id, state="ANALYZING", progress=90)
+                task = await _with_timeout(task_id, "update_task_state", update_task_state(session, task_id, state="ANALYZING", progress=90))
                 task.analysis_results = analysis
                 for module_id in ("comparison", "swot", "report"):
                     content = analysis.get(module_id, {}) if isinstance(analysis, dict) else {}
-                    await save_analysis_module(
-                        session,
-                        task_id,
-                        module_id=module_id,
-                        module_type=module_id,
+                    await _with_timeout(task_id, f"save_analysis_module({module_id})", save_analysis_module(
+                        session, task_id,
+                        module_id=module_id, module_type=module_id,
                         content=content if isinstance(content, dict) else {"items": content},
                         evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
-                    )
+                    ))
                 await session.commit()
             await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": "Analysis completed."})
             await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"})
@@ -353,19 +359,17 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector"):
         # ── REPORTER PHASE ──
         if start_from in ("collector", "analyzer", "critic", "reporter"):
             await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final structured report."})
-            import sys; print("[PIPELINE] calling reporter_node...", file=sys.stderr, flush=True)
             state = await reporter_node(state)
-            print("[PIPELINE] reporter_node returned", file=sys.stderr, flush=True)
             await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": state.get("analysis_results") or {}})
 
             feedback = state.get("critic_feedback") or []
             async with async_session() as session:
-                task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
+                task = await _with_timeout(task_id, "update_task_state(COMPLETED)", update_task_state(session, task_id, state="COMPLETED", progress=100))
                 task.analysis_results = state.get("analysis_results") or {}
                 task.critic_feedback = feedback
                 task.final_report = task.analysis_results.get("report", {})
                 task.completed_at = datetime.utcnow()
-                await save_quality_feedback(session, task_id, feedback)
+                await _with_timeout(task_id, "save_quality_feedback", save_quality_feedback(session, task_id, feedback))
                 await session.commit()
             await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "end", "message": "Critic evaluation completed."})
             await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"})
