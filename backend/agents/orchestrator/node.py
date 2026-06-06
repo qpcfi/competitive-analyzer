@@ -160,7 +160,11 @@ def merge_schema_preserving_user(user_schema: dict, generated_schema: dict) -> d
         for field in user_fields:
             key = field_key(field)
             if key in existing_names:
-                target[:] = [{**item, **field, "origin": "user"} if field_key(item) == key else item for item in target]
+                target[:] = [
+                    {**item, **field, "origin": "user", "skill_category": field.get("skill_category") or item.get("skill_category")}
+                    if field_key(item) == key else item
+                    for item in target
+                ]
             else:
                 target.append({**field, "origin": "user"})
                 existing_names.add(key)
@@ -226,7 +230,7 @@ def ensure_schema_metadata(schema: dict) -> dict:
                 "source": field.get("source") or "public_web",
                 "origin": field.get("origin") or "agent",
                 "feasibility": field.get("feasibility") or "medium",
-                "skill_category": field.get("skill_category") or "company",
+                "skill_category": field["skill_category"],
             }
             for metadata_key in ("confidence", "reason", "evidence", "affected_competitors"):
                 if metadata_key in field:

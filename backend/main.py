@@ -85,10 +85,10 @@ async def on_startup():
         runtime.checkpointer.setup()
 
         runtime.app_auto = workflow.compile(checkpointer=runtime.checkpointer)
-        runtime.app_step = workflow.compile(checkpointer=runtime.checkpointer, interrupt_before=["collector_general", "collector_product_feature", "collector_business_pricing", "collector_technical_spec", "analyzer", "critic"])
+        runtime.app_step = workflow.compile(checkpointer=runtime.checkpointer, interrupt_before=["collector_company", "collector_product", "collector_business", "collector_technical", "analyzer", "critic"])
     else:
         runtime.app_auto = workflow.compile()
-        runtime.app_step = workflow.compile(interrupt_before=["collector_general", "collector_product_feature", "collector_business_pricing", "collector_technical_spec", "analyzer", "critic"])
+        runtime.app_step = workflow.compile(interrupt_before=["collector_company", "collector_product", "collector_business", "collector_technical", "analyzer", "critic"])
 
     app_auto = runtime.app_auto
     app_step = runtime.app_step
