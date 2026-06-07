@@ -13,8 +13,7 @@ import SWOTAnalysis from '@/components/views/SWOTAnalysis';
 import StructuredReport from '@/components/views/StructuredReport';
 import DebugPanel from '@/components/views/DebugPanel';
 import SurveyPanel from '@/components/views/SurveyPanel';
-import { App, Progress, Switch, Card, Typography } from 'antd';
-import { App, Button, Modal, Progress, Switch, Card, Typography, Popconfirm } from 'antd';
+import { App, Progress, Switch, Card, Typography,Button, Modal,Popconfirm } from 'antd';
 import { PauseCircleOutlined, RightCircleOutlined, StopOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;

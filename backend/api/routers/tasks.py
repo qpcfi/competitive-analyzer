@@ -10,7 +10,7 @@ from agents.analyzer import swot_generator_node
 from core.runtime import runner
 from models_db import TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
 from schemas import TaskCreateRequest, TaskCreateResponse
-from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
+from services.pipeline import event_generator, make_initial_state, process_agent_pipeline, process_initial_pipeline, publish_event
 from services.repositories import add_intervention, create_task_record, get_task, latest_schema, save_schema, update_task_state
 from services.serialization import serialize_task
 
@@ -182,20 +182,52 @@ async def restore_snapshot(task_id: str, req: Request):
             await session.commit()
             return {"task_id": clone_id, "state": snapshot.state}
 
-        # restore mode: go back to SCHEMA_REVIEW, let user confirm schema before collector
-        task.state = "SCHEMA_REVIEW"
-        task.progress = snap_data.get("progress", 30)
-        task.competitors = snap_data.get("competitors", task.competitors or [])
-        if "dynamic_schema" in snap_data:
-            task.dynamic_schema = snap_data["dynamic_schema"]
-        task.raw_materials = snap_data.get("raw_materials", [])
-        task.analysis_results = {}
-        task.critic_feedback = []
-        task.error = None
-        task.final_report = {}
-        task.completed_at = None
-        await add_intervention(session, task_id, "restore_snapshot", {"checkpoint_id": checkpoint_id})
-        await session.commit()
+        # post_collection restore: go to COLLECTING, preserve materials, auto-start from analyzer
+        if checkpoint_id == "post_collection" or snapshot.state == "COLLECTING":
+            task.state = "COLLECTING"
+            task.progress = snap_data.get("progress", 60)
+            task.competitors = snap_data.get("competitors", task.competitors or [])
+            if "dynamic_schema" in snap_data:
+                task.dynamic_schema = snap_data["dynamic_schema"]
+            task.raw_materials = snap_data.get("raw_materials", []) or list(task.raw_materials or [])
+            task.analysis_results = {}
+            task.critic_feedback = []
+            task.error = None
+            task.final_report = {}
+            task.completed_at = None
+            await add_intervention(session, task_id, "restore_snapshot", {"checkpoint_id": checkpoint_id, "type": "post_collection"})
+            await session.commit()
+
+        else:
+            # restore mode: go back to SCHEMA_REVIEW, let user confirm schema before collector
+            task.state = "SCHEMA_REVIEW"
+            task.progress = snap_data.get("progress", 30)
+            task.competitors = snap_data.get("competitors", task.competitors or [])
+            if "dynamic_schema" in snap_data:
+                task.dynamic_schema = snap_data["dynamic_schema"]
+            task.raw_materials = snap_data.get("raw_materials", [])
+            task.analysis_results = {}
+            task.critic_feedback = []
+            task.error = None
+            task.final_report = {}
+            task.completed_at = None
+            await add_intervention(session, task_id, "restore_snapshot", {"checkpoint_id": checkpoint_id})
+            await session.commit()
+
+    if checkpoint_id == "post_collection" or snapshot.state == "COLLECTING":
+        await publish_event(task_id, "debug_log", {"agent": "System", "event": "restore", "message": f"Restored from post-collection snapshot {checkpoint_id}, continuing to analysis."})
+        await publish_event(task_id, "raw_materials_updated", {
+            "data": task.raw_materials,
+            "source_stats": {},
+        })
+        await publish_event(task_id, "task_state_changed", {
+            "state": "COLLECTING", "progress": 60, "restored_from": checkpoint_id,
+        })
+
+        # Auto-start pipeline from analyzer
+        runner.start(task_id, lambda: process_agent_pipeline(task_id, start_from="analyzer"))
+
+        return {"task_id": task_id, "state": "COLLECTING", "restored": True, "auto_started": True}
 
     restored_schema = snap_data.get("dynamic_schema", {})
     await publish_event(task_id, "debug_log", {"agent": "System", "event": "restore", "message": f"Restored from snapshot {checkpoint_id}, awaiting schema review."})

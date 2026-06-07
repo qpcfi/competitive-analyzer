@@ -170,6 +170,26 @@ export default function CriticReview({ taskId, extensionRequest, onApplied }: Cr
     </div>
   );
 
+  const severityStyle = (sev: string) => {
+    switch (sev) {
+      case 'error': return { color: '#ff4d4f', bg: '#fff2f0', border: '#ffccc7', icon: '✗' };
+      case 'warning': return { color: '#faad14', bg: '#fffbe6', border: '#ffe58f', icon: '⚠' };
+      case 'info': return { color: '#1677ff', bg: '#e6f4ff', border: '#91caff', icon: 'ℹ' };
+      default: return { color: '#8c8c8c', bg: '#fafafa', border: '#d9d9d9', icon: '•' };
+    }
+  };
+
+  const issueTypeLabel = (type: string) => {
+    const map: Record<string, { text: string; color: string }> = {
+      missing_evidence: { text: '证据缺失', color: 'orange' },
+      contradiction: { text: '结论矛盾', color: 'red' },
+      degraded_coverage: { text: '覆盖不足', color: 'warning' },
+      low_quality: { text: '质量偏低', color: 'default' },
+      unsupported_claim: { text: '无依据断言', color: 'red' },
+    };
+    return map[type] || { text: type, color: 'default' };
+  };
+
   const materialTab = (
     <div>
       <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -185,25 +205,62 @@ export default function CriticReview({ taskId, extensionRequest, onApplied }: Cr
       ) : (
         feedbackItems.map((item: any) => {
           const action = actionLabel(item.suggested_action);
+          const sev = severityStyle(item.severity);
+          const issue = issueTypeLabel(item._issue_type);
+          const hasCompetitor = item._competitor || item.target_id;
+
           return (
             <Card
               key={item.id}
               size="small"
-              style={{ marginBottom: 8, borderLeft: selectedFeedback.has(item.id) ? '3px solid #1677ff' : undefined }}
+              style={{
+                marginBottom: 10,
+                borderLeft: `4px solid ${sev.border}`,
+                background: selectedFeedback.has(item.id) ? '#f0f5ff' : undefined,
+              }}
             >
-              <Checkbox checked={selectedFeedback.has(item.id)} onChange={() => toggleFeedback(item.id)} style={{ marginBottom: 8 }}>
-                <Text strong>{item.message}</Text>
-                <Tag color={action.color} style={{ marginLeft: 8 }}>{action.text}</Tag>
-                {item.severity && (
-                  <Tag color={item.severity === 'error' ? 'red' : item.severity === 'warning' ? 'orange' : 'default'} style={{ marginLeft: 4 }}>
-                    {item.severity}
-                  </Tag>
-                )}
-              </Checkbox>
-              <div style={{ marginLeft: 24 }}>
-                <div><Text type="secondary">目标：</Text>{item.target_id}</div>
-                <div><Text type="secondary">类型：</Text>{item.target_type}</div>
-                {item.created_at && <div><Text type="secondary">时间：</Text>{new Date(item.created_at).toLocaleString()}</div>}
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                <Checkbox
+                  checked={selectedFeedback.has(item.id)}
+                  onChange={() => toggleFeedback(item.id)}
+                  style={{ marginTop: 2 }}
+                />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {/* Header: competitor + field */}
+                  {hasCompetitor && (
+                    <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: 600, fontSize: 14, color: '#262626' }}>
+                        {item._competitor || item.target_id}
+                      </span>
+                      {item._field_name && (
+                        <Tag style={{ margin: 0 }}>{item._field_name}</Tag>
+                      )}
+                      <Tag color={issue.color} style={{ margin: 0 }}>{issue.text}</Tag>
+                      <Tag color={sev.color} style={{ margin: 0 }}>{sev.icon} {item.severity}</Tag>
+                      <Tag color={action.color} style={{ margin: 0 }}>{action.icon} {action.text}</Tag>
+                    </div>
+                  )}
+
+                  {/* Message body */}
+                  <div style={{
+                    background: sev.bg,
+                    padding: '8px 12px',
+                    borderRadius: 6,
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    color: '#434343',
+                    marginBottom: 6,
+                  }}>
+                    {item.message || String(item.message || '')}
+                  </div>
+
+                  {/* Metadata row */}
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: '#8c8c8c' }}>
+                    {item.target_id && <span>目标: {item.target_id}</span>}
+                    {item.target_type && <span>类型: {item.target_type}</span>}
+                    {item.created_at && <span>时间: {new Date(item.created_at).toLocaleString()}</span>}
+                  </div>
+                </div>
               </div>
             </Card>
           );

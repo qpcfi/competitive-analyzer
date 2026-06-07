@@ -6,6 +6,7 @@ from core import runtime
 from core.runtime import runner
 from models_db import async_session
 from services.pipeline import (
+    process_agent_pipeline,
     publish_event,
     calibration_confirm,
     calibration_reject,
@@ -108,6 +109,27 @@ async def terminate_task(task_id: str):
     await publish_event(task_id, "task_state_changed", {"state": "ERROR", "terminated": True})
     await publish_event(task_id, "debug_log", {"agent": "System", "event": "terminate", "message": "Task terminated by user."})
     return {"status": "terminated"}
+
+
+@router.post("/api/v1/tasks/{task_id}/continue-analysis")
+async def continue_analysis(task_id: str):
+    async with async_session() as session:
+        db_task = await get_task(session, task_id)
+        if not db_task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        if db_task.state not in ("COLLECTING", "PAUSED", "ERROR"):
+            raise HTTPException(status_code=409, detail=f"Cannot continue analysis while task is {db_task.state}")
+        raw_materials = list(db_task.raw_materials or [])
+        if not raw_materials:
+            raise HTTPException(status_code=409, detail="No collected materials to analyze. Collect data first.")
+        await add_intervention(session, task_id, "continue_analysis", {"previous_state": db_task.state})
+        await update_task_state(session, task_id, state="COLLECTING", progress=60)
+        await session.commit()
+    await publish_event(task_id, "debug_log", {"agent": "System", "event": "continue", "message": "Continuing analysis from post-collection state."})
+    await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
+    if not runner.start(task_id, lambda: process_agent_pipeline(task_id, start_from="analyzer")):
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+    return {"status": "continuing", "state": "ANALYZING"}
 
 
 @router.post("/api/v1/tasks/{task_id}/calibration")

@@ -25,7 +25,16 @@ analyzer_agent:
     IMPORTANT: Ensure that all textual output (including group names, field names, analysis text, SWOT points) is written in Chinese (except for domain-specific terminology).
 
     CRITICAL FORMATTING RULES:
-    1. For the "value" field in comparison_rows, DO NOT simply copy the raw materials. You MUST rewrite and synthesize the information.
+    1. VALUE QUALITY — For the "value" field, you MUST synthesize, not copy:
+       BAD (raw copy): "该产品提供了A、B、C三项功能"
+       GOOD (synthesized insight): "通过A+B+C构建了完整的xx闭环，差异化优势在于C功能的体验设计"
+
+       BAD (vague generic): "市场份额较大"
+       GOOD (specific strategic): "凭借xx渠道和xx定价，在中端市场占据约xx%份额，但高端渗透受限"
+
+       BAD (feature list): "支持多人协作、实时编辑、版本管理"
+       GOOD (capability inference): "以协作为切入点，通过实时编辑+版本管理解决团队xx痛点，目标用户为xx人群"
+
     2. Remove all conversational fillers (e.g., "根据提供的网页内容...", "提取信息如下...", "The information is...").
     3. Ensure semantic formatting is strictly consistent across all competitors for the same field (e.g., if one competitor uses bullet points, use bullet points for the others).
     4. Keep the content strictly relevant to the specific schema dimension. Do not include irrelevant information.
@@ -46,9 +55,19 @@ analyzer_agent:
     - Evolution (演进): Product iteration direction, tech roadmap, strategic evolution
 
     5. Treat raw materials with source_type="survey_response" and trust_status="first_party" as first-party survey evidence. Use it especially for user experience, pain points, purchase motivation, satisfaction, and switching reasons. If survey evidence conflicts with public web evidence, mention the conflict and prefer survey evidence for real-user perception.
+
+    6. REASONING DEPTH — For each comparison cell, apply this reasoning chain internally:
+       Evidence → Observation → Interpretation → Implication → Conclusion
+       Your output only needs the final Conclusion as the "value" field, but the chain ensures depth.
     
     Return ONLY raw valid JSON, without any markdown formatting like ```json or ```, no trailing commas, with EXACTLY the following structure:
     {{
+      "goal_analysis": {{
+        "direct_answer": "1-2句直接回答分析目标的核心结论",
+        "key_findings": [
+          {{"finding": "关键洞察描述", "severity": "high/medium/low", "related_angle": "product"}}
+        ]
+      }},
       "comparison_rows": [
         {{ "dimension_group": "Group", "field_name": "Field", "competitor": "Name", "value": "Synthesized, concise, and uniformly formatted text", "confidence": 0.9, "evidence_refs": ["id1"], "degraded_reason": "" }}
       ]

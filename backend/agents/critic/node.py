@@ -76,12 +76,12 @@ async def critic_node(state: AgentState):
         feedback = parsed
         suggested_schema_extensions = []
     elif isinstance(parsed, dict):
-        feedback = parsed.get("feedback") or []
+        feedback = normalize_critic_feedback(parsed.get("feedback") or [])
         suggested_schema_extensions = normalize_schema_extensions(parsed.get("suggested_schema_extensions") or [])
     else:
         feedback = build_structured_feedback(analysis_results)
         suggested_schema_extensions = []
-        
+
     if feedback and isinstance(feedback[0], str):
         feedback = [
             {
@@ -142,6 +142,77 @@ def build_structured_feedback(analysis_results: dict) -> list[dict]:
             for item in degraded
         ]
     return []
+
+
+def normalize_critic_feedback(items: list) -> list[dict]:
+    """Normalize LLM feedback output to system feedback schema.
+
+    LLM prompt outputs fields like competitor/field_name/issue_type/comment,
+    while the system expects level/target_type/target_id/severity/message.
+    """
+    if not items or not isinstance(items, list):
+        return []
+    normalized: list[dict] = []
+    for item in items:
+        if not isinstance(item, dict):
+            if isinstance(item, str):
+                normalized.append({
+                    "level": "L2",
+                    "target_type": "analysis_result",
+                    "target_id": "analysis",
+                    "module_id": "analysis",
+                    "severity": "warning",
+                    "code": "critic_message",
+                    "message": item,
+                    "suggested_action": "retry_analysis",
+                    "retry_count": 0,
+                })
+            continue
+        # Determine severity from issue_type
+        issue_type = item.get("issue_type") or ""
+        severity_map = {
+            "missing_evidence": "warning",
+            "contradiction": "error",
+            "degraded_coverage": "warning",
+            "low_quality": "warning",
+            "unsupported_claim": "error",
+        }
+        severity = item.get("severity") or severity_map.get(issue_type, "warning")
+
+        # Build a readable message from the LLM's comment field
+        comment = item.get("comment") or item.get("message") or ""
+        competitor = item.get("competitor") or ""
+        field_name = item.get("field_name") or ""
+        if comment:
+            message = comment
+        elif competitor and field_name:
+            message = f"{competitor} {field_name}: {issue_type}"
+        else:
+            message = str(item)
+
+        # Map suggested_action
+        suggested_action = item.get("suggested_action") or "review"
+
+        # Construct target_id from competitor + field
+        parts = [p for p in [competitor, field_name] if p]
+        target_id = item.get("target_id") or (":".join(parts) if parts else "analysis")
+
+        normalized.append({
+            "level": item.get("level") or "L2",
+            "target_type": item.get("target_type") or ("source_material" if suggested_action == "retry_collection" else "analysis_result"),
+            "target_id": target_id,
+            "module_id": item.get("module_id") or field_name or "analysis",
+            "severity": severity,
+            "code": item.get("code") or issue_type or "quality_review",
+            "message": message,
+            "suggested_action": suggested_action,
+            "retry_count": int(item.get("retry_count", 0)),
+            # Preserve original fields for frontend display
+            "_competitor": competitor,
+            "_field_name": field_name,
+            "_issue_type": issue_type,
+        })
+    return normalized
 
 
 def normalize_schema_extensions(items: list[dict]) -> list[dict]:

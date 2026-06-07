@@ -124,6 +124,10 @@ async def analyzer_node(state: AgentState):
                             "evidence_refs": old_cell.get("evidence_refs", []),
                             "degraded_reason": cell.get("degraded_reason", "") or old_cell.get("degraded_reason", "")
                         }
+        goal_analysis = parsed.get("goal_analysis")
+        if isinstance(goal_analysis, dict) and goal_analysis.get("direct_answer"):
+            result["goal_analysis"] = goal_analysis
+
         if "executive_summary" in parsed and isinstance(parsed.get("executive_summary"), str):
             if "report" not in result:
                 result["report"] = {}

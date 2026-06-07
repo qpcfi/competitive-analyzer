@@ -20,7 +20,7 @@ critic_agent:
     Return ONLY valid JSON with the following structure:
     {{
       "feedback": [
-        {{"competitor": "Competitor Name", "field_name": "Field", "issue_type": "missing_evidence", "comment": "Description of issue", "suggested_action": "retry_collection"}}
+        {{"competitor": "Competitor Name", "field_name": "Field", "issue_type": "missing_evidence", "severity": "warning", "target_type": "source_material", "message": "Description of issue in Chinese", "suggested_action": "retry_collection"}}
       ],
       "suggested_schema_extensions": [
         {{"dimension_group": "Group", "new_field": "Field Name", "type": "text", "reason": "Why to add", "confidence": 0.9}}

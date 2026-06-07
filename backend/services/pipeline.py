@@ -22,6 +22,7 @@ from services.repositories import (
     save_schema,
     save_source_materials,
     update_task_state,
+    write_checkpoint,
 )
 from services.stats import count_schema_stats, source_stats
 from sqlalchemy import select, desc
@@ -82,7 +83,6 @@ async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], 
             record = await save_schema(session, task_id, schema_json, created_by="agent", status="active")
             await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
             print(f"[SNAPSHOT] writing pre_collection checkpoint for {task_id}...", flush=True)
-            from services.repositories import write_checkpoint
             await write_checkpoint(
                 session, task_id, "pre_collection", "SCHEMA_READY",
                 f"Schema ready: {len(discovered_competitors)} competitors, {sum(len(v) if isinstance(v, list) else 0 for v in schema_json.values())} fields",
@@ -329,6 +329,20 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
                 task = await _with_timeout(task_id, "update_task_state", update_task_state(session, task_id, state="COLLECTING", progress=60))
                 task.raw_materials = materials
                 await _with_timeout(task_id, "save_source_materials", save_source_materials(session, task_id, materials))
+
+                # ── Post-collection snapshot ──
+                await write_checkpoint(
+                    session, task_id, "post_collection", "COLLECTING",
+                    f"Collection complete: {len(materials)} materials across {len(competitor_counts)} competitors",
+                    {
+                        "competitors": (state.get("task_context") or {}).get("competitors", []),
+                        "progress": 60,
+                        "dynamic_schema": state.get("dynamic_schema", {}),
+                        "state": "COLLECTING",
+                        "raw_materials": materials,
+                    },
+                )
+
                 await session.commit()
             await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": "DB save complete."})
             await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Data collection completed."})

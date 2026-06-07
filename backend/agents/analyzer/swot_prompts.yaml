@@ -9,6 +9,12 @@ swot_generator:
     1. Do NOT simply restate the raw data. Synthesize into strategic insights.
     2. Remove all conversational fillers.
     3. Each SWOT item must be concise and actionable.
+    4. INFERENCE RULES:
+       - Features ≠ Strengths. A feature (e.g., "has dark mode") is not inherently a strength. Explain WHY it matters: "暗黑模式降低了低光环境下的视觉疲劳，提升了夜间活跃用户的留存率"
+       - Strengths must be internal, positive, and competitor-relative. If most competitors also have it, it's table stakes, not a strength.
+       - Weaknesses must be internally addressable gaps, not external conditions.
+       - Opportunities and Threats are external/market factors, not internal actions.
+       - For SO/ST/WO/WT strategies: explicitly cross-reference the S/W with the O/T being leveraged or mitigated.
 
     Return ONLY raw valid JSON, without any markdown formatting like ```json or ```, no trailing commas, with EXACTLY the following structure:
     {{

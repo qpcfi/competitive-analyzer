@@ -149,6 +149,13 @@ export default function InfoDashboard({ taskId, taskState, rawMaterials = [], co
           <Button size="large" type="primary" icon={<RightCircleOutlined />} loading={loading === 'resume'} disabled={!taskId} onClick={() => postTaskAction('/resume', 'resume')}>
             {taskState === 'ERROR' ? '重新开始采集' : '恢复采集'}
           </Button>
+        ) : taskState === 'COLLECTING' && rawMaterials.length > 0 ? (
+          <>
+            <Button size="large" type="primary" icon={<RightCircleOutlined />} loading={loading === 'continue-analysis'} disabled={!taskId} onClick={() => postTaskAction('/continue-analysis', 'continue-analysis')}>
+              继续分析
+            </Button>
+            <Button size="large" icon={<PauseCircleOutlined />} loading={loading === 'pause'} disabled={!taskId} onClick={() => postTaskAction('/pause', 'pause')}>暂停采集</Button>
+          </>
         ) : (
           <Button size="large" icon={<PauseCircleOutlined />} loading={loading === 'pause'} disabled={!taskId || taskState !== 'COLLECTING'} onClick={() => postTaskAction('/pause', 'pause')}>暂停采集</Button>
         )}
