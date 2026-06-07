@@ -81,27 +81,26 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
             material = None
             callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
             
-            # 1. Try to extract from curated URLs first
-            for src in routed_sources:
-                url = src["url"]
-                markdown_content = cached_markdowns.get(url)
-                if not markdown_content:
-                    continue
-
-                # Create a pseudo PageEvidence for the LLM extraction
-                pseudo_page = PageEvidence(
-                    query=query, search_title=src.get("name", ""), url=url, snippet="", page_title="", text=markdown_content
+            # 1. Try to extract from curated URLs first — all sources merged
+            curated_pages = [
+                PageEvidence(
+                    query=query, search_title=src.get("name", ""),
+                    url=src["url"], snippet="", page_title="",
+                    text=cached_markdowns[src["url"]],
                 )
-
-                extracted_material = await build_material_from_pages(
-                    task_id, competitor, field, query, [pseudo_page], callbacks=callbacks, strict_not_found=True, source_stage="curated"
+                for src in routed_sources
+                if cached_markdowns.get(src["url"])
+            ]
+            if curated_pages:
+                material = await build_material_from_pages(
+                    task_id, competitor, field, query, curated_pages,
+                    callbacks=callbacks, strict_not_found=True, source_stage="curated",
                 )
-
-                if extracted_material and extracted_material.get("extracted_value", {}).get("value") != "NOT_FOUND":
-                    material = extracted_material
-                    break  # Found it!
+                if material and material.get("extracted_value", {}).get("value") == "NOT_FOUND":
+                    material = None  # fall through to search
+                    await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[curated] All sources NOT_FOUND for: {query}"})
                 else:
-                    await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[curated] NOT_FOUND: {src.get('name', url)} → {query}"})
+                    await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[curated] Extracted from {len(curated_pages)} source(s) for: {query}"})
                     
             # 2. Fallback to DuckDuckGo search + Crawl4ai fetching
             if not material:
@@ -117,29 +116,31 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
                     search_urls = [r.url for r in search_results[:3]]
                     crawled_markdowns = await crawl_urls(search_urls)
 
-                    for sr in search_results:
-                        md = crawled_markdowns.get(sr.url)
-                        if not md:
-                            continue
-                        pseudo_page = PageEvidence(
+                    # Collect all crawled search pages
+                    search_pages = [
+                        PageEvidence(
                             query=query, search_title=sr.title, url=sr.url,
-                            snippet=sr.snippet, page_title="", text=md,
+                            snippet=sr.snippet, page_title="", text=crawled_markdowns[sr.url],
                         )
+                        for sr in search_results
+                        if crawled_markdowns.get(sr.url)
+                    ]
+                    if search_pages:
                         material = await build_material_from_pages(
-                            task_id, competitor, field, query, [pseudo_page],
+                            task_id, competitor, field, query, search_pages,
                             callbacks=callbacks, strict_not_found=False, source_stage="search",
                         )
                         if material and material.get("validation_status") != "degraded":
-                            # Fire-and-forget: save discovered URL to knowledge_base
-                            asyncio.ensure_future(
-                                auto_save_to_knowledge_base(
-                                    url=sr.url,
-                                    competitor=competitor,
-                                    skill=skill_filter,
-                                    field_name=field.get("name") or field.get("id"),
+                            # Fire-and-forget: save ALL discovered URLs to knowledge_base
+                            for p in search_pages:
+                                asyncio.ensure_future(
+                                    auto_save_to_knowledge_base(
+                                        url=p.url,
+                                        competitor=competitor,
+                                        skill=skill_filter,
+                                        field_name=field.get("name") or field.get("id"),
+                                    )
                                 )
-                            )
-                            break
 
                     if not material:
                         material = build_degraded_material(task_id, competitor, field, query, "crawl4ai_all_failed")
@@ -235,19 +236,34 @@ async def build_material_from_pages(
     strict_not_found: bool = False,
     source_stage: str = "search",
 ) -> dict[str, Any] | None:
-    accepted = next((item for item in pages if item.text or item.snippet), None)
-    if not accepted:
+    # Collect excerpts from ALL valid pages, not just the first one
+    excerpt_parts: list[tuple[PageEvidence, str]] = []
+    for p in pages:
+        text = (p.text or p.snippet or "").strip()
+        if not text:
+            continue
+        excerpt = process_page(text, query, max_chars=12000)
+        if excerpt:
+            excerpt_parts.append((p, excerpt))
+
+    if not excerpt_parts:
         if strict_not_found:
             return None
         return build_degraded_material(task_id, competitor, field, query, "no_search_evidence_found")
 
-    _text = (accepted.text or accepted.snippet or "").strip()
-    excerpt = process_page(_text, query, max_chars=12000)
-    extracted_value = excerpt
+    # Merge multiple sources with separator
+    primary_page = excerpt_parts[0][0]
+    if len(excerpt_parts) > 1:
+        parts = [f"[{p.url}]\n{ex}" for p, ex in excerpt_parts]
+        merged_excerpt = "\n\n---\n\n".join(parts)
+    else:
+        merged_excerpt = excerpt_parts[0][1]
+
+    extracted_value = merged_excerpt
     is_not_found = False
 
     # Perform information extraction using LLM if available
-    if llm is not None and excerpt and ChatPromptTemplate is not None:
+    if llm is not None and merged_excerpt and ChatPromptTemplate is not None:
         try:
             prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
             with open(prompt_path, "r", encoding="utf-8") as f:
@@ -270,7 +286,7 @@ async def build_material_from_pages(
                 "competitor": competitor,
                 "field_name": field.get("name") or field.get("id"),
                 "field_reason": field.get("reason") or "N/A",
-                "excerpt": excerpt
+                "excerpt": merged_excerpt
             }, config=config)
             ans = res.content.strip()
             if ans == "NOT_FOUND":
@@ -287,11 +303,12 @@ async def build_material_from_pages(
     redacted = redact_pii(extracted_value)
     
     return {
-        "id": stable_source_id(task_id, competitor, field.get("id", ""), accepted.url),
+        "id": stable_source_id(task_id, competitor, field.get("id", ""), primary_page.url),
         "competitor": competitor,
         "schema_field_id": field.get("id"),
         "schema_field_name": field.get("name") or field.get("id"),
-        "source_url": accepted.url,
+        "source_url": primary_page.url,
+        "source_urls": [p.url for p, _ in excerpt_parts],
         "source_type": "web_page",
         "quote_text": redacted,
         "extracted_value": {"value": redacted, "query": query},
