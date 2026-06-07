@@ -1,16 +1,19 @@
 import os
 import sys
+from pathlib import Path
 if sys.platform == 'win32':
     import asyncio
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 import asyncio
 
+from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from agents.graph import workflow
 from agents.discoverer.node import recommend_competitors
-from api.routers import discovery, feedback, recovery, reports, schema, sources, tasks
+from api.routers import discovery, feedback, recovery, reports, schema, sources, survey, tasks
 from api.routers.discovery import get_competitor_recommendations
 from api.routers.feedback import record_feedback, save_note
 from api.routers.recovery import force_next, partial_rerun, pause_task
@@ -32,6 +35,8 @@ from services.pipeline import event_generator, make_initial_state, process_agent
 from services.repositories import add_intervention, get_task, latest_schema, save_schema, update_task_state
 from services.stats import count_schema_stats, source_stats
 
+load_dotenv(Path(__file__).with_name(".env"), override=True)
+
 try:
     from langgraph.checkpoint.postgres import PostgresSaver
     from psycopg_pool import ConnectionPool
@@ -41,6 +46,9 @@ except ImportError:
 
 
 app = FastAPI(title="Competitive Analyzer API")
+GENERATED_DIR = Path(__file__).resolve().parent / "generated"
+GENERATED_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/generated", StaticFiles(directory=GENERATED_DIR), name="generated")
 
 app.add_middleware(
     CORSMiddleware,
@@ -55,6 +63,7 @@ for router in (
     tasks.router,
     schema.router,
     sources.router,
+    survey.router,
     feedback.router,
     reports.router,
     recovery.router,

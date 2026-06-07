@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Typography, Divider, Button, Space, Tag, App } from 'antd';
+import { Alert, App, Button, Card, Col, Divider, Row, Space, Tag, Typography } from 'antd';
 import { FilePdfOutlined, FileMarkdownOutlined, CodeOutlined, ShareAltOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 
@@ -48,6 +48,12 @@ export default function StructuredReport({ taskId, analysisResults }: Structured
   const { message } = App.useApp();
   const [loading, setLoading] = useState<string | null>(null);
   const report = analysisResults?.report || {};
+  const reportVersions = analysisResults?.report_versions || {};
+  const baseReport = reportVersions.base?.report || null;
+  const enrichedReport = reportVersions.survey_enriched?.report || null;
+  const comparison = reportVersions.comparison || {};
+  const comparisonItems = Array.isArray(comparison.differences) ? comparison.differences : [];
+  const hasSurveyComparison = Boolean(baseReport && enrichedReport);
   const findings = Array.isArray(report.findings) ? report.findings : [];
   const recommendations = Array.isArray(report.recommendations) ? report.recommendations : [];
   const sources = Array.isArray(report.source_appendix) ? report.source_appendix : [];
@@ -98,6 +104,42 @@ export default function StructuredReport({ taskId, analysisResults }: Structured
         </Space>
       </div>
 
+      {hasSurveyComparison ? (
+        <Card title="调研增强版报告对比" style={{ marginBottom: 24 }} variant="borderless">
+          <Alert
+            type="info"
+            showIcon
+            title={`调研增强版已纳入 ${comparison.selected_response_count || 0} 份问卷答复，生成 ${comparison.survey_material_count || 0} 条一手调研材料。`}
+            style={{ marginBottom: 16 }}
+          />
+          <Row gutter={16}>
+            <Col span={12}>
+              <ReportSnapshotPanel label="v1 主报告" report={baseReport} />
+            </Col>
+            <Col span={12}>
+              <ReportSnapshotPanel label="v2 调研增强版" report={enrichedReport} />
+            </Col>
+          </Row>
+          <Divider />
+          <Title level={4}>主要不同点</Title>
+          {comparisonItems.length ? (
+            <StackedItems>
+              {comparisonItems.map((item: any, index: number) => (
+                <div key={index}>
+                  <Space orientation="vertical" size={2}>
+                    <Text strong>{renderableText(item.area, '变化点')}</Text>
+                    <Text>{renderableText(item.change, '报告内容发生变化')}</Text>
+                    {item.detail ? <Text type="secondary">{renderableText(item.detail, '')}</Text> : null}
+                  </Space>
+                </div>
+              ))}
+            </StackedItems>
+          ) : (
+            <Text type="secondary">暂无可展示的差异点。</Text>
+          )}
+        </Card>
+      ) : null}
+
       <Card id="report-conclusion" style={{ marginBottom: 24, padding: 24 }} variant="borderless" className="report-card">
         <Title level={3}>一、核心结论与战略建议</Title>
         <Divider />
@@ -137,7 +179,16 @@ export default function StructuredReport({ taskId, analysisResults }: Structured
         <div style={{ border: '1px solid #f0f0f0', borderRadius: '8px' }}>
           {sources.length ? sources.map((item: any, index: number) => (
             <div key={item.id || index} style={{ padding: '12px 16px', borderBottom: index === sources.length - 1 ? 'none' : '1px solid #f0f0f0' }}>
-              <Typography.Text copyable>{renderableText(item.source_url ?? item.id, '未知来源')}</Typography.Text>
+              {item.source_type === 'survey_response' ? (
+                <Space orientation="vertical" size={2}>
+                  <Text strong>{renderableText(item.schema_field_name || item.extracted_value?.question_title, '问卷调研来源')}</Text>
+                  <Text type="secondary">问卷 Campaign：{renderableText(item.extracted_value?.campaign_id, '未知问卷')}</Text>
+                  <Text type="secondary">支撑答卷：{formatSurveySources(item.extracted_value?.survey_sources)}</Text>
+                  <Typography.Text copyable>{renderableText(item.id, '未知来源')}</Typography.Text>
+                </Space>
+              ) : (
+                <Typography.Text copyable>{renderableText(item.source_url ?? item.id, '未知来源')}</Typography.Text>
+              )}
             </div>
           )) : <div style={{ padding: '12px 16px' }}><Text type="secondary">暂无溯源数据。</Text></div>}
         </div>
@@ -147,4 +198,52 @@ export default function StructuredReport({ taskId, analysisResults }: Structured
       </Card>
     </div>
   );
+}
+
+function ReportSnapshotPanel({ label, report }: { label: string; report: any }) {
+  const recommendations = Array.isArray(report?.recommendations) ? report.recommendations : [];
+  return (
+    <div style={{ border: '1px solid #f0f0f0', borderRadius: 8, padding: 16, height: '100%' }}>
+      <Space style={{ marginBottom: 12 }}>
+        <Tag color={label.startsWith('v2') ? 'green' : 'default'}>{label}</Tag>
+      </Space>
+      <Title level={5}>执行摘要</Title>
+      <div style={{ fontSize: 14, lineHeight: 1.5, marginBottom: 16 }}>
+        <ReactMarkdown>{renderableText(report?.summary, '暂无执行摘要。')}</ReactMarkdown>
+      </div>
+      <Title level={5}>战略建议</Title>
+      {recommendations.length ? (
+        <StackedItems compact>
+          {recommendations.slice(0, 3).map((item: any, index: number) => (
+            <div key={index}>
+              <Text>{renderableText(item, '暂无建议')}</Text>
+            </div>
+          ))}
+        </StackedItems>
+      ) : (
+        <Text type="secondary">暂无建议。</Text>
+      )}
+    </div>
+  );
+}
+
+function StackedItems({ children, compact = false }: { children: React.ReactNode; compact?: boolean }) {
+  return (
+    <div style={{ borderTop: compact ? 'none' : '1px solid #f0f0f0' }}>
+      {React.Children.map(children, (child, index) => (
+        <div style={{ padding: compact ? '6px 0' : '12px 0', borderBottom: '1px solid #f0f0f0' }}>
+          {child}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function formatSurveySources(sources: unknown) {
+  if (!Array.isArray(sources) || sources.length === 0) {
+    return '未标记具体答卷';
+  }
+  return sources
+    .map((item: any) => renderableText(item?.label || item?.external_response_id || item?.response_id, '未知答卷'))
+    .join('、');
 }

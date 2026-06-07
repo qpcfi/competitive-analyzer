@@ -12,6 +12,7 @@ analyzer_agent:
     2. Remove all conversational fillers (e.g., "根据提供的网页内容...", "提取信息如下...", "The information is...").
     3. Ensure semantic formatting is strictly consistent across all competitors for the same field (e.g., if one competitor uses bullet points, use bullet points for the others).
     4. Keep the content strictly relevant to the specific schema dimension. Do not include irrelevant information.
+    5. Treat raw materials with source_type="survey_response" and trust_status="first_party" as first-party survey evidence. Use it especially for user experience, pain points, purchase motivation, satisfaction, and switching reasons. If survey evidence conflicts with public web evidence, mention the conflict and prefer survey evidence for real-user perception.
     
     Return ONLY raw valid JSON, without any markdown formatting like ```json or ```, no trailing commas, with EXACTLY the following structure:
     {{

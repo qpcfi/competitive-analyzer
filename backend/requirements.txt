@@ -11,7 +11,9 @@ langchain-openai
 sse-starlette
 httpx
 beautifulsoup4
+python-dotenv
 playwright
 pytest
 pytest-asyncio
 crawl4ai
+Pillow
