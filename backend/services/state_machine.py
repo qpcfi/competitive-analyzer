@@ -47,7 +47,7 @@ ALLOWED_TRANSITIONS: dict[TaskState, set[TaskState]] = {
         TaskState.SCHEMA_REVIEW, TaskState.COLLECTING, TaskState.ANALYZING, TaskState.QUALITY_REVIEW, TaskState.ERROR,
     },
     TaskState.NEEDS_INTERVENTION: {
-        TaskState.COLLECTING, TaskState.ANALYZING, TaskState.PAUSED, TaskState.ERROR,
+        TaskState.COLLECTING, TaskState.ANALYZING, TaskState.COMPLETED, TaskState.PAUSED, TaskState.ERROR,
     },
     TaskState.COMPLETED: {
         TaskState.ANALYZING,

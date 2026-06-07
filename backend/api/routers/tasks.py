@@ -10,7 +10,7 @@ from agents.analyzer import swot_generator_node
 from core.runtime import runner
 from models_db import TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
 from schemas import TaskCreateRequest, TaskCreateResponse
-from services.pipeline import event_generator, make_initial_state, process_agent_pipeline, process_initial_pipeline, publish_event
+from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
 from services.repositories import add_intervention, create_task_record, get_task, latest_schema, save_schema, update_task_state
 from services.serialization import serialize_task
 
@@ -182,7 +182,7 @@ async def restore_snapshot(task_id: str, req: Request):
             await session.commit()
             return {"task_id": clone_id, "state": snapshot.state}
 
-        # post_collection restore: go to COLLECTING, preserve materials, auto-start from analyzer
+        # post_collection restore: go to COLLECTING, preserve materials, wait for user to click "继续分析"
         if checkpoint_id == "post_collection" or snapshot.state == "COLLECTING":
             task.state = "COLLECTING"
             task.progress = snap_data.get("progress", 60)
@@ -215,19 +215,13 @@ async def restore_snapshot(task_id: str, req: Request):
             await session.commit()
 
     if checkpoint_id == "post_collection" or snapshot.state == "COLLECTING":
-        await publish_event(task_id, "debug_log", {"agent": "System", "event": "restore", "message": f"Restored from post-collection snapshot {checkpoint_id}, continuing to analysis."})
-        await publish_event(task_id, "raw_materials_updated", {
-            "data": task.raw_materials,
-            "source_stats": {},
-        })
+        await publish_event(task_id, "debug_log", {"agent": "System", "event": "restore", "message": f"Restored from post-collection snapshot {checkpoint_id}. 数据已就绪，点击「继续分析」进入分析阶段。"})
+        await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
         await publish_event(task_id, "task_state_changed", {
             "state": "COLLECTING", "progress": 60, "restored_from": checkpoint_id,
         })
 
-        # Auto-start pipeline from analyzer
-        runner.start(task_id, lambda: process_agent_pipeline(task_id, start_from="analyzer"))
-
-        return {"task_id": task_id, "state": "COLLECTING", "restored": True, "auto_started": True}
+        return {"task_id": task_id, "state": "COLLECTING", "restored": True}
 
     restored_schema = snap_data.get("dynamic_schema", {})
     await publish_event(task_id, "debug_log", {"agent": "System", "event": "restore", "message": f"Restored from snapshot {checkpoint_id}, awaiting schema review."})

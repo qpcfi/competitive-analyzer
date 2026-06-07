@@ -302,6 +302,14 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
             await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (restored from snapshot)."})
             await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Completed (restored from snapshot)."})
             await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"})
+        elif start_from in ("analyzer",):
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Skipped (restored from post-collection snapshot)."})
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Completed (restored from post-collection snapshot)."})
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (restored from post-collection snapshot)."})
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Completed (restored from post-collection snapshot)."})
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Skipped (data already collected, using snapshot materials)."})
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Completed (materials restored from snapshot)."})
+            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
 
         # ── COLLECTOR PHASE ──
         if start_from in ("collector",):
@@ -427,7 +435,9 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
 async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[dict[str, Any], str]:
     suggestions = state.get("suggested_schema_extensions") or []
     feedback = state.get("critic_feedback") or []
-    needs_intervention = len(suggestions) > 0 or len(feedback) > 0
+    # Only block for error-severity feedback or schema extensions; warnings pass through to reporter
+    has_critical_feedback = any(f.get("severity") == "error" for f in feedback) if feedback else False
+    needs_intervention = len(suggestions) > 0 or has_critical_feedback
     if not needs_intervention:
         return state, "none"
 
