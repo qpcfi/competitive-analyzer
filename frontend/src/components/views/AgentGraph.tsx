@@ -79,28 +79,27 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
     const states: Record<string, { status: string; latency?: number }> = {
       discoverer: { status: 'pending' },
       orchestrator: { status: 'pending' },
-      collector_general: { status: 'pending' },
-      collector_product_feature: { status: 'pending' },
-      collector_business_pricing: { status: 'pending' },
-      collector_technical_spec: { status: 'pending' },
+      collector_company: { status: 'pending' },
+      collector_product: { status: 'pending' },
+      collector_business: { status: 'pending' },
+      collector_technical: { status: 'pending' },
       analyzer: { status: 'pending' },
       critic: { status: 'pending' },
       reporter: { status: 'pending' }
     };
-    
+
     logs.forEach(log => {
       if (!log.agent) return;
       let agentId = log.agent.toLowerCase();
-      
-      // Map "Collector (xxx)" to "collector_xxx"
+
+      // Map "Collector (xxx)" → "collector_xxx" (matches backend skill_filter values)
       const colMatch = agentId.match(/collector \((.*?)\)/);
       if (colMatch) {
         agentId = `collector_${colMatch[1]}`;
       } else if (agentId === 'collector') {
-        // Skip generic collector log if any
-        return;
+        agentId = 'collector_company';
       }
-      
+
       if (!states[agentId]) return;
       
       if (log.event === 'start') {
@@ -119,11 +118,11 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
     { id: 'discoverer', type: 'agentNode', position: { x: 50, y: 300 }, data: { label: 'Discoverer', ...nodeStates.discoverer } },
     { id: 'orchestrator', type: 'agentNode', position: { x: 250, y: 300 }, data: { label: 'Orchestrator', ...nodeStates.orchestrator } },
     
-    // Parallel Collectors
-    { id: 'collector_product_feature', type: 'agentNode', position: { x: 550, y: 100 }, data: { label: 'Collector (产品特性)', ...nodeStates.collector_product_feature } },
-    { id: 'collector_technical_spec', type: 'agentNode', position: { x: 550, y: 250 }, data: { label: 'Collector (技术参数)', ...nodeStates.collector_technical_spec } },
-    { id: 'collector_business_pricing', type: 'agentNode', position: { x: 550, y: 400 }, data: { label: 'Collector (商业与定价)', ...nodeStates.collector_business_pricing } },
-    { id: 'collector_general', type: 'agentNode', position: { x: 550, y: 550 }, data: { label: 'Collector (通用信息)', ...nodeStates.collector_general } },
+    // Parallel Collectors: skill_filter values from backend = company, product, business, technical
+    { id: 'collector_company', type: 'agentNode', position: { x: 550, y: 80 }, data: { label: 'Collector (公司概况)', ...nodeStates.collector_company } },
+    { id: 'collector_product', type: 'agentNode', position: { x: 550, y: 210 }, data: { label: 'Collector (产品特性)', ...nodeStates.collector_product } },
+    { id: 'collector_business', type: 'agentNode', position: { x: 550, y: 340 }, data: { label: 'Collector (商业定价)', ...nodeStates.collector_business } },
+    { id: 'collector_technical', type: 'agentNode', position: { x: 550, y: 470 }, data: { label: 'Collector (技术参数)', ...nodeStates.collector_technical } },
 
     { id: 'analyzer', type: 'agentNode', position: { x: 850, y: 300 }, data: { label: 'Analyzer', ...nodeStates.analyzer } },
     { id: 'critic', type: 'agentNode', position: { x: 1050, y: 300 }, data: { label: 'Critic', ...nodeStates.critic } },
@@ -134,16 +133,16 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
     { id: 'e-disc-orch', source: 'discoverer', target: 'orchestrator', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.orchestrator.status === 'running' },
     
     // Orchestrator to Collectors
-    { id: 'e-orch-coll-pf', source: 'orchestrator', target: 'collector_product_feature', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_product_feature.status === 'running' },
-    { id: 'e-orch-coll-ts', source: 'orchestrator', target: 'collector_technical_spec', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_technical_spec.status === 'running' },
-    { id: 'e-orch-coll-bp', source: 'orchestrator', target: 'collector_business_pricing', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_business_pricing.status === 'running' },
-    { id: 'e-orch-coll-ge', source: 'orchestrator', target: 'collector_general', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_general.status === 'running' },
+    { id: 'e-orch-coll-pf', source: 'orchestrator', target: 'collector_product', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_product.status === 'running' },
+    { id: 'e-orch-coll-ts', source: 'orchestrator', target: 'collector_technical', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_technical.status === 'running' },
+    { id: 'e-orch-coll-bp', source: 'orchestrator', target: 'collector_business', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_business.status === 'running' },
+    { id: 'e-orch-coll-ge', source: 'orchestrator', target: 'collector_company', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_company.status === 'running' },
     
     // Collectors to Analyzer
-    { id: 'e-coll-pf-analy', source: 'collector_product_feature', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
-    { id: 'e-coll-ts-analy', source: 'collector_technical_spec', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
-    { id: 'e-coll-bp-analy', source: 'collector_business_pricing', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
-    { id: 'e-coll-ge-analy', source: 'collector_general', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
+    { id: 'e-coll-pf-analy', source: 'collector_product', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
+    { id: 'e-coll-ts-analy', source: 'collector_technical', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
+    { id: 'e-coll-bp-analy', source: 'collector_business', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
+    { id: 'e-coll-ge-analy', source: 'collector_company', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
 
     { id: 'e-analy-crit', source: 'analyzer', target: 'critic', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.critic.status === 'running' },
     { id: 'e-crit-repo', source: 'critic', target: 'reporter', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.reporter.status === 'running' },
@@ -157,7 +156,7 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
       labelStyle: { fill: '#fa8c16', fontWeight: 'bold' }
     },
     { 
-      id: 'e-crit-coll-pf', source: 'critic', target: 'collector_product_feature', 
+      id: 'e-crit-coll-pf', source: 'critic', target: 'collector_product', 
       sourceHandle: 'bottom', targetHandle: 'bottom-target',
       type: 'smoothstep', 
       animated: true, 
@@ -166,21 +165,21 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
       labelStyle: { fill: '#fa8c16', fontWeight: 'bold' }
     },
     { 
-      id: 'e-crit-coll-ts', source: 'critic', target: 'collector_technical_spec', 
+      id: 'e-crit-coll-ts', source: 'critic', target: 'collector_technical', 
       sourceHandle: 'bottom', targetHandle: 'bottom-target',
       type: 'smoothstep', 
       animated: true, 
       style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }
     },
     { 
-      id: 'e-crit-coll-bp', source: 'critic', target: 'collector_business_pricing', 
+      id: 'e-crit-coll-bp', source: 'critic', target: 'collector_business', 
       sourceHandle: 'bottom', targetHandle: 'bottom-target',
       type: 'smoothstep', 
       animated: true, 
       style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }
     },
     { 
-      id: 'e-crit-coll-ge', source: 'critic', target: 'collector_general', 
+      id: 'e-crit-coll-ge', source: 'critic', target: 'collector_company', 
       sourceHandle: 'bottom', targetHandle: 'bottom-target',
       type: 'smoothstep', 
       animated: true, 
