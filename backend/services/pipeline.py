@@ -435,9 +435,7 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
 async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[dict[str, Any], str]:
     suggestions = state.get("suggested_schema_extensions") or []
     feedback = state.get("critic_feedback") or []
-    # Only block for error-severity feedback or schema extensions; warnings pass through to reporter
-    has_critical_feedback = any(f.get("severity") == "error" for f in feedback) if feedback else False
-    needs_intervention = len(suggestions) > 0 or has_critical_feedback
+    needs_intervention = len(suggestions) > 0 or len(feedback) > 0
     if not needs_intervention:
         return state, "none"
 
