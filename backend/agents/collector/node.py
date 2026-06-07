@@ -34,7 +34,7 @@ ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 import asyncio
 from services.events import event_broker
-from ..shared.router import route_sources
+from ..shared.router import route_sources, auto_save_to_knowledge_base
 from ..shared.crawler import crawl_urls
 
 async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progress: ProgressCallback | None = None):
@@ -130,6 +130,15 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
                             callbacks=callbacks, strict_not_found=False, source_stage="search",
                         )
                         if material and material.get("validation_status") != "degraded":
+                            # Fire-and-forget: save discovered URL to knowledge_base
+                            asyncio.ensure_future(
+                                auto_save_to_knowledge_base(
+                                    url=sr.url,
+                                    competitor=competitor,
+                                    skill=skill_filter,
+                                    field_name=field.get("name") or field.get("id"),
+                                )
+                            )
                             break
 
                     if not material:

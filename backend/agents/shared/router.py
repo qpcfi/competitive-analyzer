@@ -1,3 +1,4 @@
+import asyncio
 import os
 import yaml
 from typing import Any
@@ -110,3 +111,78 @@ Which source IDs are relevant? Return only the JSON array."""
         print(f"Error in semantic routing: {e}")
         # Graceful fallback: return all hard-filtered on error
         return hard_filtered
+
+
+# ── Auto-save discovered URLs to knowledge_base.yaml ──
+
+_AUTOSAVE_LOCK = asyncio.Lock()
+
+
+async def auto_save_to_knowledge_base(
+    url: str,
+    competitor: str,
+    skill: str,
+    field_name: str,
+    description: str | None = None,
+) -> bool:
+    """Append a discovered URL to knowledge_base.yaml in a sub-thread.
+
+    Returns True if saved, False if skipped (duplicate or error).
+    Runs sync I/O in run_in_executor to avoid blocking the event loop.
+    """
+    async with _AUTOSAVE_LOCK:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None, _sync_append_to_kb, url, competitor, skill, field_name, description
+        )
+
+
+def _sync_append_to_kb(
+    url: str,
+    competitor: str,
+    skill: str,
+    field_name: str,
+    description: str | None = None,
+) -> bool:
+    """Synchronous: read → check duplicate → append → write.
+
+    Call from run_in_executor only — not async-safe.
+    """
+    path = os.path.join(os.path.dirname(__file__), "knowledge_base.yaml")
+    if not os.path.exists(path):
+        print(f"[autosave] knowledge_base.yaml not found at {path}")
+        return False
+
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            raw = f.read()
+    except OSError as e:
+        print(f"[autosave] read error: {e}")
+        return False
+
+    data = yaml.safe_load(raw) or {}
+    sources = data.get("sources", [])
+    norm_url = url.rstrip("/").lower()
+    for src in sources:
+        if isinstance(src, dict) and src.get("url", "").rstrip("/").lower() == norm_url:
+            return False  # duplicate, skip
+
+    name = description or f"auto: {competitor} {field_name}"
+    desc = description or f"Auto-discovered from {competitor} {field_name} analysis"
+    new_entry = (
+        f'  - url: "{url}"\n'
+        f'    name: "{name}"\n'
+        f'    description: "{desc}"\n'
+        f'    skills: ["{skill}"]\n'
+        f'    tags: ["auto-discovered"]\n'
+        f'    competitors: ["{competitor}"]\n'
+    )
+
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write("\n" + new_entry)
+        print(f"[autosave] saved: {url}")
+        return True
+    except OSError as e:
+        print(f"[autosave] write error: {e}")
+        return False
