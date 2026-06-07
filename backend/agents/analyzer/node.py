@@ -124,24 +124,6 @@ async def analyzer_node(state: AgentState):
                             "evidence_refs": old_cell.get("evidence_refs", []),
                             "degraded_reason": cell.get("degraded_reason", "") or old_cell.get("degraded_reason", "")
                         }
-        llm_swot = parsed.get("swot_analysis", {})
-        if isinstance(llm_swot, dict) and llm_swot:
-            def parse_swot_item(t):
-                if isinstance(t, dict):
-                    return {"text": t.get("text", ""), "evidence_refs": t.get("evidence_refs", [])}
-                return {"text": str(t), "evidence_refs": []}
-            swot = {
-                "competitor": llm_swot.get("competitor", "Target Competitor"),
-                "strengths": [parse_swot_item(t) for t in llm_swot.get("strengths", []) if t],
-                "weaknesses": [parse_swot_item(t) for t in llm_swot.get("weaknesses", []) if t],
-                "opportunities": [parse_swot_item(t) for t in llm_swot.get("opportunities", []) if t],
-                "threats": [parse_swot_item(t) for t in llm_swot.get("threats", []) if t],
-                "so_strategies": [parse_swot_item(t) for t in llm_swot.get("so_strategies", []) if t],
-                "wo_strategies": [parse_swot_item(t) for t in llm_swot.get("wo_strategies", []) if t],
-                "st_strategies": [parse_swot_item(t) for t in llm_swot.get("st_strategies", []) if t],
-                "wt_strategies": [parse_swot_item(t) for t in llm_swot.get("wt_strategies", []) if t],
-            }
-            result["swot"] = swot
         if "executive_summary" in parsed and isinstance(parsed.get("executive_summary"), str):
             if "report" not in result:
                 result["report"] = {}
@@ -192,17 +174,6 @@ def build_deterministic_analysis(state: AgentState) -> dict:
         "schema_dimensions": schema_dimensions,
         "comparison_rows": comparison_rows,
         "comparison": legacy_comparison,
-        "swot": {
-            "competitor": competitors[0] if competitors else "Unknown",
-            "strengths": [{"text": "Public information is available for comparison.", "evidence_refs": evidence_refs[:2]}],
-            "weaknesses": [{"text": "Some fields may require manual verification.", "evidence_refs": evidence_refs[:2]}],
-            "opportunities": [{"text": "Use verified sources to refine positioning.", "evidence_refs": evidence_refs[:2]}],
-            "threats": [{"text": "Source gaps can reduce confidence.", "evidence_refs": evidence_refs[:2]}],
-            "so_strategies": [{"text": "Leverage public info to improve positioning.", "evidence_refs": []}],
-            "wo_strategies": [{"text": "Verify sources to capture opportunities.", "evidence_refs": []}],
-            "st_strategies": [{"text": "Use public info to mitigate gaps.", "evidence_refs": []}],
-            "wt_strategies": [{"text": "Verify fields to prevent source gaps.", "evidence_refs": []}],
-        },
         "report": {
             "summary": "Analysis generated from collected public source materials.",
             "findings": findings,

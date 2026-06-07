@@ -6,11 +6,12 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 
+from agents.analyzer import swot_generator_node
 from core.runtime import runner
 from models_db import TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
 from schemas import TaskCreateRequest, TaskCreateResponse
 from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
-from services.repositories import add_intervention, create_task_record, get_task, save_schema, update_task_state
+from services.repositories import add_intervention, create_task_record, get_task, latest_schema, save_schema, update_task_state
 from services.serialization import serialize_task
 
 router = APIRouter()
@@ -208,3 +209,45 @@ async def restore_snapshot(task_id: str, req: Request):
         "state": "SCHEMA_REVIEW", "progress": 30, "restored_from": checkpoint_id,
     })
     return {"task_id": task_id, "state": "SCHEMA_REVIEW", "restored": True}
+
+
+@router.post("/api/v1/tasks/{task_id}/generate-swot")
+async def generate_swot(task_id: str):
+    async with async_session() as session:
+        db_task = await get_task(session, task_id)
+        if not db_task:
+            raise HTTPException(status_code=404, detail="Task not found")
+        schema_record = await latest_schema(session, task_id)
+        task_context = {
+            "domain": db_task.domain or "",
+            "competitors": db_task.competitors or [],
+            "execution_mode": db_task.execution_mode or "",
+            "analysis_goal": db_task.analysis_goal or "",
+        }
+        state = {
+            "task_id": task_id,
+            "task_context": task_context,
+            "dynamic_schema": schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
+            "raw_materials": db_task.raw_materials or [],
+            "analysis_results": dict(db_task.analysis_results or {}),
+            "critic_feedback": list(db_task.critic_feedback or []),
+            "suggested_schema_extensions": [],
+            "task_events": [],
+            "progress": 90,
+            "module_updates": [],
+            "retry_counts": {},
+        }
+
+    state = await swot_generator_node(state)
+    swot = (state.get("analysis_results") or {}).get("swot") or {}
+
+    async with async_session() as session:
+        db_task = await get_task(session, task_id)
+        if db_task:
+            results = dict(db_task.analysis_results or {})
+            results["swot"] = swot
+            db_task.analysis_results = results
+            await session.commit()
+
+    await publish_event(task_id, "analysis_progress", {"module_id": "swot", "data": {"swot": swot}})
+    return {"swot": swot}

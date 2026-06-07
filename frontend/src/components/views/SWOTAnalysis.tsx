@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Typography, Space, Button, Alert, Empty, Table } from 'antd';
 import { ReloadOutlined, ExportOutlined, LinkOutlined, LikeOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
@@ -14,7 +14,9 @@ interface SWOTAnalysisProps {
 }
 
 export default function SWOTAnalysis({ taskId, analysisResults, mainProduct, onOpenDrawer, onChangeView }: SWOTAnalysisProps) {
-  const swot = analysisResults?.swot;
+  const [swotData, setSwotData] = useState<any>(analysisResults?.swot || null);
+  const [swotLoading, setSwotLoading] = useState(false);
+  const swot = swotData || analysisResults?.swot;
   const hasSwot = !!swot && Object.values(swot).some((items: any) => Array.isArray(items) && items.length > 0);
 
   if (!mainProduct) {
@@ -95,9 +97,40 @@ export default function SWOTAnalysis({ taskId, analysisResults, mainProduct, onO
   };
 
   if (!hasSwot) {
+    const canGenerate = taskId && analysisResults?.comparison_rows?.length;
     return (
       <Card>
-        <Empty description={taskId ? '等待后端基于真实采集结果生成 SWOT' : '请先创建任务'} />
+        {canGenerate ? (
+          <Empty
+            description="SWOT 分析尚未生成，点击下方按钮根据已有对比数据生成"
+          >
+            <Button
+              type="primary"
+              size="large"
+              loading={swotLoading}
+              onClick={async () => {
+                setSwotLoading(true);
+                try {
+                  const res = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/generate-swot`, {
+                    method: 'POST',
+                  });
+                  const data = await res.json();
+                  if (res.ok && data.swot) {
+                    setSwotData(data.swot);
+                  }
+                } catch {
+                  // ignore
+                } finally {
+                  setSwotLoading(false);
+                }
+              }}
+            >
+              生成SWOT分析
+            </Button>
+          </Empty>
+        ) : (
+          <Empty description={taskId ? '等待后端完成分析后即可生成 SWOT' : '请先创建任务'} />
+        )}
       </Card>
     );
   }

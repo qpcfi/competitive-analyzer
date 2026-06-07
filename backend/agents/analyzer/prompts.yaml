@@ -49,18 +49,7 @@ analyzer_agent:
     {{
       "comparison_rows": [
         {{ "dimension_group": "Group", "field_name": "Field", "competitor": "Name", "value": "Synthesized, concise, and uniformly formatted text", "confidence": 0.9, "evidence_refs": ["id1"], "degraded_reason": "" }}
-      ],
-      "swot_analysis": {{
-        "competitor": "Name of the SINGLE target competitor (use main_product if any, else the first competitor)",
-        "strengths": [{{ "text": "...", "evidence_refs": ["id1"] }}],
-        "weaknesses": [{{ "text": "...", "evidence_refs": ["id1"] }}],
-        "opportunities": [{{ "text": "...", "evidence_refs": ["id1"] }}],
-        "threats": [{{ "text": "...", "evidence_refs": ["id1"] }}],
-        "so_strategies": [{{ "text": "SO strategies (Strengths x Opportunities)...", "evidence_refs": ["id1"] }}],
-        "wo_strategies": [{{ "text": "WO strategies (Weaknesses x Opportunities)...", "evidence_refs": ["id1"] }}],
-        "st_strategies": [{{ "text": "ST strategies (Strengths x Threats)...", "evidence_refs": ["id1"] }}],
-        "wt_strategies": [{{ "text": "WT strategies (Weaknesses x Threats)...", "evidence_refs": ["id1"] }}]
-      }}
+      ]
     }}
   human_template: |
     Analysis Goal: {analysis_goal}
