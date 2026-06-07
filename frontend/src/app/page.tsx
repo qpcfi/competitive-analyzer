@@ -237,7 +237,10 @@ export default function Home() {
       const data = JSON.parse(e.data);
       rememberSequence(data);
       if (Date.now() - connectedAt > 3000) {
-        setAnalysisResults(data.data?.data || data.data);
+        setAnalysisResults((prev: any) => {
+          const payload = data.data?.data || data.data;
+          return payload ? (prev ? { ...prev, ...payload } : payload) : prev;
+        });
       }
     });
 

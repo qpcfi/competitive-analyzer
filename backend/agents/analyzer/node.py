@@ -117,6 +117,8 @@ async def analyzer_node(state: AgentState):
                 for comp in result.get("discovered_competitors", []):
                     cell = next((c for c in llm_cells if isinstance(c, dict) and c.get("field_name") == row.get("dimension") and c.get("competitor") == comp), None)
                     if cell:
+                        if cell.get("dimension_group") and "group" not in row:
+                            row["group"] = cell["dimension_group"]
                         old_cell = row["values"].get(comp, {})
                         row["values"][comp] = {
                             "value": cell.get("value", ""),
