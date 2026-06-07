@@ -18,7 +18,6 @@ if _tavily_api_key:
     except ImportError:
         pass
 
-
 @dataclass(slots=True)
 class SearchResult:
     query: str
@@ -165,7 +164,7 @@ async def search_multi_engine(
 ) -> list[SearchResult]:
     """Run Tavily and DuckDuckGo in parallel, deduplicate by URL.
 
-    Tavily results are preferred (listed first); DDG fills remaining slots.
+    Priority: Tavily → DuckDuckGo
     """
     ddg_coro = search_public_web(query, limit=limit, timeout=timeout)
     tavily_coro = search_tavily(query, limit=limit)
