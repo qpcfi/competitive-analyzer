@@ -19,6 +19,7 @@ from models_db import (
     UserFeedbackRecord,
     UserNoteRecord,
 )
+from services.state_machine import assert_transition
 
 
 def new_id(prefix: str) -> str:
@@ -69,6 +70,8 @@ async def update_task_state(
     if task is None:
         raise KeyError(task_id)
     if state is not None:
+        if state != task.state:
+            assert_transition(task.state, state)
         task.state = state
     if progress is not None:
         task.progress = progress

@@ -126,3 +126,164 @@ sources:
     description: "涵盖主流品牌电竞鼠标的综合对比、延迟测试与微动寿命数据。"
     skills: ["product", "technical"]
     tags: ["Hardware", "Gaming", "Review"]
+
+  - url: "https://zhuanlan.zhihu.com/p/691480560"
+    name: "auto: 马面裙 主打形制"
+    description: "Auto-discovered from 马面裙 主打形制 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["马面裙"]
+
+  - url: "https://www.sohu.com/a/898281634_121119316"
+    name: "auto: 马面裙 主打形制"
+    description: "Auto-discovered from 马面裙 主打形制 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["马面裙"]
+
+  - url: "http://www.zhangstextiles.com/"
+    name: "auto: 马面裙 主打形制"
+    description: "Auto-discovered from 马面裙 主打形制 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["马面裙"]
+
+  - url: "https://www.sheygo.com/zh-hant/collections/马面裙"
+    name: "auto: 马面裙 主要产品系列"
+    description: "Auto-discovered from 马面裙 主要产品系列 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["马面裙"]
+
+  - url: "https://www.sheygo.com/collections/马面裙"
+    name: "auto: 马面裙 主要产品系列"
+    description: "Auto-discovered from 马面裙 主要产品系列 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["马面裙"]
+
+  - url: "https://baike.baidu.com/item/襦裙/7752417"
+    name: "auto: 襦裙 主要产品系列"
+    description: "Auto-discovered from 襦裙 主要产品系列 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["襦裙"]
+
+  - url: "https://www.sheygo.com/zh-hant/collections/襦裙"
+    name: "auto: 襦裙 主要产品系列"
+    description: "Auto-discovered from 襦裙 主要产品系列 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["襦裙"]
+
+  - url: "https://b2bwiki.baidu.com/article/704000442089127937"
+    name: "auto: 马面裙 面料成分"
+    description: "Auto-discovered from 马面裙 面料成分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["马面裙"]
+
+  - url: "https://www.sohu.com/a/790387522_121911048"
+    name: "auto: 马面裙 面料成分"
+    description: "Auto-discovered from 马面裙 面料成分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["马面裙"]
+
+  - url: "https://bk.taobao.com/k/haimiandian_14529/0e9c4e50ba6afe435c2eb9364d0db5a0.html"
+    name: "auto: 襦裙 面料成分"
+    description: "Auto-discovered from 襦裙 面料成分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["襦裙"]
+
+  - url: "https://www.aihanfu.com/wen/5160/"
+    name: "auto: 襦裙 面料成分"
+    description: "Auto-discovered from 襦裙 面料成分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["襦裙"]
+
+  - url: "https://www.sohu.com/a/1010753228_122721442"
+    name: "auto: 圆领袍 裙摆类型"
+    description: "Auto-discovered from 圆领袍 裙摆类型 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["圆领袍"]
+
+  - url: "https://www.1688.com/jiage/-D4B2C1ECC5DB.html"
+    name: "auto: 圆领袍 价格区间（人民币）"
+    description: "Auto-discovered from 圆领袍 价格区间（人民币） analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["圆领袍"]
+
+  - url: "https://www.taobao.com/chanpin/4cbe0e622edb2852fb2ea1b49376f9f9.html"
+    name: "auto: 圆领袍 价格区间（人民币）"
+    description: "Auto-discovered from 圆领袍 价格区间（人民币） analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["圆领袍"]
+
+  - url: "https://cn.qyresearch.com/reports/3467008/hanfu-skirt"
+    name: "auto: 襦裙 价格区间（人民币）"
+    description: "Auto-discovered from 襦裙 价格区间（人民币） analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["襦裙"]
+
+  - url: "https://www.docin.com/p-4889230651.html"
+    name: "auto: 襦裙 价格区间（人民币）"
+    description: "Auto-discovered from 襦裙 价格区间（人民币） analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["襦裙"]
+
+  - url: "https://www.volcengine.com/product/doubao-dy"
+    name: "auto: 豆包 支持模型类型"
+    description: "Auto-discovered from 豆包 支持模型类型 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["豆包"]
+
+  - url: "https://news.qq.com/rain/a/20260214A04AJ700"
+    name: "auto: 豆包 支持模型类型"
+    description: "Auto-discovered from 豆包 支持模型类型 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["豆包"]
+
+  - url: "https://juejin.cn/post/7540866774331310143"
+    name: "auto: 豆包 上下文长度"
+    description: "Auto-discovered from 豆包 上下文长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["豆包"]
+
+  - url: "https://blog.csdn.net/wangxiao1024/article/details/150603701"
+    name: "auto: 豆包 上下文长度"
+    description: "Auto-discovered from 豆包 上下文长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["豆包"]
+
+  - url: "https://www.php.cn/faq/2514357.html"
+    name: "auto: 豆包 上下文长度"
+    description: "Auto-discovered from 豆包 上下文长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["豆包"]
+
+  - url: "https://platform.qianwenai.com/docs/developer-guides/text-generation/qwen-long"
+    name: "auto: 千问 上下文长度"
+    description: "Auto-discovered from 千问 上下文长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]
+
+  - url: "https://blog.csdn.net/weixin_30600615/article/details/157070945"
+    name: "auto: 千问 上下文长度"
+    description: "Auto-discovered from 千问 上下文长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]

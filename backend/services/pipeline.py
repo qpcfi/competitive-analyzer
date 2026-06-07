@@ -9,6 +9,7 @@ from agents.orchestrator import merge_schema_extensions, orchestrator_node
 from agents.reporter import reporter_node
 from models_db import InterventionLogRecord, QualityFeedbackRecord, async_session
 from schemas import TaskCreateRequest
+from core.runtime import runner
 from services.events import event_broker
 from services.repositories import (
     add_intervention,
@@ -61,7 +62,9 @@ def make_initial_state(req: TaskCreateRequest, task_id: str, schema_version: int
 async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], *, continue_after_schema: bool = False):
     try:
         from agents.discoverer.node import discoverer_node
-        
+        if runner.is_cancelled(task_id):
+            return
+
         await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Starting competitor discovery and market context gathering."})
         state = await discoverer_node(initial_state)
         await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Competitors discovered and market context loaded."})
@@ -110,6 +113,8 @@ async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], 
                 await update_task_state(session, task_id, state="COLLECTING", progress=40)
                 await session.commit()
             await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "previous_state": "SCHEMA_REVIEW", "progress": 40})
+            if runner.is_cancelled(task_id):
+                return
             await process_agent_pipeline(task_id)
     except Exception as exc:
         async with async_session() as session:
@@ -332,6 +337,9 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
             await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
             await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
 
+        if runner.is_cancelled(task_id):
+            return
+
         # ── ANALYZER PHASE ──
         if start_from in ("collector", "analyzer"):
             await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "start", "message": "Starting comparative analysis."})
@@ -357,6 +365,9 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
             await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"})
             await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90})
 
+        if runner.is_cancelled(task_id):
+            return
+
         # ── CRITIC PHASE ──
         if start_from in ("collector", "analyzer", "critic"):
             await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Starting critic quality evaluation."})
@@ -364,6 +375,9 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
             state, calibration_outcome = await run_schema_calibration(task_id, state)
             if calibration_outcome == "waiting_for_user":
                 return
+
+        if runner.is_cancelled(task_id):
+            return
 
         # ── REPORTER PHASE ──
         if start_from in ("collector", "analyzer", "critic", "reporter"):

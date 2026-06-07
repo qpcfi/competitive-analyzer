@@ -3,10 +3,12 @@ import asyncio
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
 from core import runtime
-from models_db import async_session
+from core.runtime import runner
+from models_db import SourceMaterialRecord, async_session
 from schemas import SchemaUpdateRequest
 from services.pipeline import process_agent_pipeline, publish_event, regenerate_schema
 from services.repositories import add_intervention, get_task, latest_schema, save_schema, update_task_state
+from services.state_machine import can_transition
 from services.stats import count_schema_stats
 
 router = APIRouter()
@@ -37,7 +39,7 @@ async def update_schema(task_id: str, req: SchemaUpdateRequest):
         db_task = await get_task(session, task_id)
         if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
-        if db_task.state not in {"SCHEMA_REVIEW", "SCHEMA_GENERATING", "INITIALIZING", "PAUSED"}:
+        if db_task.state not in ("SCHEMA_REVIEW", "PAUSED"):
             raise HTTPException(status_code=409, detail=f"Cannot edit schema while task is {db_task.state}")
         record = await save_schema(session, task_id, req.dynamic_schema, created_by="user", status="draft")
         await add_intervention(session, task_id, "schema_update", {"schema_version": record.version})
@@ -70,7 +72,7 @@ async def reject_schema(task_id: str, background_tasks: BackgroundTasks):
         db_task = await get_task(session, task_id)
         if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
-        if db_task.state not in {"SCHEMA_REVIEW", "SCHEMA_GENERATING", "INITIALIZING"}:
+        if not can_transition(db_task.state, "SCHEMA_GENERATING"):
             raise HTTPException(status_code=409, detail=f"Cannot reject schema while task is {db_task.state}")
         await add_intervention(session, task_id, "schema_reject", {"previous_state": db_task.state})
         await update_task_state(session, task_id, state="SCHEMA_GENERATING", progress=10)
@@ -78,7 +80,8 @@ async def reject_schema(task_id: str, background_tasks: BackgroundTasks):
 
     await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "progress": 10})
     await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Regenerating schema after user rejection"})
-    asyncio.create_task(regenerate_schema(task_id))
+    if not runner.start(task_id, lambda: regenerate_schema(task_id)):
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
     return {"status": "regenerating", "state": "SCHEMA_GENERATING"}
 
 
@@ -88,8 +91,16 @@ async def resume_task(task_id: str, background_tasks: BackgroundTasks):
         db_task = await get_task(session, task_id)
         if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
-        if db_task.state not in {"SCHEMA_REVIEW", "PAUSED"}:
+        if not can_transition(db_task.state, "COLLECTING"):
             raise HTTPException(status_code=409, detail=f"Cannot resume task while task is {db_task.state}")
+        # 清除上次采集的旧数据，重新开始
+        db_task.raw_materials = []
+        db_task.analysis_results = {}
+        db_task.critic_feedback = []
+        db_task.error = None
+        await session.execute(
+            SourceMaterialRecord.__table__.delete().where(SourceMaterialRecord.task_id == task_id)
+        )
         schema_record = await latest_schema(session, task_id)
         await add_intervention(session, task_id, "schema_confirm", {"schema_version": schema_record.version if schema_record else None})
         await update_task_state(session, task_id, state="COLLECTING", progress=40)
@@ -97,5 +108,6 @@ async def resume_task(task_id: str, background_tasks: BackgroundTasks):
 
     await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "previous_state": "SCHEMA_REVIEW", "progress": 40})
     await publish_event(task_id, "progress_update", {"progress": 40, "stage": "COLLECTING"})
-    asyncio.create_task(process_agent_pipeline(task_id))
+    if not runner.start(task_id, lambda: process_agent_pipeline(task_id)):
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
     return {"status": "resumed", "state": "COLLECTING"}

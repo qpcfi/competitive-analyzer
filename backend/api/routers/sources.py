@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
+from core.runtime import runner
 from models_db import SourceMaterialRecord, async_session
 from schemas import InterventionRequest, SourceMaterialCreateRequest, TrustUpdateRequest
 from services.pipeline import publish_event
@@ -31,6 +32,8 @@ async def get_source_material(task_id: str, source_id: str):
 
 @router.post("/api/v1/tasks/{task_id}/source-materials")
 async def add_source_material(task_id: str, req: SourceMaterialCreateRequest):
+    if runner.is_running(task_id):
+        raise HTTPException(status_code=409, detail="Cannot add source material while pipeline is running")
     async with async_session() as session:
         if not await get_task(session, task_id):
             raise HTTPException(status_code=404, detail="Task not found")
@@ -54,6 +57,8 @@ async def add_source_material(task_id: str, req: SourceMaterialCreateRequest):
 
 @router.post("/api/v1/tasks/{task_id}/source-materials/{source_id}/refetch")
 async def refetch_source_material(task_id: str, source_id: str):
+    if runner.is_running(task_id):
+        raise HTTPException(status_code=409, detail="Cannot refetch while pipeline is running")
     async with async_session() as session:
         source = await session.get(SourceMaterialRecord, source_id)
         if not source or source.task_id != task_id:
@@ -68,6 +73,8 @@ async def refetch_source_material(task_id: str, source_id: str):
 
 @router.post("/api/v1/tasks/{task_id}/source-materials/{source_id}/trust")
 async def update_source_trust(task_id: str, source_id: str, req: TrustUpdateRequest):
+    if runner.is_running(task_id):
+        raise HTTPException(status_code=409, detail="Cannot update trust while pipeline is running")
     async with async_session() as session:
         source = await session.get(SourceMaterialRecord, source_id)
         if not source or source.task_id != task_id:
@@ -81,6 +88,8 @@ async def update_source_trust(task_id: str, source_id: str, req: TrustUpdateRequ
 
 @router.post("/api/v1/tasks/{task_id}/interventions")
 async def apply_intervention(task_id: str, req: InterventionRequest):
+    if runner.is_running(task_id):
+        raise HTTPException(status_code=409, detail="Cannot apply intervention while pipeline is running")
     affected = 0
     async with async_session() as session:
         if not await get_task(session, task_id):

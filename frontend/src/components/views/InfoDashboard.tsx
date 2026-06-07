@@ -6,6 +6,7 @@ const { Title, Text } = Typography;
 
 interface InfoDashboardProps {
   taskId?: string | null;
+  taskState?: string | null;
   rawMaterials?: any[];
   collectorLogs?: any[];
   collectionProgress?: {
@@ -13,10 +14,10 @@ interface InfoDashboardProps {
     total?: number;
     discovered_results?: number;
   } | null;
-  onNext?: () => void;
+  onResume?: () => void;
 }
 
-export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs = [], collectionProgress = null, onNext }: InfoDashboardProps) {
+export default function InfoDashboard({ taskId, taskState, rawMaterials = [], collectorLogs = [], collectionProgress = null, onResume }: InfoDashboardProps) {
   const { message } = App.useApp();
   const [loading, setLoading] = useState<string | null>(null);
   const accepted = rawMaterials.filter(item => item.validation_status === 'accepted').length;
@@ -40,6 +41,9 @@ export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs
   const postTaskAction = async (path: string, action: string, body?: any) => {
     if (!taskId) return;
     setLoading(action);
+    if (action === 'resume' && onResume) {
+      onResume();
+    }
     try {
       const response = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}${path}`, {
         method: 'POST',
@@ -48,9 +52,6 @@ export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs
       });
       if (!response.ok) throw new Error(await response.text());
       message.success('操作已提交');
-      if (action === 'force' && onNext) {
-        onNext();
-      }
     } catch (error) {
       message.error(error instanceof Error ? error.message : '操作失败');
     } finally {
@@ -83,7 +84,11 @@ export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs
         <div>
           <Title level={3} style={{ margin: 0 }}>任务: AI大模型分析_20260525</Title>
           <Space style={{ marginTop: 8 }}>
+          {taskState === 'PAUSED' ? (
+            <Tag color="warning" icon={<PauseCircleOutlined />}>已暂停</Tag>
+          ) : (
             <Tag color="processing" icon={<SyncOutlined spin />}>采集中</Tag>
+          )}
             <Text type="secondary">当前任务: {taskId || '未选择'}</Text>
           </Space>
         </div>
@@ -140,10 +145,13 @@ export default function InfoDashboard({ taskId, rawMaterials = [], collectorLogs
       </Row>
 
       <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', gap: 16 }}>
-        <Button size="large" icon={<PauseCircleOutlined />} loading={loading === 'pause'} disabled={!taskId} onClick={() => postTaskAction('/pause', 'pause')}>暂停采集</Button>
-        <Button size="large" type="primary" icon={<RightCircleOutlined />} loading={loading === 'force'} disabled={!taskId} onClick={() => postTaskAction('/force_next', 'force', { reason: '用户接受当前状态并强制进入下一节点' })}>
-          放行并进入深度分析
-        </Button>
+        {taskState === 'PAUSED' || taskState === 'ERROR' ? (
+          <Button size="large" type="primary" icon={<RightCircleOutlined />} loading={loading === 'resume'} disabled={!taskId} onClick={() => postTaskAction('/resume', 'resume')}>
+            {taskState === 'ERROR' ? '重新开始采集' : '恢复采集'}
+          </Button>
+        ) : (
+          <Button size="large" icon={<PauseCircleOutlined />} loading={loading === 'pause'} disabled={!taskId || taskState !== 'COLLECTING'} onClick={() => postTaskAction('/pause', 'pause')}>暂停采集</Button>
+        )}
       </div>
     </div>
   );

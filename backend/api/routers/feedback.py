@@ -1,8 +1,7 @@
-import asyncio
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from core.runtime import runner
 from models_db import async_session
 from schemas import FeedbackApplyRequest, FeedbackRequest, NoteRequest
 from services.pipeline import (
@@ -15,6 +14,7 @@ from services.repositories import (
     get_task,
     resolve_feedback_items,
 )
+from services.state_machine import can_transition
 
 router = APIRouter()
 
@@ -59,7 +59,7 @@ async def apply_critic_retry(task_id: str, req: CriticApplyRequest):
         db_task = await get_task(session, task_id)
         if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
-        if db_task.state not in ("NEEDS_INTERVENTION", "COMPLETED", "ANALYZING"):
+        if not can_transition(db_task.state, "ANALYZING"):
             raise HTTPException(status_code=409, detail=f"Cannot apply feedback while task is {db_task.state}")
 
     rejected = req.rejected_feedback_ids
@@ -78,13 +78,15 @@ async def apply_critic_retry(task_id: str, req: CriticApplyRequest):
         return {"status": "skipped", "reason": "nothing to apply"}
 
     if has_extensions and not has_feedback:
-        asyncio.create_task(calibration_confirm(task_id))
+        started = runner.start(task_id, lambda: calibration_confirm(task_id))
     else:
-        asyncio.create_task(run_critic_retry(
+        started = runner.start(task_id, lambda: run_critic_retry(
             task_id,
             confirmed_feedback_ids=confirmed_ids,
             confirmed_extensions=confirmed_extensions if has_extensions else None,
         ))
+    if not started:
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
 
     return {
         "status": "applied",

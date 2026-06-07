@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from '@/components/layout/Sidebar';
 import RightDrawer from '@/components/layout/RightDrawer';
 import TaskConsole from '@/components/views/TaskConsole';
@@ -12,7 +12,8 @@ import CompetitorAnalysis from '@/components/views/CompetitorAnalysis';
 import SWOTAnalysis from '@/components/views/SWOTAnalysis';
 import StructuredReport from '@/components/views/StructuredReport';
 import DebugPanel from '@/components/views/DebugPanel';
-import { App, Modal, Progress, Switch, Card, Typography } from 'antd';
+import { App, Button, Modal, Progress, Switch, Card, Typography, Popconfirm } from 'antd';
+import { PauseCircleOutlined, RightCircleOutlined, StopOutlined } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
 
@@ -42,6 +43,7 @@ export default function Home() {
   const [isResizing, setIsResizing] = useState<boolean>(false);
   const [extensionRequest, setExtensionRequest] = useState<{ visible: boolean; suggestions: any[] }>({ visible: false, suggestions: [] });
   const [backendConnected, setBackendConnected] = useState<boolean>(false);
+  const schemaReadyShown = useRef<string | null>(null);
 
   useEffect(() => {
     if (!isResizing) return;
@@ -79,7 +81,7 @@ export default function Home() {
     return () => { cancelled = true; clearInterval(timer); };
   }, [taskId]);
 
-  // Restore last active task — only if backend confirms it still exists
+  // Restore last active task on F5 — only if backend confirms it exists
   useEffect(() => {
     const savedTaskId = window.sessionStorage.getItem("competitive-analyzer:last-task-id");
     if (!savedTaskId || taskId) return;
@@ -94,7 +96,7 @@ export default function Home() {
           window.sessionStorage.removeItem("competitive-analyzer:last-task-id");
           window.localStorage.removeItem(`competitive-analyzer:${savedTaskId}:last-sequence`);
         }
-        // Other errors (5xx) or network error → stay empty, don't set taskId
+        // Other errors (5xx, network) → stay empty
       })
       .catch(() => {});
     return () => { cancelled = true; };
@@ -136,6 +138,7 @@ export default function Home() {
           'SCHEMA_GENERATING': 'schema',
           'SCHEMA_REVIEW': 'schema',
           'COLLECTING': 'dashboard',
+          'PAUSED': 'dashboard',
           'ANALYZING': 'analysis',
           'QUALITY_REVIEW': 'critic-review',
           'NEEDS_INTERVENTION': 'critic-review',
@@ -157,8 +160,23 @@ export default function Home() {
     const lastSequence = window.localStorage.getItem(`competitive-analyzer:${taskId}:last-sequence`) || "0";
     const evtSource = new EventSource(`http://localhost:8000/api/v1/tasks/${taskId}/stream?since=${lastSequence}`);
 
-    evtSource.onopen = () => setBackendConnected(true);
-    evtSource.onerror = () => setBackendConnected(false);
+    let deathTimer: ReturnType<typeof setTimeout> | null = null;
+
+    evtSource.onopen = () => {
+      setBackendConnected(true);
+      if (deathTimer) { clearTimeout(deathTimer); deathTimer = null; }
+    };
+    evtSource.onerror = () => {
+      setBackendConnected(false);
+      // 15 秒未重连 → 后端已死，清空前端状态
+      if (!deathTimer) {
+        deathTimer = setTimeout(() => {
+          message.error('后端连接断开，任务已终止');
+          clearTaskState();
+        }, 15000);
+      }
+    };
+    const connectedAt = Date.now(); // track replay window
 
     const rememberSequence = (data: any) => {
       if (data?.sequence) {
@@ -171,7 +189,10 @@ export default function Home() {
       rememberSequence(data);
       setSchemaData(data.dynamic_schema);
       setCompetitors(Array.isArray(data.competitors) ? data.competitors : []);
-      message.success('知识框架生成完成');
+      if (schemaReadyShown.current !== taskId) {
+        schemaReadyShown.current = taskId;
+        message.success('知识框架生成完成');
+      }
     });
 
     evtSource.addEventListener('schema_extended', (e) => {
@@ -191,7 +212,9 @@ export default function Home() {
     evtSource.addEventListener('raw_materials_updated', (e) => {
       const data = JSON.parse(e.data);
       rememberSequence(data);
-      setRawMaterials(data.data?.data || []);
+      if (Date.now() - connectedAt > 3000) {
+        setRawMaterials(data.data?.data || []);
+      }
     });
 
     evtSource.addEventListener('collector_log', (e) => {
@@ -212,12 +235,18 @@ export default function Home() {
     evtSource.addEventListener('analysis_progress', (e) => {
       const data = JSON.parse(e.data);
       rememberSequence(data);
-      setAnalysisResults(data.data?.data || data.data);
+      if (Date.now() - connectedAt > 3000) {
+        setAnalysisResults(data.data?.data || data.data);
+      }
     });
 
     evtSource.addEventListener('task_state_changed', (e) => {
       const data = JSON.parse(e.data);
       rememberSequence(data);
+      if (data.terminated) {
+        clearTaskState();
+        return;
+      }
       if (data.state) {
         setTaskState(data.state);
         if (data.state === 'NEEDS_INTERVENTION') {
@@ -233,7 +262,10 @@ export default function Home() {
     evtSource.addEventListener('progress_update', (e) => {
       const data = JSON.parse(e.data);
       rememberSequence(data);
-      setProgress(data.progress);
+      // 跳过回放期内的进度更新 — REST hydration 已有正确值
+      if (Date.now() - connectedAt > 3000) {
+        setProgress(data.progress);
+      }
     });
 
     evtSource.addEventListener('debug_log', (e) => {
@@ -246,7 +278,9 @@ export default function Home() {
     evtSource.addEventListener('token_update', (e) => {
       const payload = JSON.parse(e.data);
       rememberSequence(payload);
-      setTokenUsage(payload.data || payload);
+      if (Date.now() - connectedAt > 3000) {
+        setTokenUsage(payload.data || payload);
+      }
     });
 
     evtSource.addEventListener('task_completed', async (e) => {
@@ -277,7 +311,10 @@ export default function Home() {
       }));
     });
 
-    return () => evtSource.close();
+    return () => {
+      if (deathTimer) clearTimeout(deathTimer);
+      evtSource.close();
+    };
   }, [message, taskId]);
 
   const openDrawer = (type: string, data?: any) => {
@@ -320,6 +357,19 @@ export default function Home() {
     }
   };
 
+  const stateToViewMap: Record<string, string> = {
+    'INITIALIZING': 'task-config',
+    'SCHEMA_GENERATING': 'schema',
+    'SCHEMA_REVIEW': 'schema',
+    'COLLECTING': 'dashboard',
+    'PAUSED': 'dashboard',
+    'ANALYZING': 'analysis',
+    'QUALITY_REVIEW': 'critic-review',
+    'NEEDS_INTERVENTION': 'critic-review',
+    'COMPLETED': 'report',
+    'ERROR': 'dashboard',
+  };
+
   const restoreHistoricalTask = async (restoredTaskId: string) => {
     const response = await fetch(`http://localhost:8000/api/v1/tasks/${restoredTaskId}`);
     if (!response.ok) {
@@ -338,9 +388,45 @@ export default function Home() {
     setCollectionProgress(null);
     setDebugLogs([]);
     setTokenUsage(null);
-    window.localStorage.removeItem(`competitive-analyzer:${restoredTaskId}:last-sequence`);
     window.sessionStorage.setItem("competitive-analyzer:last-task-id", data.task_id);
-    setCurrentView('dashboard');
+    setCurrentView(stateToViewMap[data.state] || 'dashboard');
+  };
+
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  const canTerminate = taskId && !['INITIALIZING', 'ERROR', 'COMPLETED'].includes(taskState);
+
+  const terminateTask = async () => {
+    if (!taskId) return;
+    setActionLoading('terminate');
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/terminate`, { method: 'POST' });
+      if (!res.ok) throw new Error(await res.text());
+      clearTaskState();
+      message.success('任务已终止');
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '终止失败');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const clearTaskState = () => {
+    setTaskId(null);
+    setCurrentView('task-config');
+    setMainProduct(null);
+    setSchemaData(null);
+    setCompetitors([]);
+    setRawMaterials([]);
+    setAnalysisResults(null);
+    setTaskState('INITIALIZING');
+    setProgress(0);
+    setCollectorLogs([]);
+    setCollectionProgress(null);
+    setDebugLogs([]);
+    setTokenUsage(null);
+    setExtensionRequest({ visible: false, suggestions: [] });
+    window.sessionStorage.removeItem("competitive-analyzer:last-task-id");
   };
 
   const renderWorkspace = () => {
@@ -350,7 +436,7 @@ export default function Home() {
           <TaskConsole onNext={(id) => { setTaskId(id); setCurrentView('schema'); }} />
         </div>
         <div style={{ display: currentView === 'dashboard' ? 'block' : 'none', height: '100%' }}>
-          <InfoDashboard taskId={taskId} rawMaterials={rawMaterials} collectorLogs={collectorLogs} collectionProgress={collectionProgress} onNext={() => setCurrentView('analysis')} />
+          <InfoDashboard taskId={taskId} taskState={taskState} rawMaterials={rawMaterials} collectorLogs={collectorLogs} collectionProgress={collectionProgress} onResume={() => { setRawMaterials([]); setCollectionProgress(null); }} />
         </div>
         <div style={{ display: currentView === 'history' ? 'block' : 'none', height: '100%' }}>
           <HistoryView currentTaskId={taskId} onRestoreTask={restoreHistoricalTask} />
@@ -414,6 +500,13 @@ export default function Home() {
           <div style={{ flex: 1, marginRight: 24, visibility: taskId ? 'visible' : 'hidden' }}>
             <Text strong>全局任务进度：</Text>
             <Progress percent={progress} status={progress === 100 ? "success" : "active"} />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {canTerminate && (
+              <Popconfirm title="确定终止当前任务？终止后数据将被清空且不可恢复" onConfirm={terminateTask} okText="终止" cancelText="取消" okButtonProps={{ danger: true }}>
+                <Button size="small" danger icon={<StopOutlined />} loading={actionLoading === 'terminate'}>终止</Button>
+              </Popconfirm>
+            )}
           </div>
           <div>
             <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: '50%', marginRight: 8, background: backendConnected ? '#52c41a' : '#ff4d4f' }} />

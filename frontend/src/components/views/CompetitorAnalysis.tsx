@@ -62,7 +62,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
         dimension: 'SWOT 分析',
         values: {}
       };
-      baseRows.push(swotRow);
+      baseRows.push(swotRow as any);
     }
     return baseRows;
   }, [rows, mainProduct]);

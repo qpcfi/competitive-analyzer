@@ -6,20 +6,20 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select
 
+from core.runtime import runner
 from models_db import TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
 from schemas import TaskCreateRequest, TaskCreateResponse
 from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
 from services.repositories import add_intervention, create_task_record, get_task, save_schema, update_task_state
 from services.serialization import serialize_task
 
-# Keep references to background tasks to prevent garbage collection
-_background_tasks: set[asyncio.Task] = set()
-
 router = APIRouter()
 
 
 @router.post("/api/v1/tasks", response_model=TaskCreateResponse)
 async def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks):
+    if runner.is_any_running():
+        raise HTTPException(status_code=409, detail="A pipeline is already running. Wait for it to complete or pause it first.")
     task_id = f"task_{uuid.uuid4().hex[:8]}"
 
     async with async_session() as session:
@@ -38,7 +38,7 @@ async def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks)
 
     asyncio.create_task(publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "previous_state": "INITIALIZING", "progress": 10}))
     asyncio.create_task(publish_event(task_id, "progress_update", {"progress": 10, "stage": "SCHEMA_GENERATING"}))
-    asyncio.create_task(process_initial_pipeline(task_id, make_initial_state(req, task_id), continue_after_schema=req.execution_mode == "auto"))
+    runner.start(task_id, lambda: process_initial_pipeline(task_id, make_initial_state(req, task_id), continue_after_schema=req.execution_mode == "auto"))
 
     return {"task_id": task_id, "state": "INITIALIZING", "stream_url": f"/api/v1/tasks/{task_id}/stream"}
 
@@ -143,9 +143,13 @@ async def list_snapshots(task_id: str):
 
 
 @router.post("/api/v1/tasks/{task_id}/restore_snapshot")
-async def restore_snapshot(task_id: str, req: Request, background_tasks: BackgroundTasks):
+async def restore_snapshot(task_id: str, req: Request):
     body = await req.json()
     checkpoint_id = body.get("checkpoint_id")
+
+    if runner.is_running(task_id):
+        raise HTTPException(status_code=409, detail="Cannot restore snapshot while a pipeline is running. Pause the task first.")
+
     async with async_session() as session:
         task = await get_task(session, task_id)
         if not task:

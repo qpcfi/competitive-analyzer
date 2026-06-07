@@ -14,6 +14,7 @@ interface DebugLog {
   prompt?: string;
   input_json?: any;
   output_json?: any;
+  receivedAt?: string;
 }
 
 interface TokenUsage {
