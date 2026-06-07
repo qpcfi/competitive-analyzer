@@ -1,7 +1,7 @@
 import httpx
 import pytest
 
-from services.web_search import SearchResult, extract_page_text, fetch_public_web_pages, parse_duckduckgo_results
+from services.web_search import SearchResult, extract_page_text, fetch_public_web_pages, parse_duckduckgo_results, rerank_search_results
 
 
 def test_parse_duckduckgo_results_extracts_title_url_and_snippet():
@@ -81,3 +81,32 @@ async def test_fetch_public_web_pages_returns_page_evidence(monkeypatch):
     assert pages[0].page_title == "Alternatives"
     assert "Alpha and Beta compete" in pages[0].text
     assert pages[0].error is None
+
+
+def test_rerank_search_results_returns_empty_for_empty_input():
+    assert rerank_search_results("test", []) == []
+
+
+def test_rerank_search_results_fallback_when_no_model(monkeypatch):
+    """Confirm no crash when sentence-transformers is not installed."""
+    monkeypatch.setattr("services.web_search._get_reranker", lambda: None)
+    results = [
+        SearchResult(query="ai", title="A", url="https://a.com", snippet="snippet a"),
+        SearchResult(query="ai", title="B", url="https://b.com", snippet="snippet b"),
+    ]
+    out = rerank_search_results("ai", results)
+    assert len(out) == 2
+    # falls back to original order
+    assert out[0].url == "https://a.com"
+    assert out[1].url == "https://b.com"
+
+
+def test_rerank_search_results_top_k(monkeypatch):
+    monkeypatch.setattr("services.web_search._get_reranker", lambda: None)
+    results = [
+        SearchResult(query="ai", title="A", url="https://a.com", snippet="a"),
+        SearchResult(query="ai", title="B", url="https://b.com", snippet="b"),
+        SearchResult(query="ai", title="C", url="https://c.com", snippet="c"),
+    ]
+    out = rerank_search_results("ai", results, top_k=2)
+    assert len(out) == 2

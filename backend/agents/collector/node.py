@@ -4,7 +4,7 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from services.privacy import contains_pii, redact_pii
-from services.web_search import PageEvidence, SearchResult, search_multi_engine
+from services.web_search import PageEvidence, SearchResult, search_multi_engine, rerank_search_results
 from .retrieval import process_page
 
 try:
@@ -107,9 +107,11 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
             if not material:
                 await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[fallback] curated sources exhausted for {field.get('name') or field.get('id')}, searching DuckDuckGo..."})
                 try:
-                    search_results = await search_multi_engine(query, limit=5)
+                    search_results = await search_multi_engine(query, limit=10)
                     discovered_results += len(search_results)
                     await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] Multi-engine returned {len(search_results)} results for: {query}"})
+                    search_results = rerank_search_results(query, search_results)
+                    await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] Reranked results for: {query}"})
 
                     # Use Crawl4ai to fetch pages as clean Markdown (JS rendering, anti-bot)
                     search_urls = [r.url for r in search_results[:3]]

@@ -2,6 +2,7 @@ import asyncio
 import os
 from dataclasses import dataclass
 import re
+from typing import Any
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 
 import httpx
@@ -191,3 +192,51 @@ async def search_multi_engine(
             break
 
     return merged[:limit]
+
+
+# ── Rerank ───────────────────────────────────────────────────────────────────
+
+_SEARCH_RERANKER: Any = None
+
+
+def _get_reranker():
+    global _SEARCH_RERANKER
+    if _SEARCH_RERANKER is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+
+            _SEARCH_RERANKER = SentenceTransformer(
+                "BAAI/bge-small-zh-v1.5", device="cpu"
+            )
+        except ImportError:
+            _SEARCH_RERANKER = False  # sentinel: don't retry
+    return _SEARCH_RERANKER if _SEARCH_RERANKER is not False else None
+
+
+def rerank_search_results(
+    query: str,
+    results: list[SearchResult],
+    top_k: int | None = None,
+) -> list[SearchResult]:
+    """Rerank search results by semantic relevance between query and (title + snippet).
+
+    Uses BAAI/bge-small-zh-v1.5 for embedding similarity.
+    Falls back to original order if the model is unavailable.
+    ``top_k`` defaults to ``len(results)`` when not provided.
+    """
+    if not results:
+        return results
+
+    model = _get_reranker()
+    if model is None:
+        return results[:top_k]
+
+    top_k = top_k if top_k is not None else len(results)
+
+    candidates = [f"{r.title} {r.snippet}" for r in results]
+    query_vec = model.encode(query, normalize_embeddings=True)
+    doc_vecs = model.encode(candidates, normalize_embeddings=True)
+    scores = (doc_vecs @ query_vec).tolist()
+
+    scored = sorted(zip(results, scores), key=lambda x: x[1], reverse=True)
+    return [r for r, _ in scored[:top_k]]
