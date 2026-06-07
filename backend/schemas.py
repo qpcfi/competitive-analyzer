@@ -88,3 +88,47 @@ class NoteRequest(BaseModel):
 class FeedbackApplyRequest(BaseModel):
     confirmed_feedback_ids: list[str] = []
     rejected_feedback_ids: list[str] = []
+
+
+class SurveyGenerateRequest(BaseModel):
+    platform: str = "manual"
+    channels: list[str] = Field(default_factory=lambda: ["xiaohongshu"])
+
+
+class SurveyQuestionnaireUpdateRequest(BaseModel):
+    campaign_id: str | None = None
+    questionnaire: dict[str, Any]
+
+
+class SurveyRecruitmentPostUpdateRequest(BaseModel):
+    campaign_id: str | None = None
+    recruitment_posts: dict[str, Any]
+
+
+class SurveyCreatePlatformRequest(BaseModel):
+    campaign_id: str | None = None
+    platform: str | None = None
+    survey_url: str | None = None
+
+
+class SurveyPublishPostRequest(BaseModel):
+    campaign_id: str | None = None
+    channel: str = "xiaohongshu"
+    images: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+
+
+class SurveyPosterGenerateRequest(BaseModel):
+    campaign_id: str | None = None
+    channel: str = "xiaohongshu"
+
+
+class SurveyResponsesImportRequest(BaseModel):
+    campaign_id: str | None = None
+    source: str = "manual"
+    responses: list[dict[str, Any]]
+
+
+class SurveyRefreshReportRequest(BaseModel):
+    campaign_id: str | None = None
+    response_ids: list[str] = Field(default_factory=list)

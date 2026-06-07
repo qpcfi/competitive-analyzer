@@ -74,6 +74,46 @@ class SourceMaterialRecord(Base):
     skill = Column(String, nullable=True)
 
 
+class SurveyCampaignRecord(Base):
+    __tablename__ = "survey_campaigns"
+    id = Column(String, primary_key=True)
+    task_id = Column(String, ForeignKey("tasks.id"), index=True)
+    status = Column(String, default="draft")
+    platform = Column(String, default="manual")
+    objective = Column(Text, nullable=True)
+    target_persona = Column(Text, nullable=True)
+    sample_target = Column(Integer, default=30)
+    response_count = Column(Integer, default=0)
+    external_survey_id = Column(String, nullable=True)
+    survey_url = Column(Text, nullable=True)
+    channels = Column(JSON, default=[])
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SurveyArtifactRecord(Base):
+    __tablename__ = "survey_artifacts"
+    id = Column(String, primary_key=True)
+    campaign_id = Column(String, ForeignKey("survey_campaigns.id"), index=True)
+    type = Column(String)
+    content_json = Column(JSON, default={})
+    status = Column(String, default="draft")
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow)
+
+
+class SurveyResponseRecord(Base):
+    __tablename__ = "survey_responses"
+    id = Column(String, primary_key=True)
+    campaign_id = Column(String, ForeignKey("survey_campaigns.id"), index=True)
+    source = Column(String, default="manual")
+    external_response_id = Column(String, nullable=True)
+    respondent_meta_json = Column(JSON, default={})
+    response_json = Column(JSON, default={})
+    pii_redacted = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
 class AnalysisResultRecord(Base):
     __tablename__ = "analysis_results"
     id = Column(String, primary_key=True)
@@ -209,3 +249,8 @@ async def init_db():
             await conn.execute(text("ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP"))
             await conn.execute(text("ALTER TABLE source_materials ADD COLUMN IF NOT EXISTS source_stage VARCHAR DEFAULT 'search'"))
             await conn.execute(text("ALTER TABLE source_materials ADD COLUMN IF NOT EXISTS skill VARCHAR"))
+            await conn.execute(text("ALTER TABLE survey_campaigns ADD COLUMN IF NOT EXISTS platform VARCHAR"))
+            await conn.execute(text("ALTER TABLE survey_campaigns ADD COLUMN IF NOT EXISTS external_survey_id VARCHAR"))
+            await conn.execute(text("ALTER TABLE survey_campaigns ADD COLUMN IF NOT EXISTS survey_url TEXT"))
+            await conn.execute(text("ALTER TABLE survey_campaigns ADD COLUMN IF NOT EXISTS channels JSON DEFAULT '[]'::json"))
+            await conn.execute(text("ALTER TABLE survey_campaigns ADD COLUMN IF NOT EXISTS response_count INTEGER DEFAULT 0"))

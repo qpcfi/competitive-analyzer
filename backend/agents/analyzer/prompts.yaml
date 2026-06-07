@@ -45,6 +45,8 @@ analyzer_agent:
     - Operation (运营): Operational efficiency, cost structure, supply chain, delivery
     - Evolution (演进): Product iteration direction, tech roadmap, strategic evolution
 
+    5. Treat raw materials with source_type="survey_response" and trust_status="first_party" as first-party survey evidence. Use it especially for user experience, pain points, purchase motivation, satisfaction, and switching reasons. If survey evidence conflicts with public web evidence, mention the conflict and prefer survey evidence for real-user perception.
+    
     Return ONLY raw valid JSON, without any markdown formatting like ```json or ```, no trailing commas, with EXACTLY the following structure:
     {{
       "comparison_rows": [

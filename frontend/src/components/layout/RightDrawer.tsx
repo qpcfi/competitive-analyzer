@@ -81,8 +81,26 @@ export default function RightDrawer({ isOpen, type, taskId, data, onClose }: Rig
               <div>
                 <Text type="secondary">来源链接：</Text>
                 <br />
-                {sourceData?.source_url ? <a href={sourceData.source_url} target="_blank" rel="noreferrer">{sourceData.source_url}</a> : <Text type="secondary">暂无</Text>}
+                {sourceData?.source_type === 'survey_response' ? (
+                  <Text>{sourceData?.source_url || '问卷调研来源'}</Text>
+                ) : sourceData?.source_url ? (
+                  <a href={sourceData.source_url} target="_blank" rel="noreferrer">{sourceData.source_url}</a>
+                ) : (
+                  <Text type="secondary">暂无</Text>
+                )}
               </div>
+              {sourceData?.source_type === 'survey_response' ? (
+                <div>
+                  <Text type="secondary">问卷来源：</Text>
+                  <div style={{ marginTop: 8, background: '#fafafa', border: '1px solid #f0f0f0', borderRadius: 4, padding: 8 }}>
+                    <Space orientation="vertical" size={4}>
+                      <Text>Campaign：{sourceData?.extracted_value?.campaign_id || '未知问卷'}</Text>
+                      <Text>题目：{sourceData?.extracted_value?.question_title || sourceData?.schema_field_name || '未知题目'}</Text>
+                      <Text>支撑答卷：{formatSurveySources(sourceData?.extracted_value?.survey_sources)}</Text>
+                    </Space>
+                  </div>
+                </div>
+              ) : null}
               <div><Text type="secondary">负责节点：</Text> <Text>{sourceData?.agent_node || 'Collector'}</Text></div>
               <div><Text type="secondary">数据可信度：</Text> <Text type="success">{sourceData?.trust_status || '待确认'}</Text></div>
             </Space>
@@ -156,4 +174,13 @@ export default function RightDrawer({ isOpen, type, taskId, data, onClose }: Rig
       </div>
     </div>
   );
+}
+
+function formatSurveySources(sources: unknown) {
+  if (!Array.isArray(sources) || sources.length === 0) {
+    return '未标记具体答卷';
+  }
+  return sources
+    .map((item: any) => item?.label || item?.external_response_id || item?.response_id || '未知答卷')
+    .join('、');
 }

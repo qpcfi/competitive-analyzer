@@ -6,6 +6,7 @@ import {
   BarChartOutlined,
   FundProjectionScreenOutlined,
   FileTextOutlined,
+  FormOutlined,
   BugOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
@@ -56,6 +57,11 @@ export default function Sidebar({ currentView, onChangeView, collapsed, onToggle
       key: 'analysis',
       icon: <BarChartOutlined />,
       label: '竞品深度分析',
+    },
+    {
+      key: 'survey',
+      icon: <FormOutlined />,
+      label: '问卷调研',
     },
     {
       key: 'swot',

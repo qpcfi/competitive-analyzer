@@ -9,6 +9,8 @@ interface AnalysisCell {
   value?: string;
   status?: string;
   source_url?: string;
+  source_type?: string;
+  survey_sources?: Array<{ label?: string; response_id?: string; external_response_id?: string }>;
   evidence_refs?: string[];
   degraded_reason?: string;
 }
@@ -54,9 +56,9 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
   }, [competitors, focusItem]);
 
   const tableRows = useMemo(() => {
-    const baseRows = rows.map(row => ({ ...row, key: row.key || row.dimension_id }));
+    const baseRows: Array<ComparisonRow & { key: string }> = rows.map(row => ({ ...row, key: row.key || row.dimension_id }));
     if (!mainProduct) {
-      const swotRow: ComparisonRow = {
+      const swotRow: ComparisonRow & { key: string } = {
         key: 'swot-fallback',
         dimension_id: 'swot-fallback',
         dimension: 'SWOT 分析',
@@ -92,6 +94,11 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
             <Tag icon={<ExclamationCircleOutlined />} color="warning" style={{ margin: 0 }}>{data.degraded_reason || '信息缺失'}</Tag>
           )}
         </Space>
+        {data.source_type === 'survey_response' ? (
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            问卷来源：{formatSurveySources(data.survey_sources)}
+          </Text>
+        ) : null}
       </div>
     );
   }, [onOpenDrawer]);
@@ -215,4 +222,13 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
       )}
     </div>
   );
+}
+
+function formatSurveySources(sources?: Array<{ label?: string; response_id?: string; external_response_id?: string }>) {
+  if (!Array.isArray(sources) || sources.length === 0) {
+    return '未标记具体答卷';
+  }
+  return sources
+    .map(item => item.label || item.external_response_id || item.response_id || '未知答卷')
+    .join('、');
 }

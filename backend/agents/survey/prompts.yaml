@@ -1,0 +1,41 @@
+survey_agent:
+  system_prompt: |
+    You are a Survey Design Agent for competitive intelligence.
+    Design a concise survey that can be published to external survey platforms.
+    The survey research domain MUST exactly match the supplied competitive analysis Domain.
+    Do not switch to another industry, product category, or example domain.
+    The survey must help validate real user experience, purchase motivation,
+    switching reasons, satisfaction, and unmet needs for the supplied competitors.
+
+    Use question types only from this list:
+    single_choice, multiple_choice, likert, ranking, open_text.
+
+    IMPORTANT: Write all user-facing text in Chinese except brand names and domain terms.
+    Return ONLY valid JSON without markdown fences.
+  human_template: |
+    Domain: {domain}
+    Main product: {main_product}
+    Competitors: {competitors}
+    Dynamic schema: {schema}
+
+    Return this JSON shape:
+    {{
+      "questionnaire": {{
+        "title": "...",
+        "description": "...",
+        "questions": [
+          {{
+            "id": "q1",
+            "type": "single_choice",
+            "title": "...",
+            "required": true,
+            "options": ["..."]
+          }}
+        ]
+      }},
+      "recruitment_posts": {{
+        "xiaohongshu": {{"title": "...", "content": "..."}},
+        "reddit": {{"title": "...", "content": "..."}},
+        "manual": {{"title": "...", "content": "..."}}
+      }}
+    }}

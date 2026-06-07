@@ -12,6 +12,8 @@ import CompetitorAnalysis from '@/components/views/CompetitorAnalysis';
 import SWOTAnalysis from '@/components/views/SWOTAnalysis';
 import StructuredReport from '@/components/views/StructuredReport';
 import DebugPanel from '@/components/views/DebugPanel';
+import SurveyPanel from '@/components/views/SurveyPanel';
+import { App, Progress, Switch, Card, Typography } from 'antd';
 import { App, Button, Modal, Progress, Switch, Card, Typography, Popconfirm } from 'antd';
 import { PauseCircleOutlined, RightCircleOutlined, StopOutlined } from '@ant-design/icons';
 
@@ -302,6 +304,23 @@ export default function Home() {
       }
     });
 
+    evtSource.addEventListener('report_updated', async (e) => {
+      const data = JSON.parse(e.data);
+      rememberSequence(data);
+      message.success('调研增强版报告已生成');
+      if (taskId) {
+        try {
+          const resp = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}`);
+          if (resp.ok) {
+            const taskData = await resp.json();
+            setAnalysisResults(taskData.analysis_results || null);
+          }
+        } catch (err) {
+          console.error('Failed to fetch updated report', err);
+        }
+      }
+    });
+
     evtSource.addEventListener('module_updated', (e) => {
       const data = JSON.parse(e.data);
       rememberSequence(data);
@@ -455,6 +474,9 @@ export default function Home() {
               setCurrentView('swot');
             }}
           />
+        </div>
+        <div style={{ display: currentView === 'survey' ? 'block' : 'none', height: '100%' }}>
+          <SurveyPanel taskId={taskId} onReportUpdated={setAnalysisResults} />
         </div>
         <div style={{ display: currentView === 'swot' ? 'block' : 'none', height: '100%' }}>
           <SWOTAnalysis 

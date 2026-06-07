@@ -225,6 +225,8 @@ def build_cell(evidence: list[dict]) -> dict:
         "value": accepted.get("quote_text", ""),
         "status": "accepted",
         "source_url": accepted.get("source_url", ""),
+        "source_type": accepted.get("source_type", ""),
+        "survey_sources": (accepted.get("extracted_value") or {}).get("survey_sources", []),
         "evidence_refs": [accepted.get("id")] if accepted.get("id") else [],
     }
 

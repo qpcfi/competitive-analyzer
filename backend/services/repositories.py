@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, insert, select
@@ -13,6 +13,9 @@ from models_db import (
     QualityFeedbackRecord,
     ReportExportRecord,
     SourceMaterialRecord,
+    SurveyArtifactRecord,
+    SurveyCampaignRecord,
+    SurveyResponseRecord,
     TaskEventRecord,
     TaskRecord,
     TaskSnapshotRecord,
@@ -229,6 +232,163 @@ async def save_source_materials(
     return []
 
 
+async def create_survey_campaign(
+    session: AsyncSession,
+    task_id: str,
+    *,
+    platform: str = "manual",
+    objective: str | None = None,
+    target_persona: str | None = None,
+    channels: list[str] | None = None,
+) -> SurveyCampaignRecord:
+    record = SurveyCampaignRecord(
+        id=new_id("survey"),
+        task_id=task_id,
+        status="draft",
+        platform=platform,
+        objective=objective,
+        target_persona=target_persona,
+        channels=channels or [],
+    )
+    session.add(record)
+    await session.flush()
+    return record
+
+
+async def latest_survey_campaign(session: AsyncSession, task_id: str) -> SurveyCampaignRecord | None:
+    result = await session.execute(
+        select(SurveyCampaignRecord)
+        .where(SurveyCampaignRecord.task_id == task_id)
+        .order_by(SurveyCampaignRecord.updated_at.desc(), SurveyCampaignRecord.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def list_survey_campaigns(session: AsyncSession, task_id: str, retention_days: int | None = None) -> list[SurveyCampaignRecord]:
+    stmt = select(SurveyCampaignRecord).where(SurveyCampaignRecord.task_id == task_id)
+    if retention_days and retention_days > 0:
+        since = datetime.utcnow() - timedelta(days=retention_days)
+        stmt = stmt.where(func.coalesce(SurveyCampaignRecord.updated_at, SurveyCampaignRecord.created_at) >= since)
+    result = await session.execute(
+        stmt.order_by(SurveyCampaignRecord.updated_at.desc(), SurveyCampaignRecord.created_at.desc())
+    )
+    return list(result.scalars())
+
+
+async def get_survey_campaign(session: AsyncSession, campaign_id: str) -> SurveyCampaignRecord | None:
+    return await session.get(SurveyCampaignRecord, campaign_id)
+
+
+async def update_survey_campaign(
+    session: AsyncSession,
+    campaign_id: str,
+    **updates: Any,
+) -> SurveyCampaignRecord:
+    record = await get_survey_campaign(session, campaign_id)
+    if record is None:
+        raise KeyError(campaign_id)
+    for key, value in updates.items():
+        if hasattr(record, key):
+            setattr(record, key, value)
+    record.updated_at = datetime.utcnow()
+    await session.flush()
+    return record
+
+
+async def save_survey_artifact(
+    session: AsyncSession,
+    campaign_id: str,
+    *,
+    artifact_type: str,
+    content_json: dict[str, Any],
+    status: str = "draft",
+) -> SurveyArtifactRecord:
+    result = await session.execute(
+        select(SurveyArtifactRecord).where(
+            SurveyArtifactRecord.campaign_id == campaign_id,
+            SurveyArtifactRecord.type == artifact_type,
+        )
+    )
+    record = result.scalar_one_or_none()
+    if record is None:
+        record = SurveyArtifactRecord(
+            id=new_id("survey_artifact"),
+            campaign_id=campaign_id,
+            type=artifact_type,
+            content_json=content_json,
+            status=status,
+        )
+        session.add(record)
+    else:
+        record.content_json = content_json
+        record.status = status
+        record.updated_at = datetime.utcnow()
+    await session.flush()
+    return record
+
+
+async def list_survey_artifacts(session: AsyncSession, campaign_id: str) -> list[SurveyArtifactRecord]:
+    result = await session.execute(
+        select(SurveyArtifactRecord)
+        .where(SurveyArtifactRecord.campaign_id == campaign_id)
+        .order_by(SurveyArtifactRecord.created_at)
+    )
+    return list(result.scalars())
+
+
+async def save_survey_responses(
+    session: AsyncSession,
+    campaign_id: str,
+    responses: list[dict[str, Any]],
+    *,
+    source: str = "manual",
+) -> list[SurveyResponseRecord]:
+    records: list[SurveyResponseRecord] = []
+    external_ids = [str(item.get("external_response_id")) for item in responses if item.get("external_response_id")]
+    existing_external_ids: set[str] = set()
+    if external_ids:
+        result = await session.execute(
+            select(SurveyResponseRecord.external_response_id).where(
+                SurveyResponseRecord.campaign_id == campaign_id,
+                SurveyResponseRecord.external_response_id.in_(external_ids),
+            )
+        )
+        existing_external_ids = {str(item) for item in result.scalars() if item}
+    for item in responses:
+        external_response_id = item.get("external_response_id")
+        if external_response_id and str(external_response_id) in existing_external_ids:
+            continue
+        record = SurveyResponseRecord(
+            id=item.get("id") or new_id("survey_response"),
+            campaign_id=campaign_id,
+            source=item.get("source") or source,
+            external_response_id=external_response_id,
+            respondent_meta_json=item.get("respondent_meta_json") or item.get("respondent_meta") or {},
+            response_json=item.get("response_json") or item.get("answers") or item,
+            pii_redacted=bool(item.get("pii_redacted", False)),
+        )
+        session.add(record)
+        records.append(record)
+    campaign = await get_survey_campaign(session, campaign_id)
+    if campaign:
+        campaign.response_count = (campaign.response_count or 0) + len(records)
+        if records and campaign.status in {"published", "collecting"}:
+            campaign.status = "collecting"
+        campaign.updated_at = datetime.utcnow()
+    await session.flush()
+    return records
+
+
+async def list_survey_responses(session: AsyncSession, campaign_id: str) -> list[SurveyResponseRecord]:
+    result = await session.execute(
+        select(SurveyResponseRecord)
+        .where(SurveyResponseRecord.campaign_id == campaign_id)
+        .order_by(SurveyResponseRecord.created_at)
+    )
+    return list(result.scalars())
+
+
 async def save_analysis_module(
     session: AsyncSession,
     task_id: str,
@@ -328,6 +488,9 @@ __all__ = [
     "QualityFeedbackRecord",
     "ReportExportRecord",
     "SourceMaterialRecord",
+    "SurveyArtifactRecord",
+    "SurveyCampaignRecord",
+    "SurveyResponseRecord",
     "TaskEventRecord",
     "TaskRecord",
     "TaskSnapshotRecord",
@@ -338,16 +501,25 @@ __all__ = [
     "build_field_index",
     "create_task_record",
     "get_checkpoint",
+    "create_survey_campaign",
     "get_task",
     "get_pending_feedback",
+    "get_survey_campaign",
     "latest_schema",
+    "latest_survey_campaign",
+    "list_survey_campaigns",
     "list_events",
+    "list_survey_artifacts",
+    "list_survey_responses",
     "new_id",
     "save_analysis_module",
     "save_quality_feedback",
     "save_schema",
+    "save_survey_artifact",
+    "save_survey_responses",
     "resolve_feedback_items",
     "save_source_materials",
+    "update_survey_campaign",
     "update_task_state",
     "write_checkpoint",
 ]
