@@ -60,11 +60,44 @@ export default function Home() {
     };
   }, [isResizing]);
 
+  // Backend heartbeat — independent of task state, shows green/red dot on startup
   useEffect(() => {
-    const savedTaskId = window.localStorage.getItem("competitive-analyzer:last-task-id");
-    if (savedTaskId && !taskId) {
-      setTaskId(savedTaskId);
-    }
+    let cancelled = false;
+
+    const ping = async () => {
+      if (taskId) return; // SSE onopen/onerror is authoritative when task is active
+      try {
+        const res = await fetch('http://localhost:8000/api/v1/tasks?limit=1');
+        if (!cancelled) setBackendConnected(res.ok);
+      } catch {
+        if (!cancelled) setBackendConnected(false);
+      }
+    };
+
+    ping();
+    const timer = setInterval(ping, 20000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [taskId]);
+
+  // Restore last active task — only if backend confirms it still exists
+  useEffect(() => {
+    const savedTaskId = window.sessionStorage.getItem("competitive-analyzer:last-task-id");
+    if (!savedTaskId || taskId) return;
+
+    let cancelled = false;
+    fetch(`http://localhost:8000/api/v1/tasks/${savedTaskId}`)
+      .then(res => {
+        if (cancelled) return;
+        if (res.ok) {
+          setTaskId(savedTaskId);
+        } else if (res.status === 404) {
+          window.sessionStorage.removeItem("competitive-analyzer:last-task-id");
+          window.localStorage.removeItem(`competitive-analyzer:${savedTaskId}:last-sequence`);
+        }
+        // Other errors (5xx) or network error → stay empty, don't set taskId
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
   }, [taskId]);
 
   useEffect(() => {
@@ -73,7 +106,7 @@ export default function Home() {
     fetch(`http://localhost:8000/api/v1/tasks/${taskId}`)
       .then(res => {
         if (res.status === 404) {
-          window.localStorage.removeItem("competitive-analyzer:last-task-id");
+          window.sessionStorage.removeItem("competitive-analyzer:last-task-id");
           window.localStorage.removeItem(`competitive-analyzer:${taskId}:last-sequence`);
           setTaskId(null);
           return null;
@@ -120,7 +153,7 @@ export default function Home() {
 
   useEffect(() => {
     if (!taskId) return;
-    window.localStorage.setItem("competitive-analyzer:last-task-id", taskId);
+    window.sessionStorage.setItem("competitive-analyzer:last-task-id", taskId);
     const lastSequence = window.localStorage.getItem(`competitive-analyzer:${taskId}:last-sequence`) || "0";
     const evtSource = new EventSource(`http://localhost:8000/api/v1/tasks/${taskId}/stream?since=${lastSequence}`);
 
@@ -306,7 +339,7 @@ export default function Home() {
     setDebugLogs([]);
     setTokenUsage(null);
     window.localStorage.removeItem(`competitive-analyzer:${restoredTaskId}:last-sequence`);
-    window.localStorage.setItem("competitive-analyzer:last-task-id", data.task_id);
+    window.sessionStorage.setItem("competitive-analyzer:last-task-id", data.task_id);
     setCurrentView('dashboard');
   };
 
