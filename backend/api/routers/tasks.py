@@ -177,13 +177,13 @@ async def restore_snapshot(task_id: str, req: Request, background_tasks: Backgro
             await session.commit()
             return {"task_id": clone_id, "state": snapshot.state}
 
-        # restore mode: restore data and resume pipeline directly
-        task.state = "COLLECTING"
-        task.progress = 40
+        # restore mode: go back to SCHEMA_REVIEW, let user confirm schema before collector
+        task.state = "SCHEMA_REVIEW"
+        task.progress = snap_data.get("progress", 30)
         task.competitors = snap_data.get("competitors", task.competitors or [])
         if "dynamic_schema" in snap_data:
             task.dynamic_schema = snap_data["dynamic_schema"]
-        task.raw_materials = []
+        task.raw_materials = snap_data.get("raw_materials", [])
         task.analysis_results = {}
         task.critic_feedback = []
         task.error = None
@@ -192,23 +192,15 @@ async def restore_snapshot(task_id: str, req: Request, background_tasks: Backgro
         await add_intervention(session, task_id, "restore_snapshot", {"checkpoint_id": checkpoint_id})
         await session.commit()
 
-    await publish_event(task_id, "task_state_changed", {
-        "state": "COLLECTING", "progress": 40, "restored_from": checkpoint_id,
+    restored_schema = snap_data.get("dynamic_schema", {})
+    await publish_event(task_id, "debug_log", {"agent": "System", "event": "restore", "message": f"Restored from snapshot {checkpoint_id}, awaiting schema review."})
+    await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"})
+    await publish_event(task_id, "schema_ready", {
+        "dynamic_schema": restored_schema,
+        "competitors": snap_data.get("competitors", []),
+        "stats": {"restored": True, "checkpoint_id": checkpoint_id},
     })
-    from services.pipeline import process_agent_pipeline
-
-    async def _run_pipeline(tid: str):
-        try:
-            await process_agent_pipeline(tid, start_from="collector")
-        except Exception as e:
-            import traceback, sys
-            print(f"[RESTORE] pipeline error: {e}\n{traceback.format_exc()}", flush=True)
-            async with async_session() as session:
-                from services.repositories import update_task_state as uts
-                await uts(session, tid, state="ERROR", error={"message": str(e), "type": type(e).__name__})
-                await session.commit()
-
-    task = asyncio.create_task(_run_pipeline(task_id))
-    _background_tasks.add(task)
-    task.add_done_callback(_background_tasks.discard)
-    return {"task_id": task_id, "state": "COLLECTING", "resumed": True}
+    await publish_event(task_id, "task_state_changed", {
+        "state": "SCHEMA_REVIEW", "progress": 30, "restored_from": checkpoint_id,
+    })
+    return {"task_id": task_id, "state": "SCHEMA_REVIEW", "restored": True}

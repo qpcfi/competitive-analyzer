@@ -87,6 +87,7 @@ async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], 
                     "progress": 30,
                     "dynamic_schema": schema_json,
                     "state": "SCHEMA_REVIEW",
+                    "raw_materials": [],
                 },
             )
             await session.commit()
@@ -248,12 +249,20 @@ async def _with_timeout(task_id: str, label: str, coro):
         raise
 
 
-async def process_agent_pipeline(task_id: str, start_from: str = "collector"):
+async def process_agent_pipeline(task_id: str, start_from: str = "collector", snapshot_data: dict[str, Any] | None = None):
     async with async_session() as session:
         db_task = await get_task(session, task_id)
         if not db_task:
             return
         schema_record = await latest_schema(session, task_id)
+
+        if snapshot_data and "raw_materials" in snapshot_data:
+            raw_materials = snapshot_data["raw_materials"]
+        elif start_from != "collector":
+            raw_materials = list(db_task.raw_materials or [])
+        else:
+            raw_materials = []
+
         state = {
             "task_id": task_id,
             "task_context": {
@@ -264,7 +273,7 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector"):
             },
             "schema_version": schema_record.version if schema_record else 1,
             "dynamic_schema": schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
-            "raw_materials": list(db_task.raw_materials or []) if start_from != "collector" else [],
+            "raw_materials": raw_materials,
             "source_ids": [],
             "analysis_results": dict(db_task.analysis_results or {}) if start_from in ("critic", "reporter") else {},
             "critic_feedback": list(db_task.critic_feedback or []) if start_from == "reporter" else [],
