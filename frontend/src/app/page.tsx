@@ -68,16 +68,54 @@ export default function Home() {
   }, [taskId]);
 
   useEffect(() => {
-    if (taskId) {
-      fetch(`http://localhost:8000/api/v1/tasks/${taskId}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.main_product !== undefined) {
-            setMainProduct(data.main_product);
-          }
-        })
-        .catch(console.error);
-    }
+    if (!taskId) return;
+
+    fetch(`http://localhost:8000/api/v1/tasks/${taskId}`)
+      .then(res => {
+        if (res.status === 404) {
+          window.localStorage.removeItem("competitive-analyzer:last-task-id");
+          window.localStorage.removeItem(`competitive-analyzer:${taskId}:last-sequence`);
+          setTaskId(null);
+          return null;
+        }
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(data => {
+        if (!data) return;
+        // Full state hydration from backend — survive page refresh
+        setMainProduct(data.main_product || null);
+        setSchemaData(data.dynamic_schema || null);
+        setCompetitors(Array.isArray(data.competitors) ? data.competitors : []);
+        setRawMaterials(Array.isArray(data.raw_materials) ? data.raw_materials : []);
+        setAnalysisResults(data.analysis_results || null);
+        setTaskState(data.state || 'INITIALIZING');
+        setProgress(data.progress || 0);
+        setCollectorLogs([]);
+        setCollectionProgress(null);
+        setDebugLogs([]);
+        setTokenUsage(null);
+        setExtensionRequest({ visible: false, suggestions: [] });
+
+        // Navigate to the correct view based on task state
+        const stateToView: Record<string, string> = {
+          'INITIALIZING': 'task-config',
+          'SCHEMA_GENERATING': 'schema',
+          'SCHEMA_REVIEW': 'schema',
+          'COLLECTING': 'dashboard',
+          'ANALYZING': 'analysis',
+          'QUALITY_REVIEW': 'critic-review',
+          'NEEDS_INTERVENTION': 'critic-review',
+          'COMPLETED': 'report',
+          'ERROR': 'dashboard',
+        };
+        if (stateToView[data.state]) {
+          setCurrentView(stateToView[data.state]);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to hydrate task state', err);
+      });
   }, [taskId]);
 
   useEffect(() => {
