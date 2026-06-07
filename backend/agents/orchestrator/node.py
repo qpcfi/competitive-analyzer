@@ -82,7 +82,8 @@ async def generate_complete_plan(context: dict, task_id: str = None) -> tuple[li
                 "domain": domain,
                 "competitors": json.dumps(seed_competitors, ensure_ascii=False),
                 "user_schema": json.dumps(user_schema, ensure_ascii=False),
-                "market_context": context.get("market_context") or "No additional context."
+                "market_context": context.get("market_context") or "No additional context.",
+                "analysis_goal": context.get("analysis_goal") or "通用竞品分析",
             }, config=config)
             
             content = str(response.content)

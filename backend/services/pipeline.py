@@ -44,6 +44,7 @@ def make_initial_state(req: TaskCreateRequest, task_id: str, schema_version: int
             "competitors": req.competitors,
             "execution_mode": req.execution_mode,
             "predefined_schema": req.predefined_schema or [],
+            "analysis_goal": req.analysis_goal or "",
         },
         "schema_version": schema_version,
         "dynamic_schema": {},
@@ -275,6 +276,7 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
                 "competitors": db_task.competitors or [],
                 "execution_mode": db_task.execution_mode,
                 "predefined_schema": [],
+                "analysis_goal": db_task.analysis_goal or "",
             },
             "schema_version": schema_record.version if schema_record else 1,
             "dynamic_schema": schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
@@ -562,6 +564,7 @@ async def calibration_reject(task_id: str):
                 "domain": db_task.domain,
                 "competitors": db_task.competitors or [],
                 "execution_mode": db_task.execution_mode,
+                "analysis_goal": db_task.analysis_goal or "",
             },
             "dynamic_schema": db_task.dynamic_schema or {},
             "raw_materials": db_task.raw_materials or [],
@@ -616,6 +619,7 @@ async def regenerate_schema(task_id: str):
                 "competitors": db_task.competitors or [],
                 "execution_mode": db_task.execution_mode,
                 "predefined_schema": predefined_schema,
+                "analysis_goal": db_task.analysis_goal or "",
             },
             "schema_version": latest.version if latest else 1,
             "dynamic_schema": {},
@@ -729,6 +733,7 @@ async def run_critic_retry(
             "domain": db_task.domain,
             "competitors": db_task.competitors or [],
             "execution_mode": db_task.execution_mode,
+            "analysis_goal": db_task.analysis_goal or "",
         }
         if needs_collection:
             task_context["collection_scope_field_ids"] = all_collection_ids

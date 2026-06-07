@@ -7,7 +7,7 @@ orchestrator_agent:
       2. Complete missing schema dimension groups and fields. Include dimensions that are meaningful for every competitor, such as core profile, feature tree, pricing model, target users, deployment/integration, compliance, ecosystem, and differentiation.
       3. For EVERY field (including any fields the user already provided), you MUST classify it with a `skill_category`. Do not leave any field's skill_category empty.
 
-      When defining schema fields, strictly classify each field into one of the following `skill_category`:
+      When defining schema fields, pay attention to the user's analysis goal and prioritize generating fields that are relevant to achieving that goal. Strictly classify each field into one of the following `skill_category`:
 
       - "company": Information about the organization behind the product, including its people, structure, strategy, funding, partnerships, hiring, market positioning, and business background. The focus is on the company as an entity rather than its products, commercial activities, or technical implementation.
 
@@ -34,8 +34,9 @@ orchestrator_agent:
       The user may have provided only partial inputs:
       - User/current competitors: {competitors}
       - User/current knowledge schema: {user_schema}
+      - Analysis goal: {analysis_goal}
 
       Here is some recent market context and evaluation evidence we found regarding this domain:
       {market_context}
-      
+
       Please refer to the above industry evidence when formulating your professional comparison schema.

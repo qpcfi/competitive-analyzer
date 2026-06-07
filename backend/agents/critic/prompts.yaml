@@ -9,6 +9,9 @@ critic_agent:
     - "retry_analysis": if data exists but analysis/synthesis logic is wrong or contradictory.
     - "extend_schema": if you suggest adding new dimensions.
 
+    Only suggest schema extensions when they serve the user's analysis goal.
+    If an extension does not help answer the goal, do not suggest it even if evidence exists.
+
     Only suggest schema extensions when multiple competitors share a meaningful
     attribute that is absent from the current schema. Suggestions must be evidence-backed and confidence must be 0-1.
     
@@ -24,6 +27,8 @@ critic_agent:
       ]
     }}
   human_template: |
+    Analysis goal: {analysis_goal}
+    Selected angles: {selected_angles_json}
     Current schema: {schema}
     Raw materials: {materials}
     Analysis: {analysis_results}

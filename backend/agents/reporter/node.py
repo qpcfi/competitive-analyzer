@@ -55,9 +55,14 @@ async def reporter_node(state: AgentState):
         callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
         config = {"callbacks": callbacks} if callbacks else None
         analysis_json = json.dumps(analysis_results, ensure_ascii=False)
+        task_context = state.get("task_context") or {}
+        analysis_goal = task_context.get("analysis_goal") or ""
+        selected_angles = analysis_results.get("selected_angles") or []
         print(f"[REPORTER] invoking LLM with {len(analysis_json)} chars of data...", flush=True)
         response = await chain.ainvoke({
-            "analysis_results": analysis_json
+            "analysis_results": analysis_json,
+            "analysis_goal": analysis_goal,
+            "selected_angles_json": json.dumps(selected_angles, ensure_ascii=False),
         }, config=config)
         print("[REPORTER] LLM returned successfully", flush=True)
 

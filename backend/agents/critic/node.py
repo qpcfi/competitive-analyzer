@@ -10,6 +10,7 @@ except ImportError:
     ChatOpenAI = None
     HumanMessage = None
     ChatPromptTemplate = None
+from ..shared.analysis_angles import VALID_ANGLE_KEYS
 from ..state import AgentState
 from ..schemas import CriticResult
 from core.callbacks import RealtimeDebugCallbackHandler
@@ -50,12 +51,17 @@ async def critic_node(state: AgentState):
     
     try:
         task_id = state.get("task_id")
+        task_context = state.get("task_context") or {}
+        analysis_goal = task_context.get("analysis_goal") or ""
+        selected_angles = (analysis_results or {}).get("selected_angles") or []
         callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
         config = {"callbacks": callbacks} if callbacks else None
         response = await chain.ainvoke({
             "schema": json.dumps(schema, ensure_ascii=False),
             "materials": json.dumps(materials, ensure_ascii=False),
-            "analysis_results": json.dumps(analysis_results, ensure_ascii=False)
+            "analysis_results": json.dumps(analysis_results, ensure_ascii=False),
+            "analysis_goal": analysis_goal,
+            "selected_angles_json": json.dumps(selected_angles, ensure_ascii=False),
         }, config=config)
         
         content = str(response.content)

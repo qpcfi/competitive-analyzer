@@ -287,3 +287,374 @@ sources:
     skills: ["product"]
     tags: ["auto-discovered"]
     competitors: ["千问"]
+
+  - url: "https://news.qq.com/rain/a/20260505A02BOA00"
+    name: "auto: 豆包 按量计费价格"
+    description: "Auto-discovered from 豆包 按量计费价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["豆包"]
+
+  - url: "https://openaxo.com/innovation/doubao-ai-paid-subscription-analysis"
+    name: "auto: 豆包 按量计费价格"
+    description: "Auto-discovered from 豆包 按量计费价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["豆包"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2034966405997647471"
+    name: "auto: 豆包 按量计费价格"
+    description: "Auto-discovered from 豆包 按量计费价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["豆包"]
+
+  - url: "https://cb-doubao.com.cn/"
+    name: "auto: 豆包 多模态支持"
+    description: "Auto-discovered from 豆包 多模态支持 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["豆包"]
+
+  - url: "https://seed.bytedance.com/zh/special/doubao_1_5_pro"
+    name: "auto: 豆包 多模态支持"
+    description: "Auto-discovered from 豆包 多模态支持 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["豆包"]
+
+  - url: "https://www.qianwen.com/"
+    name: "auto: 千问 多模态支持"
+    description: "Auto-discovered from 千问 多模态支持 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]
+
+  - url: "https://www.aliyun.com/product/tongyi"
+    name: "auto: 千问 多模态支持"
+    description: "Auto-discovered from 千问 多模态支持 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]
+
+  - url: "https://www.qianwenai.com/"
+    name: "auto: 千问 多模态支持"
+    description: "Auto-discovered from 千问 多模态支持 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]
+
+  - url: "https://platform.qianwenai.com/docs/resources/free-quota"
+    name: "auto: 千问 免费额度"
+    description: "Auto-discovered from 千问 免费额度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]
+
+  - url: "https://platform.qianwenai.com/docs/developer-guides/getting-started/pricing"
+    name: "auto: 千问 按量计费价格"
+    description: "Auto-discovered from 千问 按量计费价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]
+
+  - url: "https://developer.aliyun.com/article/1714977"
+    name: "auto: 千问 按量计费价格"
+    description: "Auto-discovered from 千问 按量计费价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]
+
+  - url: "https://www.ai-indeed.com/encyclopedia/21279.html"
+    name: "auto: 千问 按量计费价格"
+    description: "Auto-discovered from 千问 按量计费价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]
+
+  - url: "https://www.aliyun.com/benefit/scene/codingplan"
+    name: "auto: 千问 订阅/包月价格"
+    description: "Auto-discovered from 千问 订阅/包月价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]
+
+  - url: "https://platform.qianwenai.com/pricing/token-plan"
+    name: "auto: 千问 订阅/包月价格"
+    description: "Auto-discovered from 千问 订阅/包月价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["千问"]
+
+  - url: "https://www.shanbay.com/"
+    name: "auto: 扇贝单词 复习机制"
+    description: "Auto-discovered from 扇贝单词 复习机制 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://www.zhihu.com/question/358171537"
+    name: "auto: 扇贝单词 复习机制"
+    description: "Auto-discovered from 扇贝单词 复习机制 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://www.php.cn/faq/2382602.html"
+    name: "auto: 扇贝单词 复习机制"
+    description: "Auto-discovered from 扇贝单词 复习机制 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://apps.microsoft.com/detail/xp89wts7r0bzbz?launch=true&hl=zh-cn&gl=cn"
+    name: "auto: 扇贝单词 单词学习模式"
+    description: "Auto-discovered from 扇贝单词 单词学习模式 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://zhuanlan.zhihu.com/p/394392149"
+    name: "auto: 扇贝单词 单词学习模式"
+    description: "Auto-discovered from 扇贝单词 单词学习模式 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://ries.ai/zh/blog/technology/shanbei-app-90-day-experience-report-detailed-analysis"
+    name: "auto: 扇贝单词 交互流畅度"
+    description: "Auto-discovered from 扇贝单词 交互流畅度 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://jingyan.baidu.com/article/5552ef4743896b108efbc974.html"
+    name: "auto: 扇贝单词 学习进度追踪"
+    description: "Auto-discovered from 扇贝单词 学习进度追踪 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://www.douyin.com/note/7631520792525688091"
+    name: "auto: 扇贝单词 界面设计风格"
+    description: "Auto-discovered from 扇贝单词 界面设计风格 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://www.zcool.com.cn/work/ZMjAxMTE4MzI=.html"
+    name: "auto: 扇贝单词 界面设计风格"
+    description: "Auto-discovered from 扇贝单词 界面设计风格 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://cp.baidu.com/landing/tscp_doc/df11d31881f6a426a2aea831f3e5287d"
+    name: "auto: 扇贝单词 个性化学习计划"
+    description: "Auto-discovered from 扇贝单词 个性化学习计划 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://www.php.cn/faq/1536988.html"
+    name: "auto: 扇贝单词 学习提醒功能"
+    description: "Auto-discovered from 扇贝单词 学习提醒功能 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://web.shanbay.com/web/main/words"
+    name: "auto: 扇贝单词 词汇量覆盖范围"
+    description: "Auto-discovered from 扇贝单词 词汇量覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://gegenisang.github.io/index.html"
+    name: "auto: 扇贝单词 释义与例句质量"
+    description: "Auto-discovered from 扇贝单词 释义与例句质量 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://chromewebstore.google.com/detail/扇贝单词助手v3/hgflmegfeennhajkhgdhcjdnhnkobpfn"
+    name: "auto: 扇贝单词 扩展学习资源"
+    description: "Auto-discovered from 扇贝单词 扩展学习资源 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://web.shanbay.com/web/main/index"
+    name: "auto: 扇贝单词 打卡签到系统"
+    description: "Auto-discovered from 扇贝单词 打卡签到系统 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://web.shanbay.com/web/help/svgln/zguwz"
+    name: "auto: 扇贝单词 打卡签到系统"
+    description: "Auto-discovered from 扇贝单词 打卡签到系统 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["扇贝单词"]
+
+  - url: "https://www.douyin.com/video/7584480860273200436"
+    name: "auto: 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
+    description: "Auto-discovered from 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://news.qq.com/rain/a/20250416A07YXJ00"
+    name: "auto: 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
+    description: "Auto-discovered from 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1897652316787696854"
+    name: "auto: 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
+    description: "Auto-discovered from 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://news.qq.com/rain/a/20250330A05SSE00"
+    name: "auto: 抖音 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为）"
+    description: "Auto-discovered from 抖音 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为） analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://developer.aliyun.com/article/1665676"
+    name: "auto: 抖音 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为）"
+    description: "Auto-discovered from 抖音 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为） analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.php.cn/faq/1913645.html"
+    name: "auto: 抖音 新用户冷启动时的推荐表现"
+    description: "Auto-discovered from 抖音 新用户冷启动时的推荐表现 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://zhuanlan.zhihu.com/p/25567110298"
+    name: "auto: 抖音 新用户冷启动时的推荐表现"
+    description: "Auto-discovered from 抖音 新用户冷启动时的推荐表现 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://insight.xiaoduoai.com/service-based-marketing/https-insight-xiaoduoai-com-service-based-marketing-new-account-posting-works-will-be-restricted-in-traffic-how-can-new-accounts-obtain-high-traffic-detailed-explanation-of-official-cold-start-policy.html"
+    name: "auto: 抖音 新用户冷启动时的推荐表现"
+    description: "Auto-discovered from 抖音 新用户冷启动时的推荐表现 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://news.qq.com/rain/a/20250415A09UYB00"
+    name: "auto: 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
+    description: "Auto-discovered from 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://zhuanlan.zhihu.com/p/16285931697"
+    name: "auto: 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
+    description: "Auto-discovered from 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.xinhuanet.com/tech/20250417/9b2e3622d8764c408c2b667bf73d1d29/c.html"
+    name: "auto: 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
+    description: "Auto-discovered from 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.sohu.com/a/897091963_362225"
+    name: "auto: 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
+    description: "Auto-discovered from 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://bk.taobao.com/k/kuaishou_227/b91939733b542221c235c06503aaf464.html"
+    name: "auto: 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
+    description: "Auto-discovered from 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://bk.taobao.com/k/kuaishou_227/0ac51df902f68d489fe46a39ebbb0070.html"
+    name: "auto: 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
+    description: "Auto-discovered from 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://wenku.csdn.net/column/645vi6bq0g"
+    name: "auto: 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为）"
+    description: "Auto-discovered from 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为） analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://developer.baidu.com/article/detail.html?id=5283121"
+    name: "auto: 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为）"
+    description: "Auto-discovered from 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为） analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://cloud.tencent.com/developer/article/2607720"
+    name: "auto: 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为）"
+    description: "Auto-discovered from 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为） analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://news.qq.com/rain/a/20251030A05IIZ00"
+    name: "auto: 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
+    description: "Auto-discovered from 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.toutiao.com/article/7567779979216290346/"
+    name: "auto: 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
+    description: "Auto-discovered from 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1968325982462146487"
+    name: "auto: 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
+    description: "Auto-discovered from 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://zhuanlan.zhihu.com/p/660797252"
+    name: "auto: 快手 新用户冷启动时的推荐表现"
+    description: "Auto-discovered from 快手 新用户冷启动时的推荐表现 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://wenku.csdn.net/column/20qrhx5rhp"
+    name: "auto: 快手 新用户冷启动时的推荐表现"
+    description: "Auto-discovered from 快手 新用户冷启动时的推荐表现 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://zhuanlan.zhihu.com/p/660981728"
+    name: "auto: 快手 新用户冷启动时的推荐表现"
+    description: "Auto-discovered from 快手 新用户冷启动时的推荐表现 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]

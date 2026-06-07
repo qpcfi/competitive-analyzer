@@ -155,6 +155,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
   const [taskName, setTaskName] = useState('');
   const [executionMode, setExecutionMode] = useState('step');
   const [competitors, setCompetitors] = useState<string[]>([]);
+  const [analysisGoal, setAnalysisGoal] = useState('');
   const [competitorInput, setCompetitorInput] = useState('');
   const [recommendations, setRecommendations] = useState<CompetitorRecommendation[]>([]);
   const [selectedRecommendations, setSelectedRecommendations] = useState<string[]>([]);
@@ -288,6 +289,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
           main_product: mainProduct.trim() || undefined,
           competitors,
           execution_mode: executionMode === 'step' ? 'step_by_step' : 'auto',
+          analysis_goal: analysisGoal.trim() || undefined,
           predefined_schema: schemaData.map(item => ({
             name: item.name,
             type: item.type,
@@ -373,6 +375,19 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
                 <Radio.Button value="auto">全自动模式(静默执行)</Radio.Button>
                 <Radio.Button value="step">步进确认模式 (推荐)</Radio.Button>
               </Radio.Group>
+            </div>
+            <div style={{ flex: '1 1 100%' }}>
+              <div style={{ marginBottom: 8 }}>分析目标（可选）</div>
+              <Input.TextArea
+                placeholder="例如：评估各竞品的定价策略和变现能力，为我们的商业化方案提供参考"
+                value={analysisGoal}
+                onChange={e => setAnalysisGoal(e.target.value)}
+                autoSize={{ minRows: 2, maxRows: 4 }}
+                size="large"
+              />
+              <div style={{ color: '#8c8c8c', fontSize: 12, marginTop: 4 }}>
+                明确分析目的可帮助AI更精准地生成相关维度和聚焦分析角度
+              </div>
             </div>
           </div>
         </Card>

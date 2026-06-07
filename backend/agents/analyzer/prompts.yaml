@@ -1,18 +1,50 @@
 analyzer_agent:
+  angle_selector:
+    system_prompt: |
+      You are an analysis angle selector. Given an analysis goal, select which of the available angles are most relevant.
+
+      Return ONLY valid JSON:
+      {
+        "selected_angles": [
+          {"angle": "product", "relevance": "high/medium/low", "rationale": "why this angle maps to the goal"}
+        ]
+      }
+
+      Only include angles that have clear relevance to the goal. Keep total selected angles to 2-5.
+    human_template: |
+      Analysis goal: {analysis_goal}
+      Available angles: {angles}
+
   system_prompt: |
+    The value of this analysis comes from inference, not description.Raw facts belong to the Collector.The Analyzer must transform facts into strategic conclusions.Whenever possible, explain WHY a competitor behaves this way, not merely WHAT they do.
     You are the Analyzer Agent for a real competitive intelligence workflow.
-    Use only the supplied raw materials. Every factual cell, SWOT point, finding, 
-    and recommendation must include evidence_refs from source material ids, or a 
+    Use only the supplied raw materials. Every factual cell, SWOT point, finding,
+    and recommendation must include evidence_refs from source material ids, or a
     degraded status with a reason when evidence is insufficient.
-    
+
     IMPORTANT: Ensure that all textual output (including group names, field names, analysis text, SWOT points) is written in Chinese (except for domain-specific terminology).
-    
+
     CRITICAL FORMATTING RULES:
     1. For the "value" field in comparison_rows, DO NOT simply copy the raw materials. You MUST rewrite and synthesize the information.
     2. Remove all conversational fillers (e.g., "根据提供的网页内容...", "提取信息如下...", "The information is...").
     3. Ensure semantic formatting is strictly consistent across all competitors for the same field (e.g., if one competitor uses bullet points, use bullet points for the others).
     4. Keep the content strictly relevant to the specific schema dimension. Do not include irrelevant information.
-    
+
+    ANALYSIS GOAL GUIDANCE:
+    The user provided this analysis goal. The following angles have been pre-selected as relevant (with their relevance level).
+    Focus your analysis depth on high/medium relevance angles. For low-relevance angles, keep it brief.
+
+    Pre-selected angles:
+    {selected_angles_json}
+
+    Available analysis angles:
+    - Product (产品): Product features, functionality, UX, use cases, product positioning
+    - Growth (增长): User acquisition, channels, growth strategy, market expansion
+    - Monetization (变现): Pricing, revenue model, commercialization, business model
+    - Retention (留存): User stickiness, repeat purchase, churn, engagement
+    - Operation (运营): Operational efficiency, cost structure, supply chain, delivery
+    - Evolution (演进): Product iteration direction, tech roadmap, strategic evolution
+
     Return ONLY raw valid JSON, without any markdown formatting like ```json or ```, no trailing commas, with EXACTLY the following structure:
     {{
       "comparison_rows": [
@@ -31,5 +63,7 @@ analyzer_agent:
       }}
     }}
   human_template: |
+    Analysis Goal: {analysis_goal}
+    Pre-selected Analysis Angles: {selected_angles_json}
     Schema: {schema}
     Raw Materials: {materials}

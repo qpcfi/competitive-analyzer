@@ -2,6 +2,7 @@ import json
 import os
 import re
 import yaml
+import logging
 try:
     from langchain_openai import ChatOpenAI
     from langchain_core.messages import HumanMessage
@@ -12,6 +13,7 @@ except ImportError:
     ChatPromptTemplate = None
 from ..state import AgentState
 from ..schemas import AnalysisResult
+from ..shared.analysis_angles import ANALYSIS_ANGLES, VALID_ANGLE_KEYS
 from core.callbacks import RealtimeDebugCallbackHandler
 
 api_key = os.environ.get("DEEPSEEK_API_KEY")
@@ -29,7 +31,7 @@ async def analyzer_node(state: AgentState):
     if llm is None or ChatPromptTemplate is None:
         state["analysis_results"] = build_deterministic_analysis(state)
         return state
-    
+
     prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
     try:
         with open(prompt_path, "r", encoding="utf-8") as f:
@@ -38,15 +40,43 @@ async def analyzer_node(state: AgentState):
         state["analysis_results"] = build_deterministic_analysis(state)
         return state
 
+    # ── Pre-analysis: angle selection ──
+    task_id = state.get("task_id")
+    analysis_goal = (state.get("task_context") or {}).get("analysis_goal") or ""
+    selected_angles = []
+    if analysis_goal:
+        try:
+            angle_prompt = ChatPromptTemplate.from_messages([
+                ("system", PROMPT_CONFIG["analyzer_agent"]["angle_selector"]["system_prompt"]),
+                ("human", PROMPT_CONFIG["analyzer_agent"]["angle_selector"]["human_template"])
+            ])
+            angle_chain = angle_prompt | llm
+            callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
+            angle_response = await angle_chain.ainvoke({
+                "analysis_goal": analysis_goal,
+                "angles": json.dumps(ANALYSIS_ANGLES, ensure_ascii=False),
+            }, config={"callbacks": callbacks} if callbacks else None)
+            raw = str(angle_response.content)
+            match = re.search(r"\{.*\}", raw, re.DOTALL)
+            parsed = json.loads(match.group(0) if match else raw)
+            for item in parsed.get("selected_angles", []):
+                if isinstance(item, dict) and str(item.get("angle", "")).lower() in VALID_ANGLE_KEYS:
+                    item["angle"] = str(item["angle"]).lower()
+                    selected_angles.append(item)
+        except Exception:
+            logging.warning("Angle selection pre-call failed, using fallback")
+    if not selected_angles:
+        selected_angles = [{"angle": a["key"], "relevance": "medium", "rationale": "默认角度"} for a in ANALYSIS_ANGLES]
+
+    # ── Main analysis ──
     prompt_template = ChatPromptTemplate.from_messages([
         ("system", PROMPT_CONFIG["analyzer_agent"]["system_prompt"]),
         ("human", PROMPT_CONFIG["analyzer_agent"]["human_template"])
     ])
 
     chain = prompt_template | llm
-    
+
     try:
-        task_id = state.get("task_id")
         callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
         config = {"callbacks": callbacks} if callbacks else None
         materials_input = json.dumps(materials, ensure_ascii=False)
@@ -62,6 +92,8 @@ async def analyzer_node(state: AgentState):
                     feedback_text += f"- {item}\n"
             materials_input = feedback_text + "\n" + materials_input
         response = await chain.ainvoke({
+            "analysis_goal": analysis_goal,
+            "selected_angles_json": json.dumps(selected_angles, ensure_ascii=False),
             "schema": json.dumps(schema, ensure_ascii=False),
             "materials": materials_input
         }, config=config)
@@ -122,6 +154,7 @@ async def analyzer_node(state: AgentState):
     if not isinstance(result, dict) or "comparison_rows" not in result:
         result = build_deterministic_analysis(state)
 
+    result["selected_angles"] = selected_angles
     state["analysis_results"] = result
     return state
 

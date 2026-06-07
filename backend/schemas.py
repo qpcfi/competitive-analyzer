@@ -10,6 +10,7 @@ class TaskCreateRequest(BaseModel):
     competitors: list[str] = []
     execution_mode: Literal["step_by_step", "auto"] = "step_by_step"
     predefined_schema: list[dict[str, Any]] | None = None
+    analysis_goal: str | None = None
 
     @field_validator("domain")
     @classmethod
