@@ -9,25 +9,17 @@ from .retrieval import process_page
 
 try:
     from langchain_core.messages import HumanMessage
-    from langchain_openai import ChatOpenAI
     from langchain_core.prompts import ChatPromptTemplate
 except ImportError:
     HumanMessage = None
-    ChatOpenAI = None
     ChatPromptTemplate = None
 
 import yaml
 from ..state import AgentState
+from ..shared.llm import create_chat_llm
 from core.callbacks import RealtimeDebugCallbackHandler
 
-api_key = os.environ.get("DEEPSEEK_API_KEY")
-base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-model_name = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
-llm = (
-    ChatOpenAI(api_key=api_key, base_url=base_url, model=model_name, timeout=30)
-    if api_key and ChatOpenAI is not None
-    else None
-)
+llm = create_chat_llm(timeout=30)
 
 ProgressCallback = Callable[[dict[str, Any]], Awaitable[None]]
 

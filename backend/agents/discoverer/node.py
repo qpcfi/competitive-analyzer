@@ -6,25 +6,17 @@ from dataclasses import dataclass
 
 try:
     from langchain_core.prompts import ChatPromptTemplate
-    from langchain_openai import ChatOpenAI
 except ImportError:
     ChatPromptTemplate = None
-    ChatOpenAI = None
 
 from dotenv import load_dotenv
 load_dotenv()
 
 from ..state import AgentState
+from ..shared.llm import create_chat_llm
 from core.callbacks import RealtimeDebugCallbackHandler
 
-api_key = os.environ.get("DEEPSEEK_API_KEY")
-base_url = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-model_name = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
-llm = (
-    ChatOpenAI(api_key=api_key, base_url=base_url, model=model_name, timeout=90)
-    if api_key and ChatOpenAI is not None
-    else None
-)
+llm = create_chat_llm(timeout=90)
 
 @dataclass(slots=True)
 class CompetitorCandidate:

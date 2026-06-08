@@ -658,3 +658,1116 @@ sources:
     skills: ["technical"]
     tags: ["auto-discovered"]
     competitors: ["快手"]
+
+  - url: "https://blog.comox.ai/2026/04/unpacking-claude-mythos-preview.html"
+    name: "auto: Claude Mythos Preview 模型底层架构"
+    description: "Auto-discovered from Claude Mythos Preview 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://qcode.cc/en/claude-mythos-preview-guide"
+    name: "auto: Claude Mythos Preview 模型底层架构"
+    description: "Auto-discovered from Claude Mythos Preview 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://cybersecuritynews.com/claude-mythos-moves-toward-public/"
+    name: "auto: Claude Mythos Preview 模型底层架构"
+    description: "Auto-discovered from Claude Mythos Preview 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://red.anthropic.com/2026/mythos-preview/"
+    name: "auto: Claude Mythos Preview 推理效率与成本"
+    description: "Auto-discovered from Claude Mythos Preview 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2025121628577625231"
+    name: "auto: Claude Mythos Preview 推理效率与成本"
+    description: "Auto-discovered from Claude Mythos Preview 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://www-cdn.anthropic.com/8b8380204f74670be75e81c820ca8dda846ab289.pdf"
+    name: "auto: Claude Mythos Preview 推理效率与成本"
+    description: "Auto-discovered from Claude Mythos Preview 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://claudeleakage.com/zh/claude-mythos-preview-capability-report/"
+    name: "auto: Claude Mythos Preview 模型核心能力"
+    description: "Auto-discovered from Claude Mythos Preview 模型核心能力 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://platform.claude.com/docs/en/about-claude/pricing"
+    name: "auto: Claude Mythos Preview 定价"
+    description: "Auto-discovered from Claude Mythos Preview 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://platform.claude.com/docs/zh-CN/about-claude/pricing"
+    name: "auto: Claude Mythos Preview 定价"
+    description: "Auto-discovered from Claude Mythos Preview 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2020138910668343142"
+    name: "auto: Claude Mythos Preview 定价"
+    description: "Auto-discovered from Claude Mythos Preview 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://www.anthropic.com/news/claude-opus-4-8"
+    name: "auto: Claude Opus 4.8 模型底层架构"
+    description: "Auto-discovered from Claude Opus 4.8 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://platform.claude.com/docs/en/about-claude/models/whats-new-claude-4-8"
+    name: "auto: Claude Opus 4.8 模型底层架构"
+    description: "Auto-discovered from Claude Opus 4.8 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2044035256920039954"
+    name: "auto: Claude Opus 4.8 模型底层架构"
+    description: "Auto-discovered from Claude Opus 4.8 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2032886185111106741"
+    name: "auto: Claude Mythos Preview 支持的功能特性"
+    description: "Auto-discovered from Claude Mythos Preview 支持的功能特性 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://www.mythoswatch.org/"
+    name: "auto: Claude Mythos Preview 免费层策略"
+    description: "Auto-discovered from Claude Mythos Preview 免费层策略 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://www.hey99.cn/shot/CSDN_161519190"
+    name: "auto: Claude Opus 4.8 推理效率与成本"
+    description: "Auto-discovered from Claude Opus 4.8 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://www.anthropic.com/claude/opus"
+    name: "auto: Claude Opus 4.8 推理效率与成本"
+    description: "Auto-discovered from Claude Opus 4.8 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://blog.csdn.net/nmdbbzcl/article/details/161519190"
+    name: "auto: Claude Opus 4.8 推理效率与成本"
+    description: "Auto-discovered from Claude Opus 4.8 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://claudeapi.com/en/"
+    name: "auto: Claude Mythos Preview API调用定价"
+    description: "Auto-discovered from Claude Mythos Preview API调用定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://llm-stats.com/models/claude-mythos-preview"
+    name: "auto: Claude Mythos Preview API调用定价"
+    description: "Auto-discovered from Claude Mythos Preview API调用定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://openai.com/index/introducing-gpt-5-5/"
+    name: "auto: GPT-5.5 模型底层架构"
+    description: "Auto-discovered from GPT-5.5 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://developers.openai.ac.cn/api/docs/models/gpt-5.5"
+    name: "auto: GPT-5.5 模型底层架构"
+    description: "Auto-discovered from GPT-5.5 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://www.ai-master.cc/blog/blog-069"
+    name: "auto: GPT-5.5 模型底层架构"
+    description: "Auto-discovered from GPT-5.5 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://segmentfault.com/a/1190000047727706"
+    name: "auto: GPT-5.5 推理效率与成本"
+    description: "Auto-discovered from GPT-5.5 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2031018360994019110"
+    name: "auto: GPT-5.5 推理效率与成本"
+    description: "Auto-discovered from GPT-5.5 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://claude.com/pricing"
+    name: "auto: Claude Mythos Preview 企业版/定制化价格"
+    description: "Auto-discovered from Claude Mythos Preview 企业版/定制化价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://claude.com/"
+    name: "auto: Claude Mythos Preview 企业版/定制化价格"
+    description: "Auto-discovered from Claude Mythos Preview 企业版/定制化价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://deepmind.google/models/model-cards/gemini-3-5-flash/"
+    name: "auto: Gemini 3.5 Flash 模型底层架构"
+    description: "Auto-discovered from Gemini 3.5 Flash 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://deepmind.google/models/gemini/flash/"
+    name: "auto: Gemini 3.5 Flash 模型底层架构"
+    description: "Auto-discovered from Gemini 3.5 Flash 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash"
+    name: "auto: Gemini 3.5 Flash 模型底层架构"
+    description: "Auto-discovered from Gemini 3.5 Flash 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://llm-stats.com/blog/research/claude-mythos-preview-launch"
+    name: "auto: Claude Mythos Preview 折扣与计费周期"
+    description: "Auto-discovered from Claude Mythos Preview 折扣与计费周期 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Mythos Preview"]
+
+  - url: "https://jangwook.net/zh/blog/zh/gemini-api-model-tier-benchmark-guide-2026/"
+    name: "auto: Gemini 3.5 Flash 推理效率与成本"
+    description: "Auto-discovered from Gemini 3.5 Flash 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2040379393432871315"
+    name: "auto: Gemini 3.5 Flash 推理效率与成本"
+    description: "Auto-discovered from Gemini 3.5 Flash 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://kimi-k2.org/zh/kimi-k26"
+    name: "auto: Kimi K2.6 模型底层架构"
+    description: "Auto-discovered from Kimi K2.6 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://platform.kimi.com/docs/guide/kimi-k2-6-quickstart"
+    name: "auto: Kimi K2.6 模型底层架构"
+    description: "Auto-discovered from Kimi K2.6 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://platform.kimi.ai/docs/guide/kimi-k2-6-quickstart"
+    name: "auto: Kimi K2.6 模型底层架构"
+    description: "Auto-discovered from Kimi K2.6 模型底层架构 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://apifox.com/apiskills/claude-opus-4-8-pricing-full-cost-breakdown/"
+    name: "auto: Claude Opus 4.8 定价"
+    description: "Auto-discovered from Claude Opus 4.8 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://dgtsell.com/articles/claude-opus-4-8-china-guide-2026"
+    name: "auto: Claude Opus 4.8 定价"
+    description: "Auto-discovered from Claude Opus 4.8 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://www.kimi.com/ai-models/kimi-k2-6"
+    name: "auto: Kimi K2.6 推理效率与成本"
+    description: "Auto-discovered from Kimi K2.6 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://kimik2ai.com/kimi-k2.6/"
+    name: "auto: Kimi K2.6 推理效率与成本"
+    description: "Auto-discovered from Kimi K2.6 推理效率与成本 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2044364042500826535"
+    name: "auto: Claude Opus 4.8 免费层策略"
+    description: "Auto-discovered from Claude Opus 4.8 免费层策略 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://openai.com/zh-Hans-CN/api/pricing/"
+    name: "auto: GPT-5.5 定价"
+    description: "Auto-discovered from GPT-5.5 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://devtk.ai/zh/blog/gpt-5-5-codex-pricing-guide-2026/"
+    name: "auto: GPT-5.5 定价"
+    description: "Auto-discovered from GPT-5.5 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://www.getaiperks.com/zh/ai/gpt-5-5-pricing-guide-2026"
+    name: "auto: GPT-5.5 定价"
+    description: "Auto-discovered from GPT-5.5 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://github.com/j0wns/gpt-5_jailbreak_poc"
+    name: "auto: GPT-5.5 免费层策略"
+    description: "Auto-discovered from GPT-5.5 免费层策略 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1938701288230610350"
+    name: "auto: GPT-5.5 免费层策略"
+    description: "Auto-discovered from GPT-5.5 免费层策略 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://developers.openai.com/api/docs/models/gpt-5.5"
+    name: "auto: GPT-5.5 API调用定价"
+    description: "Auto-discovered from GPT-5.5 API调用定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://chatgpt.com/zh-Hans-CN/pricing/"
+    name: "auto: GPT-5.5 企业版/定制化价格"
+    description: "Auto-discovered from GPT-5.5 企业版/定制化价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://openai.com/api/pricing/"
+    name: "auto: GPT-5.5 折扣与计费周期"
+    description: "Auto-discovered from GPT-5.5 折扣与计费周期 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1937665663910019698"
+    name: "auto: GPT-5.5 折扣与计费周期"
+    description: "Auto-discovered from GPT-5.5 折扣与计费周期 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://blog.csdn.net/2501_94459390/article/details/161262113"
+    name: "auto: Gemini 3.5 Flash 定价"
+    description: "Auto-discovered from Gemini 3.5 Flash 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://devtk.ai/zh/blog/gemini-api-pricing-guide-2026/"
+    name: "auto: Gemini 3.5 Flash 定价"
+    description: "Auto-discovered from Gemini 3.5 Flash 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://www.nxcode.io/zh/resources/news/gemini-3-5-flash-complete-guide-benchmarks-pricing-api-2026"
+    name: "auto: Gemini 3.5 Flash 定价"
+    description: "Auto-discovered from Gemini 3.5 Flash 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://openrouter.ai/google/gemini-3.5-flash"
+    name: "auto: Gemini 3.5 Flash 免费层策略"
+    description: "Auto-discovered from Gemini 3.5 Flash 免费层策略 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://developers.google.com/"
+    name: "auto: Gemini 3.5 Flash 免费层策略"
+    description: "Auto-discovered from Gemini 3.5 Flash 免费层策略 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://ai.google.dev/gemini-api/docs/models/gemini-3.5-flash?hl=zh-cn"
+    name: "auto: Gemini 3.5 Flash API调用定价"
+    description: "Auto-discovered from Gemini 3.5 Flash API调用定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://docs.cloud.google.com/gemini-enterprise-agent-platform/models/gemini/3-5-flash?hl=zh-cn"
+    name: "auto: Gemini 3.5 Flash 企业版/定制化价格"
+    description: "Auto-discovered from Gemini 3.5 Flash 企业版/定制化价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://www.accountboy.com/zh-cn-cny/news-detail/1237"
+    name: "auto: Gemini 3.5 Flash 折扣与计费周期"
+    description: "Auto-discovered from Gemini 3.5 Flash 折扣与计费周期 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://knightli.com/2026/05/20/gemini-3-5-flash-omni-free-access/"
+    name: "auto: Gemini 3.5 Flash 折扣与计费周期"
+    description: "Auto-discovered from Gemini 3.5 Flash 折扣与计费周期 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://platform.kimi.com/docs/pricing/chat-k26"
+    name: "auto: Kimi K2.6 定价"
+    description: "Auto-discovered from Kimi K2.6 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://platform.kimi.ai/docs/pricing/chat-k26"
+    name: "auto: Kimi K2.6 定价"
+    description: "Auto-discovered from Kimi K2.6 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://codingtoken.org/platform/kimi/"
+    name: "auto: Kimi K2.6 定价"
+    description: "Auto-discovered from Kimi K2.6 定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://platform.kimi.ai/docs/overview"
+    name: "auto: Kimi K2.6 API调用定价"
+    description: "Auto-discovered from Kimi K2.6 API调用定价 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2044841791212492719"
+    name: "auto: Claude Opus 4.8 模型核心能力"
+    description: "Auto-discovered from Claude Opus 4.8 模型核心能力 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://www.kimi.com/en"
+    name: "auto: Kimi K2.6 企业版/定制化价格"
+    description: "Auto-discovered from Kimi K2.6 企业版/定制化价格 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2043618772955685158"
+    name: "auto: Claude Opus 4.8 支持的功能特性"
+    description: "Auto-discovered from Claude Opus 4.8 支持的功能特性 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://www.kimi.com/resources/kimi-k2-6-pricing"
+    name: "auto: Kimi K2.6 折扣与计费周期"
+    description: "Auto-discovered from Kimi K2.6 折扣与计费周期 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "http://anthropic.com/news/claude-opus-4-8"
+    name: "auto: Claude Opus 4.8 使用场景与行业覆盖"
+    description: "Auto-discovered from Claude Opus 4.8 使用场景与行业覆盖 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://letsdatascience.com/news/anthropic-releases-claude-opus-48-with-faster-higher-effort-6db72eec"
+    name: "auto: Claude Opus 4.8 使用场景与行业覆盖"
+    description: "Auto-discovered from Claude Opus 4.8 使用场景与行业覆盖 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://cursor.com/docs/models/claude-opus-4-8"
+    name: "auto: Claude Opus 4.8 使用场景与行业覆盖"
+    description: "Auto-discovered from Claude Opus 4.8 使用场景与行业覆盖 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://claudeapi.com/zh/blog/news/claude-opus-4-8-hands-on-review/"
+    name: "auto: Claude Opus 4.8 用户体验与界面"
+    description: "Auto-discovered from Claude Opus 4.8 用户体验与界面 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude Opus 4.8"]
+
+  - url: "https://openai.com/zh-Hans-CN/index/introducing-gpt-5-5/"
+    name: "auto: GPT-5.5 模型核心能力"
+    description: "Auto-discovered from GPT-5.5 模型核心能力 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://developers.openai.ac.cn/api/docs/guides/latest-model"
+    name: "auto: GPT-5.5 模型核心能力"
+    description: "Auto-discovered from GPT-5.5 模型核心能力 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://chatgpt.com/"
+    name: "auto: GPT-5.5 用户体验与界面"
+    description: "Auto-discovered from GPT-5.5 用户体验与界面 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT-5.5"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2040357102842078044"
+    name: "auto: Gemini 3.5 Flash 模型核心能力"
+    description: "Auto-discovered from Gemini 3.5 Flash 模型核心能力 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini 3.5 Flash"]
+
+  - url: "https://platform.moonshot.cn/"
+    name: "auto: Kimi K2.6 支持的功能特性"
+    description: "Auto-discovered from Kimi K2.6 支持的功能特性 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2029928715707233798"
+    name: "auto: Kimi K2.6 使用场景与行业覆盖"
+    description: "Auto-discovered from Kimi K2.6 使用场景与行业覆盖 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2029967735673841494"
+    name: "auto: Kimi K2.6 用户体验与界面"
+    description: "Auto-discovered from Kimi K2.6 用户体验与界面 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Kimi K2.6"]
+
+  - url: "https://baike.baidu.com/item/Anthropic/62639515"
+    name: "auto: Claude 所属公司主体"
+    description: "Auto-discovered from Claude 所属公司主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://baike.baidu.com/item/Claude/62812102"
+    name: "auto: Claude 所属公司主体"
+    description: "Auto-discovered from Claude 所属公司主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://www.anthropic.com/"
+    name: "auto: Claude 所属公司主体"
+    description: "Auto-discovered from Claude 所属公司主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://xueqiu.com/1290568231/387635357"
+    name: "auto: Claude 最新研发投入与资金储备情况"
+    description: "Auto-discovered from Claude 最新研发投入与资金储备情况 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://www.36kr.com/p/3566639203810436"
+    name: "auto: Claude 最新研发投入与资金储备情况"
+    description: "Auto-discovered from Claude 最新研发投入与资金储备情况 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://blog.csdn.net/bylander/article/details/158511414"
+    name: "auto: Claude 核心研发团队规模与人才背景"
+    description: "Auto-discovered from Claude 核心研发团队规模与人才背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://ai-kit.cn/17140.html"
+    name: "auto: Claude 核心研发团队规模与人才背景"
+    description: "Auto-discovered from Claude 核心研发团队规模与人才背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://www.sohu.com/a/939462371_122396381"
+    name: "auto: Claude 核心研发团队规模与人才背景"
+    description: "Auto-discovered from Claude 核心研发团队规模与人才背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://www.sohu.com/a/942380869_122396381"
+    name: "auto: Claude 企业层面对该产品的战略定位"
+    description: "Auto-discovered from Claude 企业层面对该产品的战略定位 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://zgeo.net/news/anthropic-consumer-market-claude-ai-strategy"
+    name: "auto: Claude 企业层面对该产品的战略定位"
+    description: "Auto-discovered from Claude 企业层面对该产品的战略定位 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://www.sohu.com/a/806440350_121902920"
+    name: "auto: Claude 企业层面对该产品的战略定位"
+    description: "Auto-discovered from Claude 企业层面对该产品的战略定位 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2038653734675276993"
+    name: "auto: Claude 多模态支持覆盖范围"
+    description: "Auto-discovered from Claude 多模态支持覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://cloud.tencent.com/developer/article/2676663"
+    name: "auto: Claude 多模态支持覆盖范围"
+    description: "Auto-discovered from Claude 多模态支持覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://platform.claude.com/docs/zh-CN/about-claude/models/overview"
+    name: "auto: Claude 多模态支持覆盖范围"
+    description: "Auto-discovered from Claude 多模态支持覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://zhuanlan.zhihu.com/p/605304682"
+    name: "auto: GPT 所属公司主体"
+    description: "Auto-discovered from GPT 所属公司主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://www.sohu.com/a/932377339_122362510"
+    name: "auto: GPT 最新研发投入与资金储备情况"
+    description: "Auto-discovered from GPT 最新研发投入与资金储备情况 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2014646877476372954"
+    name: "auto: GPT 最新研发投入与资金储备情况"
+    description: "Auto-discovered from GPT 最新研发投入与资金储备情况 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://stock.finance.sina.com.cn/stock/go.php/vReport_Show/kind/lastest/rptid/808600385098/index.phtml"
+    name: "auto: GPT 最新研发投入与资金储备情况"
+    description: "Auto-discovered from GPT 最新研发投入与资金储备情况 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://mengxiangshuo.com/articles/2025/12/05/5158.html"
+    name: "auto: GPT 核心研发团队规模与人才背景"
+    description: "Auto-discovered from GPT 核心研发团队规模与人才背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://wenku.csdn.net/doc/5i5uiorn58"
+    name: "auto: GPT 核心研发团队规模与人才背景"
+    description: "Auto-discovered from GPT 核心研发团队规模与人才背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://zhuanlan.zhihu.com/p/610411150"
+    name: "auto: GPT 核心研发团队规模与人才背景"
+    description: "Auto-discovered from GPT 核心研发团队规模与人才背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1962482233983075223"
+    name: "auto: GPT 企业层面对该产品的战略定位"
+    description: "Auto-discovered from GPT 企业层面对该产品的战略定位 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://www.sohu.com/a/1033388037_122066678"
+    name: "auto: GPT 企业层面对该产品的战略定位"
+    description: "Auto-discovered from GPT 企业层面对该产品的战略定位 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://baike.baidu.com/item/Gemini/62904440"
+    name: "auto: Gemini 所属公司主体"
+    description: "Auto-discovered from Gemini 所属公司主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://gemini.google.com/?hl=zh"
+    name: "auto: Gemini 所属公司主体"
+    description: "Auto-discovered from Gemini 所属公司主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://blockweeks.com/view/168907"
+    name: "auto: Gemini 所属公司主体"
+    description: "Auto-discovered from Gemini 所属公司主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://www.fxbaogao.com/detail/4870279"
+    name: "auto: Gemini 最新研发投入与资金储备情况"
+    description: "Auto-discovered from Gemini 最新研发投入与资金储备情况 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://www.msn.cn/zh-cn/技术/技术公司/谷歌2025年q4财报-ai基模gemini领航-云业务与资本开支双突破/ar-AA1VMbQd"
+    name: "auto: Gemini 最新研发投入与资金储备情况"
+    description: "Auto-discovered from Gemini 最新研发投入与资金储备情况 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://xueqiu.com/1669821390/359180191"
+    name: "auto: Gemini 最新研发投入与资金储备情况"
+    description: "Auto-discovered from Gemini 最新研发投入与资金储备情况 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://platform.claude.com/docs/zh-CN/build-with-claude/multilingual-support"
+    name: "auto: Claude 支持语种覆盖范围"
+    description: "Auto-discovered from Claude 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://blog.eimoon.com/p/anthropic-supported-countries-regions-2026-04/"
+    name: "auto: Claude 支持语种覆盖范围"
+    description: "Auto-discovered from Claude 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Claude"]
+
+  - url: "https://m.36kr.com/p/2918479313001347"
+    name: "auto: Gemini 核心研发团队规模与人才背景"
+    description: "Auto-discovered from Gemini 核心研发团队规模与人才背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://www.163.com/dy/article/JLIPPUH505119734.html"
+    name: "auto: Gemini 核心研发团队规模与人才背景"
+    description: "Auto-discovered from Gemini 核心研发团队规模与人才背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://m.36kr.com/p/2998051674503552"
+    name: "auto: Gemini 核心研发团队规模与人才背景"
+    description: "Auto-discovered from Gemini 核心研发团队规模与人才背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://www.holysheep.ai/articles/zh-2026-05-04t0340-2026-04-23-gpt-55-fabuhou-api-jier-2026-05-04-0015.html"
+    name: "auto: GPT 支持最大上下文窗口长度"
+    description: "Auto-discovered from GPT 支持最大上下文窗口长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2013623328116585435"
+    name: "auto: GPT 支持最大上下文窗口长度"
+    description: "Auto-discovered from GPT 支持最大上下文窗口长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://help.apiyi.com/gpt-5-5-pro-api-integration-guide.html"
+    name: "auto: GPT 支持最大上下文窗口长度"
+    description: "Auto-discovered from GPT 支持最大上下文窗口长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://cloud.google.com/gemini-enterprise?hl=zh-cn"
+    name: "auto: Gemini 企业层面对该产品的战略定位"
+    description: "Auto-discovered from Gemini 企业层面对该产品的战略定位 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://news.qq.com/rain/a/20251011A06VWR00"
+    name: "auto: Gemini 企业层面对该产品的战略定位"
+    description: "Auto-discovered from Gemini 企业层面对该产品的战略定位 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://www.sohu.com/a/942349231_122362510"
+    name: "auto: Gemini 企业层面对该产品的战略定位"
+    description: "Auto-discovered from Gemini 企业层面对该产品的战略定位 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://www.datalearner.com/leaderboards"
+    name: "auto: GPT 通用基准测试集核心得分"
+    description: "Auto-discovered from GPT 通用基准测试集核心得分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1902395399324545137"
+    name: "auto: GPT 通用基准测试集核心得分"
+    description: "Auto-discovered from GPT 通用基准测试集核心得分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2013395520928900927"
+    name: "auto: GPT 通用基准测试集核心得分"
+    description: "Auto-discovered from GPT 通用基准测试集核心得分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://blog.csdn.net/LearnPlex/article/details/161361306"
+    name: "auto: GPT 支持语种覆盖范围"
+    description: "Auto-discovered from GPT 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://developer.baidu.com/article/detail.html?id=5264571"
+    name: "auto: GPT 支持语种覆盖范围"
+    description: "Auto-discovered from GPT 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "http://www.kwrg.cn/news/1090191.html"
+    name: "auto: GPT 支持语种覆盖范围"
+    description: "Auto-discovered from GPT 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://blog.csdn.net/CompiLume/article/details/161560496"
+    name: "auto: Gemini 支持语种覆盖范围"
+    description: "Auto-discovered from Gemini 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://support.google.com/gemini/answer/13575153?hl=zh-Hans"
+    name: "auto: Gemini 支持语种覆盖范围"
+    description: "Auto-discovered from Gemini 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://yingtu.ai/zh/blog/gemini-api-region-availability"
+    name: "auto: Gemini 支持语种覆盖范围"
+    description: "Auto-discovered from Gemini 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://www.llama.com/"
+    name: "auto: Llama 支持最大上下文窗口长度"
+    description: "Auto-discovered from Llama 支持最大上下文窗口长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://github.com/ggml-org/llama.cpp"
+    name: "auto: Llama 支持最大上下文窗口长度"
+    description: "Auto-discovered from Llama 支持最大上下文窗口长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://llama.app/"
+    name: "auto: Llama 支持最大上下文窗口长度"
+    description: "Auto-discovered from Llama 支持最大上下文窗口长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1892715722716722662"
+    name: "auto: Llama 多模态支持覆盖范围"
+    description: "Auto-discovered from Llama 多模态支持覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://jishuzhan.net/article/1909604237291618306"
+    name: "auto: Llama 多模态支持覆盖范围"
+    description: "Auto-discovered from Llama 多模态支持覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://zhuanlan.zhihu.com/p/23622020245"
+    name: "auto: Llama 通用基准测试集核心得分"
+    description: "Auto-discovered from Llama 通用基准测试集核心得分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://blog.csdn.net/gitblog_00342/article/details/153766412"
+    name: "auto: Llama 通用基准测试集核心得分"
+    description: "Auto-discovered from Llama 通用基准测试集核心得分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://qubittool.com/zh/blog/llm-landscape-may-2026-deepseek-qwen-llama-comparison"
+    name: "auto: Llama 通用基准测试集核心得分"
+    description: "Auto-discovered from Llama 通用基准测试集核心得分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://blog.csdn.net/Datawhale/article/details/138051466"
+    name: "auto: Llama 专属特色功能清单"
+    description: "Auto-discovered from Llama 专属特色功能清单 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://zhuanlan.zhihu.com/p/696571171"
+    name: "auto: Llama 支持语种覆盖范围"
+    description: "Auto-discovered from Llama 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://syhya.github.io/zh/posts/2025-04-06-llama/"
+    name: "auto: Llama 支持语种覆盖范围"
+    description: "Auto-discovered from Llama 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://www.deepseek.com/"
+    name: "auto: DeepSeek 支持最大上下文窗口长度"
+    description: "Auto-discovered from DeepSeek 支持最大上下文窗口长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://cn-deepseek.com.cn/"
+    name: "auto: DeepSeek 支持最大上下文窗口长度"
+    description: "Auto-discovered from DeepSeek 支持最大上下文窗口长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://ai-deepseek.com.cn/"
+    name: "auto: DeepSeek 支持最大上下文窗口长度"
+    description: "Auto-discovered from DeepSeek 支持最大上下文窗口长度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://www.aoyii.com/deepseek-v4"
+    name: "auto: DeepSeek 多模态支持覆盖范围"
+    description: "Auto-discovered from DeepSeek 多模态支持覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://deepseak.org/deepseek-v3/"
+    name: "auto: DeepSeek 多模态支持覆盖范围"
+    description: "Auto-discovered from DeepSeek 多模态支持覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://codepick.dev/zh/guides/deepseek-v4-api-platforms/"
+    name: "auto: DeepSeek 多模态支持覆盖范围"
+    description: "Auto-discovered from DeepSeek 多模态支持覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://blog.csdn.net/gitblog_00885/article/details/150615650"
+    name: "auto: DeepSeek 通用基准测试集核心得分"
+    description: "Auto-discovered from DeepSeek 通用基准测试集核心得分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://deepwiki.com/deepseek-ai/DeepSeek-V3/1.3-benchmarks-and-evaluations"
+    name: "auto: DeepSeek 通用基准测试集核心得分"
+    description: "Auto-discovered from DeepSeek 通用基准测试集核心得分 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://ch-deepseek.com.cn/"
+    name: "auto: DeepSeek 专属特色功能清单"
+    description: "Auto-discovered from DeepSeek 专属特色功能清单 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://deepseekv4.app/zh/news/2026-04-24-deepseek-v4-official-launch-report"
+    name: "auto: DeepSeek 专属特色功能清单"
+    description: "Auto-discovered from DeepSeek 专属特色功能清单 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://blog.csdn.net/gitblog_01058/article/details/152581757"
+    name: "auto: DeepSeek 支持语种覆盖范围"
+    description: "Auto-discovered from DeepSeek 支持语种覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://www.llama-cn.com/price.html"
+    name: "auto: Llama 免费版权益与调用限额"
+    description: "Auto-discovered from Llama 免费版权益与调用限额 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://blog.csdn.net/Z987421/article/details/147059498"
+    name: "auto: Llama 免费版权益与调用限额"
+    description: "Auto-discovered from Llama 免费版权益与调用限额 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://github.com/CVLAB-Unibo/LLaNA"
+    name: "auto: Llama 付费层级阶梯定价规则"
+    description: "Auto-discovered from Llama 付费层级阶梯定价规则 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1891802212356838196"
+    name: "auto: Llama 企业定制版报价区间"
+    description: "Auto-discovered from Llama 企业定制版报价区间 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["Llama"]
+
+  - url: "https://yangmao.ai/zh/blog/deepseek-free-quota-guide-2026/"
+    name: "auto: DeepSeek 免费版权益与调用限额"
+    description: "Auto-discovered from DeepSeek 免费版权益与调用限额 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://cloud.baidu.com/article/3561770"
+    name: "auto: DeepSeek 免费版权益与调用限额"
+    description: "Auto-discovered from DeepSeek 免费版权益与调用限额 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://cloud.tencent.com/developer/article/2661075"
+    name: "auto: DeepSeek 付费层级阶梯定价规则"
+    description: "Auto-discovered from DeepSeek 付费层级阶梯定价规则 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://www.nxcode.io/zh/resources/news/deepseek-api-pricing-complete-guide-2026"
+    name: "auto: DeepSeek 付费层级阶梯定价规则"
+    description: "Auto-discovered from DeepSeek 付费层级阶梯定价规则 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://zhuanlan.zhihu.com/p/30663253155"
+    name: "auto: DeepSeek 企业定制版报价区间"
+    description: "Auto-discovered from DeepSeek 企业定制版报价区间 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
+
+  - url: "https://devtk.ai/zh/blog/deepseek-api-pricing-guide-2026/"
+    name: "auto: DeepSeek 企业定制版报价区间"
+    description: "Auto-discovered from DeepSeek 企业定制版报价区间 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["DeepSeek"]
