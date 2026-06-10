@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, App, Button, Card, Checkbox, Col, Collapse, Empty, Form, Input, InputNumber, Progress, Row, Select, Space, Tag, Timeline, Typography } from 'antd';
-import { CheckCircleOutlined, CloudUploadOutlined, FileSearchOutlined, FormOutlined, PictureOutlined, ReloadOutlined, SaveOutlined, SendOutlined } from '@ant-design/icons';
+import { CloudUploadOutlined, FileSearchOutlined, FormOutlined, PictureOutlined, ReloadOutlined, SaveOutlined, SendOutlined } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -84,7 +84,7 @@ export default function SurveyPanel({ taskId, onReportUpdated }: SurveyPanelProp
   const [loading, setLoading] = useState<string | null>(null);
   const [manualUrl, setManualUrl] = useState('');
   const [postImagesText, setPostImagesText] = useState('');
-  const [postTagsText, setPostTagsText] = useState('AI调研, 用户体验');
+  const [postTagsText, setPostTagsText] = useState('');
   const [questionnaireDraft, setQuestionnaireDraft] = useState<any>(null);
   const [postDrafts, setPostDrafts] = useState<Record<string, any>>({});
   const [reportRefreshProgress, setReportRefreshProgress] = useState<ReportRefreshProgress | null>(null);
@@ -324,8 +324,6 @@ export default function SurveyPanel({ taskId, onReportUpdated }: SurveyPanelProp
     campaign_id: activeCampaignId || undefined,
     ...body,
   });
-
-  const approveSurvey = () => postJson('/survey/approve', 'approve', withCampaign());
 
   const saveQuestionnaire = () => putJson('/survey/questionnaire', 'save-questionnaire', withCampaign({ questionnaire: questionnaireDraft }));
 
@@ -591,9 +589,6 @@ export default function SurveyPanel({ taskId, onReportUpdated }: SurveyPanelProp
               <Button block type="primary" icon={<FormOutlined />} loading={loading === 'generate'} disabled={!taskId} onClick={generateSurvey}>
                 生成问卷
               </Button>
-              <Button block icon={<CheckCircleOutlined />} loading={loading === 'approve'} disabled={!campaign} onClick={approveSurvey} style={{ marginTop: 8 }}>
-                审核通过
-              </Button>
               <div style={{ marginTop: 16, marginBottom: 12 }}>
                 <Text type="secondary">当前问卷链接</Text>
                 {campaign?.survey_url ? (
@@ -663,7 +658,7 @@ chmod +x ./xiaohongshu-mcp-darwin-arm64
                 <Input
                   value={postTagsText}
                   onChange={event => setPostTagsText(event.target.value)}
-                  placeholder="AI调研, 用户体验"
+                  placeholder=""
                 />
               </Form.Item>
               <Button block icon={<SendOutlined />} loading={loading === 'publish-post'} disabled={!campaign} onClick={publishPost}>

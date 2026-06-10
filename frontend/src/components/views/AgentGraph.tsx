@@ -45,6 +45,7 @@ const AgentNode = ({ data }: { data: any }) => {
       boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
     }}>
       <Handle type="target" position={Position.Top} id="top" style={{ background: '#555' }} />
+      <Handle type="source" position={Position.Top} id="top-source" style={{ background: '#555' }} />
       <Handle type="target" position={Position.Left} id="left" style={{ background: '#555' }} />
       <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>{label}</div>
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
@@ -83,6 +84,7 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
       collector_product: { status: 'pending' },
       collector_business: { status: 'pending' },
       collector_technical: { status: 'pending' },
+      survey: { status: 'pending' },
       analyzer: { status: 'pending' },
       critic: { status: 'pending' },
       reporter: { status: 'pending' }
@@ -125,6 +127,7 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
     { id: 'collector_technical', type: 'agentNode', position: { x: 550, y: 470 }, data: { label: 'Collector (技术参数)', ...nodeStates.collector_technical } },
 
     { id: 'analyzer', type: 'agentNode', position: { x: 850, y: 300 }, data: { label: 'Analyzer', ...nodeStates.analyzer } },
+    { id: 'survey', type: 'agentNode', position: { x: 850, y: 520 }, data: { label: 'Survey', ...nodeStates.survey } },
     { id: 'critic', type: 'agentNode', position: { x: 1050, y: 300 }, data: { label: 'Critic', ...nodeStates.critic } },
     { id: 'reporter', type: 'agentNode', position: { x: 1250, y: 300 }, data: { label: 'Reporter', ...nodeStates.reporter } },
   ];
@@ -143,6 +146,7 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
     { id: 'e-coll-ts-analy', source: 'collector_technical', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
     { id: 'e-coll-bp-analy', source: 'collector_business', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
     { id: 'e-coll-ge-analy', source: 'collector_company', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
+    { id: 'e-survey-analy', source: 'survey', target: 'analyzer', sourceHandle: 'top-source', targetHandle: 'bottom-target', type: 'smoothstep', animated: nodeStates.analyzer.status === 'running', style: { stroke: '#13c2c2', strokeWidth: 2 }, label: '调研增强', labelStyle: { fill: '#08979c', fontWeight: 'bold' } },
 
     { id: 'e-analy-crit', source: 'analyzer', target: 'critic', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.critic.status === 'running' },
     { id: 'e-crit-repo', source: 'critic', target: 'reporter', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.reporter.status === 'running' },

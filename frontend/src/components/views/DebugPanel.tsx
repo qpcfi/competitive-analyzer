@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { Card, Typography, Progress, Collapse, Tag, Space } from 'antd';
 import { ClockCircleOutlined, CodeOutlined, SyncOutlined } from '@ant-design/icons';
 import AgentGraph from './AgentGraph';
@@ -34,22 +34,27 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId }: DebugPa
   const percent = tokenUsage ? Math.round((tokenUsage.total_used / tokenUsage.budget) * 100) : 0;
   
   // Find current running agent node and latency
-  const currentAgentNode = useMemo(() => {
+  const currentAgentNode = (() => {
     for (let i = logs.length - 1; i >= 0; i--) {
       const log = logs[i];
-      if (log.agent === 'LLM' || log.agent === 'Tool') {
-        if (log.event === 'start') {
-          return { name: log.agent, status: 'running', message: log.message, latency: null };
-        } else if (log.event === 'end') {
-          return { name: log.agent, status: 'finished', message: log.message, latency: log.latency };
-        }
+      if (!log.agent) {
+        continue;
+      }
+      if (log.event === 'start') {
+        return { name: log.agent, status: 'running', message: log.message, latency: null };
+      }
+      if (log.event === 'end') {
+        return { name: log.agent, status: 'finished', message: log.message, latency: log.latency };
+      }
+      if (log.event === 'error') {
+        return { name: log.agent, status: 'error', message: log.message, latency: null };
       }
     }
     return null;
-  }, [logs]);
+  })();
 
   // Natural order: oldest at top, newest at bottom
-  const orderedLogs = useMemo(() => [...logs], [logs]);
+  const orderedLogs = [...logs];
 
   return (
     <div style={{ height: `${height}px`, borderTop: '1px solid #ccc', background: '#fafafa', overflow: 'auto', padding: '16px' }}>
@@ -86,10 +91,10 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId }: DebugPa
           {currentAgentNode ? (
             <div>
               <Space>
-                {currentAgentNode.status === 'running' ? <SyncOutlined spin style={{ color: '#1677ff' }} /> : <ClockCircleOutlined style={{ color: '#52c41a' }} />}
+                {currentAgentNode.status === 'running' ? <SyncOutlined spin style={{ color: '#1677ff' }} /> : <ClockCircleOutlined style={{ color: currentAgentNode.status === 'error' ? '#ff4d4f' : '#52c41a' }} />}
                 <Text strong>{currentAgentNode.name}</Text>
-                <Tag color={currentAgentNode.status === 'running' ? 'processing' : 'success'}>
-                  {currentAgentNode.status === 'running' ? '执行中' : '已完成'}
+                <Tag color={currentAgentNode.status === 'running' ? 'processing' : currentAgentNode.status === 'error' ? 'error' : 'success'}>
+                  {currentAgentNode.status === 'running' ? '执行中' : currentAgentNode.status === 'error' ? '错误' : '已完成'}
                 </Tag>
               </Space>
               <div style={{ marginTop: 8 }}>
