@@ -1,5 +1,4 @@
 from copy import deepcopy
-from time import perf_counter
 from typing import Any
 
 from agents.analyzer import analyzer_node
@@ -24,12 +23,6 @@ from sqlalchemy import select
 
 
 async def refresh_report_with_survey(task_id: str, response_ids: list[str] | None = None, campaign_id: str | None = None) -> dict[str, Any]:
-    survey_started = perf_counter()
-    await publish_event(
-        task_id,
-        "debug_log",
-        {"agent": "Survey", "event": "start", "message": "Preparing selected survey responses for report enrichment."},
-    )
     await publish_event(
         task_id,
         "survey_report_refresh_progress",
@@ -104,21 +97,6 @@ async def refresh_report_with_survey(task_id: str, response_ids: list[str] | Non
         if task:
             task.raw_materials = existing_materials + survey_materials
         await session.commit()
-    await publish_event(
-        task_id,
-        "debug_log",
-        {
-            "agent": "Survey",
-            "event": "end",
-            "message": f"Survey responses synthesized into {len(survey_materials)} first-party materials.",
-            "latency": perf_counter() - survey_started,
-            "output_json": {
-                "selected_response_count": len(responses),
-                "survey_material_count": len(survey_materials),
-                "campaign_id": campaign.id,
-            },
-        },
-    )
 
     await publish_event(
         task_id,
@@ -147,79 +125,15 @@ async def refresh_report_with_survey(task_id: str, response_ids: list[str] | Non
         "module_updates": [],
         "retry_counts": {},
     }
-    analyzer_started = perf_counter()
-    await publish_event(
-        task_id,
-        "debug_log",
-        {
-            "agent": "Analyzer",
-            "event": "start",
-            "message": "Re-analyzing with first-party survey materials.",
-            "input_json": {
-                "public_material_count": len(existing_materials),
-                "survey_material_count": len(survey_materials),
-            },
-        },
-    )
-    try:
-        state = await analyzer_node(state)
-    except Exception as exc:
-        await publish_event(
-            task_id,
-            "debug_log",
-            {
-                "agent": "Analyzer",
-                "event": "error",
-                "message": f"Survey-enriched analysis failed: {exc}",
-                "latency": perf_counter() - analyzer_started,
-            },
-        )
-        raise
-    await publish_event(
-        task_id,
-        "debug_log",
-        {
-            "agent": "Analyzer",
-            "event": "end",
-            "message": "Survey-enriched analysis completed.",
-            "latency": perf_counter() - analyzer_started,
-        },
-    )
+    state = await analyzer_node({**state, "task_id": None})
+    state["task_id"] = task_id
     await publish_event(
         task_id,
         "survey_report_refresh_progress",
         {"stage": "reporting", "progress": 82, "status": "running", "message": "Analyzer 已完成，正在重新生成结构化报告。"},
     )
-    reporter_started = perf_counter()
-    await publish_event(
-        task_id,
-        "debug_log",
-        {"agent": "Reporter", "event": "start", "message": "Generating survey-enriched structured report."},
-    )
-    try:
-        state = await reporter_node(state)
-    except Exception as exc:
-        await publish_event(
-            task_id,
-            "debug_log",
-            {
-                "agent": "Reporter",
-                "event": "error",
-                "message": f"Survey-enriched report generation failed: {exc}",
-                "latency": perf_counter() - reporter_started,
-            },
-        )
-        raise
-    await publish_event(
-        task_id,
-        "debug_log",
-        {
-            "agent": "Reporter",
-            "event": "end",
-            "message": "Survey-enriched structured report generated.",
-            "latency": perf_counter() - reporter_started,
-        },
-    )
+    state = await reporter_node({**state, "task_id": None})
+    state["task_id"] = task_id
     analysis = state.get("analysis_results") or {}
     analysis.setdefault("report", {})
     analysis["report"]["version_label"] = "v2_survey_enriched"

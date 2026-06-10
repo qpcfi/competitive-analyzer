@@ -1771,3 +1771,115 @@ sources:
     skills: ["business"]
     tags: ["auto-discovered"]
     competitors: ["DeepSeek"]
+
+  - url: "https://www.kuaishou.com/"
+    name: "auto: 快手 沉浸式全屏视频流"
+    description: "Auto-discovered from 快手 沉浸式全屏视频流 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://zhuanlan.zhihu.com/p/707005563"
+    name: "auto: 快手 沉浸式全屏视频流"
+    description: "Auto-discovered from 快手 沉浸式全屏视频流 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://segmentfault.com/a/1190000045032598"
+    name: "auto: 快手 沉浸式全屏视频流"
+    description: "Auto-discovered from 快手 沉浸式全屏视频流 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "http://kuaishou.cn/ott"
+    name: "auto: 快手 视频播放与加载体验"
+    description: "Auto-discovered from 快手 视频播放与加载体验 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://h5.kwaiying.com/officialWebsite"
+    name: "auto: 快手 视频播放与加载体验"
+    description: "Auto-discovered from 快手 视频播放与加载体验 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.right.com.cn/forum/thread-8444290-1-1.html"
+    name: "auto: 快手 无干扰设计（无广告/弹窗）"
+    description: "Auto-discovered from 快手 无干扰设计（无广告/弹窗） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://zhuanlan.zhihu.com/p/663937378"
+    name: "auto: 快手 无干扰设计（无广告/弹窗）"
+    description: "Auto-discovered from 快手 无干扰设计（无广告/弹窗） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.douyin.com/"
+    name: "auto: 抖音 无干扰设计（无广告/弹窗）"
+    description: "Auto-discovered from 抖音 无干扰设计（无广告/弹窗） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.sohu.com/a/805208684_120793684"
+    name: "auto: 抖音 无干扰设计（无广告/弹窗）"
+    description: "Auto-discovered from 抖音 无干扰设计（无广告/弹窗） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://scriptcat.org/zh-TW/script-show-page/2534"
+    name: "auto: 抖音 无干扰设计（无广告/弹窗）"
+    description: "Auto-discovered from 抖音 无干扰设计（无广告/弹窗） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://jingyan.baidu.com/article/6dad50755594c4e022e36e2c.html"
+    name: "auto: 快手 视频播放控制（进度条/倍速/暂停交互）"
+    description: "Auto-discovered from 快手 视频播放控制（进度条/倍速/暂停交互） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.toutiao.com/topic/7536769878444001290/"
+    name: "auto: 快手 视频播放控制（进度条/倍速/暂停交互）"
+    description: "Auto-discovered from 快手 视频播放控制（进度条/倍速/暂停交互） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.shihuishuo.com/m/22800.html"
+    name: "auto: 快手 视频播放控制（进度条/倍速/暂停交互）"
+    description: "Auto-discovered from 快手 视频播放控制（进度条/倍速/暂停交互） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://open.kuaishou.com/miniPlayDocs/plan/standard.html"
+    name: "auto: 快手 弹幕/评论等互动元素在播放中的呈现方式"
+    description: "Auto-discovered from 快手 弹幕/评论等互动元素在播放中的呈现方式 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://docs.qingque.cn/d/home/eZQB21ul7R-HFRf1TU9XfsZD0?identityId=1xuCcme2H6C"
+    name: "auto: 快手 弹幕/评论等互动元素在播放中的呈现方式"
+    description: "Auto-discovered from 快手 弹幕/评论等互动元素在播放中的呈现方式 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://news.qq.com/rain/a/20230629A0A1QC00"
+    name: "auto: 快手 弹幕/评论等互动元素在播放中的呈现方式"
+    description: "Auto-discovered from 快手 弹幕/评论等互动元素在播放中的呈现方式 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]

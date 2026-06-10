@@ -78,7 +78,6 @@ export default function SurveyPanel({ taskId, onReportUpdated }: SurveyPanelProp
   const [campaign, setCampaign] = useState<SurveyCampaign | null>(null);
   const [campaigns, setCampaigns] = useState<SurveyCampaign[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
-  const [historyRetentionDays, setHistoryRetentionDays] = useState<number>(30);
   const [responseItems, setResponseItems] = useState<SurveyResponse[]>([]);
   const [selectedResponseIds, setSelectedResponseIds] = useState<string[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
@@ -109,8 +108,7 @@ export default function SurveyPanel({ taskId, onReportUpdated }: SurveyPanelProp
   const fetchCampaigns = async (silent = false) => {
     if (!taskId) return;
     try {
-      const query = historyRetentionDays > 0 ? `?retention_days=${historyRetentionDays}` : '?retention_days=0';
-      const response = await fetch(`${API_BASE}/tasks/${taskId}/survey/campaigns${query}`);
+      const response = await fetch(`${API_BASE}/tasks/${taskId}/survey/campaigns`);
       if (response.status === 404) {
         setCampaigns([]);
         setSelectedCampaignId(null);
@@ -192,7 +190,7 @@ export default function SurveyPanel({ taskId, onReportUpdated }: SurveyPanelProp
     setCampaigns([]);
     setResponseItems([]);
     fetchCampaigns(true);
-  }, [taskId, historyRetentionDays]);
+  }, [taskId]);
 
   useEffect(() => {
     if (!taskId || !selectedCampaignId) return;
@@ -508,20 +506,7 @@ export default function SurveyPanel({ taskId, onReportUpdated }: SurveyPanelProp
             title="历史问卷链接"
             style={{ marginBottom: 16 }}
             extra={
-              <Space size={8}>
-                <Select
-                  size="small"
-                  value={historyRetentionDays}
-                  style={{ width: 100 }}
-                  onChange={setHistoryRetentionDays}
-                  options={[
-                    { value: 7, label: '近 7 天' },
-                    { value: 30, label: '近 30 天' },
-                    { value: 0, label: '全部' },
-                  ]}
-                />
-                <Button size="small" icon={<ReloadOutlined />} disabled={!taskId} onClick={() => fetchCampaigns()}>刷新</Button>
-              </Space>
+              <Button size="small" icon={<ReloadOutlined />} disabled={!taskId} onClick={() => fetchCampaigns()}>刷新</Button>
             }
           >
             {campaigns.length ? (
