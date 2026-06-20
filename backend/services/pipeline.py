@@ -15,6 +15,7 @@ from services.repositories import (
     add_intervention,
     build_field_index,
     get_task,
+    is_task_run_active,
     latest_schema,
     resolve_feedback_items,
     save_analysis_module,
@@ -28,8 +29,29 @@ from services.stats import count_schema_stats, source_stats
 from sqlalchemy import select, desc
 
 
-async def publish_event(task_id: str, event_type: str, data: dict[str, Any]):
-    return await event_broker.publish(task_id, event_type, data)
+class StaleRunError(Exception):
+    pass
+
+
+async def guard_active(task_id: str, run_id: str) -> None:
+    """Raise StaleRunError if this run is no longer the active run for the task."""
+    if runner.is_cancelled(task_id):
+        raise StaleRunError("Task was cancelled")
+    async with async_session() as session:
+        if not await is_task_run_active(session, task_id, run_id):
+            raise StaleRunError("Stale task run")
+
+
+async def is_current_run(task_id: str, run_id: str) -> bool:
+    """Check if a run is still the current active run (in-memory + DB)."""
+    if runner.is_cancelled(task_id):
+        return False
+    async with async_session() as session:
+        return await is_task_run_active(session, task_id, run_id)
+
+
+async def publish_event(task_id: str, event_type: str, data: dict[str, Any], run_id: str | None = None, allow_inactive: bool = False):
+    return await event_broker.publish(task_id, event_type, data, run_id=run_id, allow_inactive=allow_inactive)
 
 
 async def event_generator(task_id: str, since: int = 0):
@@ -37,9 +59,52 @@ async def event_generator(task_id: str, since: int = 0):
         yield message
 
 
-def make_initial_state(req: TaskCreateRequest, task_id: str, schema_version: int = 1) -> dict[str, Any]:
+def _field_label(field: dict[str, Any]) -> str:
+    return str(field.get("field_name") or field.get("name") or field.get("id") or "").strip()
+
+
+def _field_id(field: dict[str, Any]) -> str:
+    return str(field.get("id") or "").strip()
+
+
+def _match_feedback_field_ids(feedback: QualityFeedbackRecord, field_index: list[dict[str, Any]]) -> list[str]:
+    """Best-effort mapping from persisted critic feedback to schema field ids."""
+    haystacks = [
+        str(value).lower()
+        for value in (feedback.target_id, feedback.module_id, feedback.code, feedback.message)
+        if value
+    ]
+    matched: list[str] = []
+    for field in field_index:
+        fid = _field_id(field)
+        label = _field_label(field)
+        candidates = [fid.lower(), label.lower()]
+        if any(candidate and candidate in haystack for candidate in candidates for haystack in haystacks):
+            if fid:
+                matched.append(fid)
+    return list(dict.fromkeys(matched))
+
+
+def _all_field_ids(field_index: list[dict[str, Any]]) -> list[str]:
+    return list(dict.fromkeys([_field_id(field) for field in field_index if _field_id(field)]))
+
+
+def _material_urls(materials: list[dict[str, Any]]) -> list[str]:
+    urls: list[str] = []
+    for material in materials:
+        source_url = str(material.get("source_url") or "").strip()
+        if source_url:
+            urls.append(source_url)
+        source_urls = material.get("source_urls") or []
+        if isinstance(source_urls, list):
+            urls.extend(str(url).strip() for url in source_urls if str(url).strip())
+    return list(dict.fromkeys(urls))
+
+
+def make_initial_state(req: TaskCreateRequest, task_id: str, run_id: str, schema_version: int = 1) -> dict[str, Any]:
     return {
         "task_id": task_id,
+        "run_id": run_id,
         "task_context": {
             "domain": req.domain,
             "competitors": req.competitors,
@@ -61,19 +126,23 @@ def make_initial_state(req: TaskCreateRequest, task_id: str, schema_version: int
     }
 
 
-async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], *, continue_after_schema: bool = False):
+async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dict[str, Any], *, continue_after_schema: bool = False):
     try:
         from agents.discoverer.node import discoverer_node
-        if runner.is_cancelled(task_id):
+        if not await is_current_run(task_id, run_id):
             return
 
-        await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Starting competitor discovery and market context gathering."})
+        await guard_active(task_id, run_id)
+        await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Starting competitor discovery and market context gathering."}, run_id=run_id)
         state = await discoverer_node(initial_state)
-        await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Competitors discovered and market context loaded."})
-        await publish_event(task_id, "progress_update", {"progress": 15, "stage": "DISCOVERING"})
-        
-        await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Completing competitors and schema from domain inputs."})
+        await guard_active(task_id, run_id)
+        await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Competitors discovered and market context loaded."}, run_id=run_id)
+        await publish_event(task_id, "progress_update", {"progress": 15, "stage": "DISCOVERING"}, run_id=run_id)
+
+        await guard_active(task_id, run_id)
+        await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Completing competitors and schema from domain inputs."}, run_id=run_id)
         state = await orchestrator_node(state)
+        await guard_active(task_id, run_id)
         schema_json = state.get("dynamic_schema") or {}
         discovered_competitors = (state.get("task_context") or {}).get("competitors") or []
         async with async_session() as session:
@@ -96,8 +165,8 @@ async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], 
             )
             await session.commit()
             print(f"[SNAPSHOT] checkpoint committed for {task_id}", flush=True)
-        await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Competitor list and schema completed."})
-        await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"})
+        await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Competitor list and schema completed."}, run_id=run_id)
+        await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"}, run_id=run_id)
         await publish_event(
             task_id,
             "schema_ready",
@@ -107,155 +176,43 @@ async def process_initial_pipeline(task_id: str, initial_state: dict[str, Any], 
                 "competitors": discovered_competitors,
                 "stats": count_schema_stats(schema_json),
             },
+            run_id=run_id,
         )
-        await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_REVIEW", "progress": 30})
+        await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_REVIEW", "progress": 30}, run_id=run_id)
         if continue_after_schema:
             async with async_session() as session:
                 await update_task_state(session, task_id, state="COLLECTING", progress=40)
                 await session.commit()
-            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "previous_state": "SCHEMA_REVIEW", "progress": 40})
+            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "previous_state": "SCHEMA_REVIEW", "progress": 40}, run_id=run_id)
             if runner.is_cancelled(task_id):
                 return
-            await process_agent_pipeline(task_id)
-    except Exception as exc:
-        async with async_session() as session:
-            try:
-                await update_task_state(session, task_id, state="ERROR", error={"message": str(exc), "type": exc.__class__.__name__})
-                await session.commit()
-            except Exception:
-                await session.rollback()
-        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True})
-
-
-async def process_graph_events(task_id: str, graph, initial_state, config):
-    if graph is None:
-        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": "Workflow is not initialized", "recoverable": True})
+            await process_agent_pipeline(task_id, run_id)
+    except (StaleRunError, asyncio.CancelledError):
         return
-
-    try:
-        async for event in graph.astream(initial_state, config, stream_mode="updates"):
-            for node_name, state in event.items():
-                if node_name == "discoverer":
-                    discovered_competitors = (state.get("task_context") or {}).get("competitors") or []
-                    async with async_session() as session:
-                        task = await get_task(session, task_id)
-                        if task and discovered_competitors:
-                            task.competitors = discovered_competitors
-                            await session.commit()
-                    await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Competitors discovered successfully."})
-                    await publish_event(task_id, "progress_update", {"progress": 15, "stage": "DISCOVERING"})
-                    await publish_event(task_id, "task_state_changed", {"state": "DISCOVERING", "progress": 15})
-
-                elif node_name == "orchestrator":
-                    schema_json = state.get("dynamic_schema") or {}
-                    schema_version = state.get("schema_version", 1)
-                    async with async_session() as session:
-                        await save_schema(session, task_id, schema_json, created_by="agent", status="active")
-                        await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
-                        await session.commit()
-                    await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Schema generated successfully."})
-                    await publish_event(task_id, "token_update", {"total_used": 1500, "budget": 50000, "estimated_remaining": 48500})
-                    await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"})
-                    await publish_event(
-                        task_id,
-                        "schema_ready",
-                        {
-                            "dynamic_schema": schema_json,
-                            "schema_version": schema_version,
-                            "competitors": (state.get("task_context") or {}).get("competitors") or [],
-                            "stats": count_schema_stats(schema_json)
-                        },
-                    )
-                    await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_REVIEW", "progress": 30})
-
-                elif node_name.startswith("collector_"):
-                    materials = state.get("raw_materials") or []
-                    async with async_session() as session:
-                        await save_source_materials(session, task_id, materials)
-                        task = await update_task_state(session, task_id, state="COLLECTING", progress=60)
-                        task.raw_materials = materials
-                        await session.commit()
-                    await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
-                    await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
-                    await publish_event(task_id, "raw_materials_updated", {"data": materials, "source_stats": source_stats(materials)})
-
-                elif node_name == "analyzer":
-                    analysis = state.get("analysis_results") or {}
-                    async with async_session() as session:
-                        task = await update_task_state(session, task_id, state="ANALYZING", progress=90)
-                        task.analysis_results = analysis
-                        for module_id in ("comparison", "swot"):
-                            content = analysis.get(module_id, {}) if isinstance(analysis, dict) else {}
-                            await save_analysis_module(
-                                session,
-                                task_id,
-                                module_id=module_id,
-                                module_type=module_id,
-                                content=content if isinstance(content, dict) else {"items": content},
-                                evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
-                            )
-                        await session.commit()
-                    await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": "Analysis completed."})
-                    await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"})
-                    await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90})
-                    await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis})
-                    await publish_event(task_id, "token_update", {"total_used": 8500, "budget": 50000, "estimated_remaining": 41500})
-
-                elif node_name == "critic":
-                    feedback = state.get("critic_feedback") or []
-                    async with async_session() as session:
-                        task = await update_task_state(session, task_id, state="CRITIQUING", progress=95)
-                        task.critic_feedback = feedback
-                        await save_quality_feedback(session, task_id, feedback)
-                        await session.commit()
-                    await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "end", "message": "Critic evaluation completed."})
-                    await publish_event(task_id, "progress_update", {"progress": 95, "stage": "CRITIQUING"})
-                    await publish_event(task_id, "task_state_changed", {"state": "CRITIQUING", "progress": 95})
-
-                elif node_name == "reporter":
-                    analysis = state.get("analysis_results") or {}
-                    async with async_session() as session:
-                        task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
-                        task.analysis_results = analysis
-                        task.final_report = analysis.get("report", {})
-                        task.completed_at = datetime.utcnow()
-                        content = analysis.get("report", {})
-                        await save_analysis_module(
-                            session,
-                            task_id,
-                            module_id="report",
-                            module_type="report",
-                            content=content if isinstance(content, dict) else {"items": content},
-                            evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
-                        )
-                        await session.commit()
-                    await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "end", "message": "Structured report generated."})
-                    await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"})
-                    await publish_event(task_id, "task_state_changed", {"state": "COMPLETED", "progress": 100})
-                    await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": analysis})
-                    await publish_event(task_id, "task_completed", {"final_report_url": f"/api/v1/tasks/{task_id}/report", "state": "COMPLETED"})
-
     except Exception as exc:
+        if not await is_current_run(task_id, run_id):
+            return
         async with async_session() as session:
             try:
                 await update_task_state(session, task_id, state="ERROR", error={"message": str(exc), "type": exc.__class__.__name__})
                 await session.commit()
             except Exception:
                 await session.rollback()
-        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True})
+        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True}, run_id=run_id)
 
 
-async def _with_timeout(task_id: str, label: str, coro):
+
+async def _with_timeout(task_id: str, run_id: str, label: str, coro):
     """Run a coro with 30s timeout, publishing debug events on success/failure."""
     try:
         result = await asyncio.wait_for(coro, timeout=30)
         return result
     except asyncio.TimeoutError:
-        await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "error", "message": f"[TIMEOUT] {label} timed out after 30s"})
+        await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "error", "message": f"[TIMEOUT] {label} timed out after 30s"}, run_id=run_id)
         raise
 
 
-async def process_agent_pipeline(task_id: str, start_from: str = "collector", snapshot_data: dict[str, Any] | None = None):
+async def process_agent_pipeline(task_id: str, run_id: str, start_from: str = "collector", snapshot_data: dict[str, Any] | None = None):
     async with async_session() as session:
         db_task = await get_task(session, task_id)
         if not db_task:
@@ -271,6 +228,7 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
 
         state = {
             "task_id": task_id,
+            "run_id": run_id,
             "task_context": {
                 "domain": db_task.domain,
                 "competitors": db_task.competitors or [],
@@ -293,28 +251,30 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
 
     try:
         async def publish_collector_progress(payload: dict[str, Any]):
-            await publish_event(task_id, "collector_log", payload)
+            await publish_event(task_id, "collector_log", payload, run_id=run_id)
 
         # ── Emit synthetic end events for skipped earlier phases ──
         if start_from in ("collector",):
-            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Skipped (restored from snapshot)."})
-            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Completed (restored from snapshot)."})
-            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (restored from snapshot)."})
-            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Completed (restored from snapshot)."})
-            await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"})
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Skipped (restored from snapshot)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Completed (restored from snapshot)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (restored from snapshot)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Completed (restored from snapshot)."}, run_id=run_id)
+            await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"}, run_id=run_id)
         elif start_from in ("analyzer",):
-            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Skipped (restored from post-collection snapshot)."})
-            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Completed (restored from post-collection snapshot)."})
-            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (restored from post-collection snapshot)."})
-            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Completed (restored from post-collection snapshot)."})
-            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Skipped (data already collected, using snapshot materials)."})
-            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Completed (materials restored from snapshot)."})
-            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Skipped (restored from post-collection snapshot)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Completed (restored from post-collection snapshot)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (restored from post-collection snapshot)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Completed (restored from post-collection snapshot)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Skipped (data already collected, using snapshot materials)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Completed (materials restored from snapshot)."}, run_id=run_id)
+            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"}, run_id=run_id)
 
         # ── COLLECTOR PHASE ──
         if start_from in ("collector",):
-            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Starting data collection for all competitors."})
+            await guard_active(task_id, run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Starting data collection for all competitors."}, run_id=run_id)
             state = await collector_node(state, on_progress=publish_collector_progress)
+            await guard_active(task_id, run_id)
             materials = state.get("raw_materials") or []
             competitor_counts = {}
             status_counts = {}
@@ -332,11 +292,12 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
                 "quote": (m.get("quote_text") or "")[:200],
                 "degraded_reason": m.get("degraded_reason"),
             } for m in materials[:6]]
-            await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": f"Collector returned {len(materials)} materials: {competitor_counts}, status: {status_counts}, saving to DB...", "output_json": {"total": len(materials), "per_competitor": competitor_counts, "per_status": status_counts, "sample": material_sample}})
+            await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": f"Collector returned {len(materials)} materials: {competitor_counts}, status: {status_counts}, saving to DB...", "output_json": {"total": len(materials), "per_competitor": competitor_counts, "per_status": status_counts, "sample": material_sample}}, run_id=run_id)
             async with async_session() as session:
-                task = await _with_timeout(task_id, "update_task_state", update_task_state(session, task_id, state="COLLECTING", progress=60))
+                await guard_active(task_id, run_id)
+                task = await _with_timeout(task_id, run_id, "update_task_state", update_task_state(session, task_id, state="COLLECTING", progress=60))
                 task.raw_materials = materials
-                await _with_timeout(task_id, "save_source_materials", save_source_materials(session, task_id, materials))
+                await _with_timeout(task_id, run_id, "save_source_materials", save_source_materials(session, task_id, materials))
 
                 # ── Post-collection snapshot ──
                 await write_checkpoint(
@@ -352,87 +313,98 @@ async def process_agent_pipeline(task_id: str, start_from: str = "collector", sn
                 )
 
                 await session.commit()
-            await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": "DB save complete."})
-            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Data collection completed."})
-            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
-            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
-            await publish_event(task_id, "raw_materials_updated", {"data": materials, "source_stats": source_stats(materials)})
+            await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": "DB save complete."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Data collection completed."}, run_id=run_id)
+            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"}, run_id=run_id)
+            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60}, run_id=run_id)
+            await publish_event(task_id, "raw_materials_updated", {"data": materials, "source_stats": source_stats(materials)}, run_id=run_id)
         else:
-            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
-            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
+            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"}, run_id=run_id)
+            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60}, run_id=run_id)
 
-        if runner.is_cancelled(task_id):
+        if not await is_current_run(task_id, run_id):
             return
 
         # ── ANALYZER PHASE ──
         if start_from in ("collector", "analyzer"):
-            await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "start", "message": "Starting comparative analysis."})
+            await guard_active(task_id, run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "start", "message": "Starting comparative analysis."}, run_id=run_id)
             state = await analyzer_node(state)
+            await guard_active(task_id, run_id)
             analysis = state.get("analysis_results") or {}
             async with async_session() as session:
-                task = await _with_timeout(task_id, "update_task_state", update_task_state(session, task_id, state="ANALYZING", progress=90))
+                task = await _with_timeout(task_id, run_id, "update_task_state", update_task_state(session, task_id, state="ANALYZING", progress=90))
                 task.analysis_results = analysis
                 for module_id in ("comparison", "swot", "report"):
                     content = analysis.get(module_id, {}) if isinstance(analysis, dict) else {}
-                    await _with_timeout(task_id, f"save_analysis_module({module_id})", save_analysis_module(
+                    await _with_timeout(task_id, run_id, f"save_analysis_module({module_id})", save_analysis_module(
                         session, task_id,
                         module_id=module_id, module_type=module_id,
                         content=content if isinstance(content, dict) else {"items": content},
                         evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
                     ))
                 await session.commit()
-            await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": "Analysis completed."})
-            await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"})
-            await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90})
-            await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis})
+            await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": "Analysis completed."}, run_id=run_id)
+            await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"}, run_id=run_id)
+            await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90}, run_id=run_id)
+            await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis}, run_id=run_id)
         else:
-            await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"})
-            await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90})
+            await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"}, run_id=run_id)
+            await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90}, run_id=run_id)
 
-        if runner.is_cancelled(task_id):
+        if not await is_current_run(task_id, run_id):
             return
 
         # ── CRITIC PHASE ──
         if start_from in ("collector", "analyzer", "critic"):
-            await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Starting critic quality evaluation."})
+            await guard_active(task_id, run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Starting critic quality evaluation."}, run_id=run_id)
             state = await critic_node(state)
-            state, calibration_outcome = await run_schema_calibration(task_id, state)
+            state, calibration_outcome = await run_schema_calibration(task_id, run_id, state)
             if calibration_outcome == "waiting_for_user":
                 return
 
-        if runner.is_cancelled(task_id):
+        if not await is_current_run(task_id, run_id):
             return
 
         # ── REPORTER PHASE ──
         if start_from in ("collector", "analyzer", "critic", "reporter"):
-            await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final structured report."})
+            await guard_active(task_id, run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final structured report."}, run_id=run_id)
             state = await reporter_node(state)
-            await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": state.get("analysis_results") or {}})
+            await guard_active(task_id, run_id)
+            await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": state.get("analysis_results") or {}}, run_id=run_id)
 
             feedback = state.get("critic_feedback") or []
             async with async_session() as session:
-                task = await _with_timeout(task_id, "update_task_state(COMPLETED)", update_task_state(session, task_id, state="COMPLETED", progress=100))
+                await guard_active(task_id, run_id)
+                task = await _with_timeout(task_id, run_id, "update_task_state(COMPLETED)", update_task_state(session, task_id, state="COMPLETED", progress=100))
                 task.analysis_results = state.get("analysis_results") or {}
                 task.critic_feedback = feedback
                 task.final_report = task.analysis_results.get("report", {})
                 task.completed_at = datetime.utcnow()
-                await _with_timeout(task_id, "save_quality_feedback", save_quality_feedback(session, task_id, feedback))
+                await _with_timeout(task_id, run_id, "save_quality_feedback", save_quality_feedback(session, task_id, feedback))
                 await session.commit()
-            await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "end", "message": "Critic evaluation completed."})
-            await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"})
-            await publish_event(task_id, "task_state_changed", {"state": "COMPLETED", "progress": 100})
-            await publish_event(task_id, "task_completed", {"final_report_url": f"/api/v1/tasks/{task_id}/report", "state": "COMPLETED"})
+            await guard_active(task_id, run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "end", "message": "Critic evaluation completed."}, run_id=run_id)
+            await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"}, run_id=run_id)
+            await publish_event(task_id, "task_state_changed", {"state": "COMPLETED", "progress": 100}, run_id=run_id)
+            await publish_event(task_id, "task_completed", {"final_report_url": f"/api/v1/tasks/{task_id}/report", "state": "COMPLETED"}, run_id=run_id)
+    except (StaleRunError, asyncio.CancelledError):
+        return
     except Exception as exc:
+        if not await is_current_run(task_id, run_id):
+            return
         async with async_session() as session:
             try:
                 await update_task_state(session, task_id, state="ERROR", error={"message": str(exc), "type": exc.__class__.__name__})
                 await session.commit()
             except Exception:
                 await session.rollback()
-        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True})
+        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True}, run_id=run_id)
 
 
-async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[dict[str, Any], str]:
+async def run_schema_calibration(task_id: str, run_id: str, state: dict[str, Any]) -> tuple[dict[str, Any], str]:
     suggestions = state.get("suggested_schema_extensions") or []
     feedback = state.get("critic_feedback") or []
     needs_intervention = len(suggestions) > 0 or len(feedback) > 0
@@ -443,6 +415,7 @@ async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[d
     execution_mode = context.get("execution_mode", "step_by_step")
     if execution_mode != "auto":
         import sys; print("[CALIBRATION] acquiring session...", file=sys.stderr, flush=True)
+        await guard_active(task_id, run_id)
         async with async_session() as session:
             await update_task_state(session, task_id, state="NEEDS_INTERVENTION", progress=95)
             await add_intervention(session, task_id, "schema_extension_request", {"suggestions": suggestions, "feedback_count": len(feedback)})
@@ -451,7 +424,7 @@ async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[d
             print("[CALIBRATION] update + intervention + feedback done, committing...", file=sys.stderr, flush=True)
             await session.commit()
         print("[CALIBRATION] DB done, publishing events...", file=sys.stderr, flush=True)
-        await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "debug", "message": f"Intervention saved, {len(suggestions)} extensions + {len(feedback)} feedback items pending user review."})
+        await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "debug", "message": f"Intervention saved, {len(suggestions)} extensions + {len(feedback)} feedback items pending user review."}, run_id=run_id)
         await publish_event(
             task_id,
             "schema_extension_request",
@@ -460,9 +433,10 @@ async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[d
                 "feedback_count": len(feedback),
                 "message": "Critic found quality issues to review. Open Critic Review panel.",
             },
+            run_id=run_id,
         )
         print("[CALIBRATION] publishing task_state_changed NEEDS_INTERVENTION...", flush=True)
-        await publish_event(task_id, "task_state_changed", {"state": "NEEDS_INTERVENTION", "progress": 95, "suggested_schema_extensions": suggestions, "feedback_count": len(feedback)})
+        await publish_event(task_id, "task_state_changed", {"state": "NEEDS_INTERVENTION", "progress": 95, "suggested_schema_extensions": suggestions, "feedback_count": len(feedback)}, run_id=run_id)
         print("[CALIBRATION] events published, returning waiting_for_user", flush=True)
         return state, "waiting_for_user"
 
@@ -481,6 +455,7 @@ async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[d
     context["collection_scope_field_ids"] = [field["id"] for field in added_fields if field.get("id")]
     state["task_context"] = context
 
+    await guard_active(task_id, run_id)
     async with async_session() as session:
         await save_schema(session, task_id, updated_schema, created_by="critic", status="active")
         await update_task_state(session, task_id, state="SCHEMA_CALIBRATING", progress=92)
@@ -493,11 +468,14 @@ async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[d
             "added_fields": added_fields,
             "stats": count_schema_stats(updated_schema),
         },
+        run_id=run_id,
     )
-    await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_CALIBRATING", "progress": 92})
+    await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_CALIBRATING", "progress": 92}, run_id=run_id)
 
     previous_materials = list(state.get("raw_materials") or [])
+    await guard_active(task_id, run_id)
     incremental_state = await collector_node(state)
+    await guard_active(task_id, run_id)
     new_materials = incremental_state.get("raw_materials") or []
     state["raw_materials"] = previous_materials + new_materials
     context.pop("collection_scope_field_ids", None)
@@ -508,9 +486,11 @@ async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[d
         task.raw_materials = state["raw_materials"]
         await save_source_materials(session, task_id, new_materials)
         await session.commit()
-    await publish_event(task_id, "raw_materials_updated", {"data": state["raw_materials"], "source_stats": source_stats(state["raw_materials"])})
+    await publish_event(task_id, "raw_materials_updated", {"data": state["raw_materials"], "source_stats": source_stats(state["raw_materials"])}, run_id=run_id)
 
+    await guard_active(task_id, run_id)
     state = await analyzer_node(state)
+    await guard_active(task_id, run_id)
     analysis = state.get("analysis_results") or {}
     async with async_session() as session:
         task = await update_task_state(session, task_id, state="ANALYZING", progress=98)
@@ -526,13 +506,13 @@ async def run_schema_calibration(task_id: str, state: dict[str, Any]) -> tuple[d
                 evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
             )
         await session.commit()
-    await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis, "calibrated": True})
+    await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis, "calibrated": True}, run_id=run_id)
 
     state = await critic_node(state)
     return state, "applied"
 
 
-async def calibration_confirm(task_id: str):
+async def calibration_confirm(task_id: str, run_id: str):
     """User confirmed schema extensions: delegate to unified retry pipeline."""
     try:
         async with async_session() as session:
@@ -548,29 +528,33 @@ async def calibration_confirm(task_id: str):
             )
             intervention = result.scalar_one_or_none()
             if not intervention:
-                await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "warning", "message": "No schema_extension_request intervention found, aborting calibration."})
+                await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "warning", "message": "No schema_extension_request intervention found, aborting calibration."}, run_id=run_id)
                 return
             suggestions = (intervention.payload or {}).get("suggestions", [])
 
         if not suggestions:
-            await calibration_reject(task_id)
+            await calibration_reject(task_id, run_id)
             return
 
-        await run_critic_retry(task_id, confirmed_extensions=suggestions)
+        await run_critic_retry(task_id, run_id, confirmed_extensions=suggestions)
+    except (StaleRunError, asyncio.CancelledError):
+        return
     except Exception as exc:
+        if not await is_current_run(task_id, run_id):
+            return
         import logging
         logging.error(f"Error in calibration_confirm: {exc}")
-        await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "error", "message": f"calibration_confirm failed: {exc}"})
+        await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "error", "message": f"calibration_confirm failed: {exc}"}, run_id=run_id)
         async with async_session() as session:
             try:
                 await update_task_state(session, task_id, state="ERROR", error={"message": str(exc), "type": exc.__class__.__name__})
                 await session.commit()
             except Exception:
                 await session.rollback()
-        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True})
+        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True}, run_id=run_id)
 
 
-async def calibration_reject(task_id: str):
+async def calibration_reject(task_id: str, run_id: str):
     """User rejected schema extensions: continue to reporter directly."""
     try:
         async with async_session() as session:
@@ -578,7 +562,7 @@ async def calibration_reject(task_id: str):
             if not db_task:
                 return
 
-        await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "start", "message": "User rejected schema extensions, continuing to reporter."})
+        await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "start", "message": "User rejected schema extensions, continuing to reporter."}, run_id=run_id)
 
         state = {
             "task_id": task_id,
@@ -595,8 +579,10 @@ async def calibration_reject(task_id: str):
         }
 
         state = await reporter_node(state)
+        await guard_active(task_id, run_id)
         report_analysis = state.get("analysis_results") or {}
         async with async_session() as session:
+            await guard_active(task_id, run_id)
             task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
             task.analysis_results = report_analysis
             task.final_report = report_analysis.get("report", {})
@@ -606,12 +592,16 @@ async def calibration_reject(task_id: str):
                                        content=report_content if isinstance(report_content, dict) else {"items": report_content},
                                        evidence_refs=report_analysis.get("evidence_refs", []) if isinstance(report_analysis, dict) else [])
             await session.commit()
-        await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "end", "message": "Structured report generated."})
-        await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"})
-        await publish_event(task_id, "task_state_changed", {"state": "COMPLETED", "progress": 100})
-        await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": report_analysis})
-        await publish_event(task_id, "task_completed", {"final_report_url": f"/api/v1/tasks/{task_id}/report", "state": "COMPLETED"})
+        await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "end", "message": "Structured report generated."}, run_id=run_id)
+        await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"}, run_id=run_id)
+        await publish_event(task_id, "task_state_changed", {"state": "COMPLETED", "progress": 100}, run_id=run_id)
+        await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": report_analysis}, run_id=run_id)
+        await publish_event(task_id, "task_completed", {"final_report_url": f"/api/v1/tasks/{task_id}/report", "state": "COMPLETED"}, run_id=run_id)
+    except (StaleRunError, asyncio.CancelledError):
+        return
     except Exception as exc:
+        if not await is_current_run(task_id, run_id):
+            return
         import logging
         logging.error(f"Error in calibration_reject: {exc}")
         async with async_session() as session:
@@ -620,10 +610,10 @@ async def calibration_reject(task_id: str):
                 await session.commit()
             except Exception:
                 await session.rollback()
-        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True})
+        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True}, run_id=run_id)
 
 
-async def regenerate_schema(task_id: str):
+async def regenerate_schema(task_id: str, run_id: str):
     async with async_session() as session:
         db_task = await get_task(session, task_id)
         if not db_task:
@@ -655,7 +645,9 @@ async def regenerate_schema(task_id: str):
             "module_updates": [],
             "retry_counts": {},
         }
+    await guard_active(task_id, run_id)
     updated_state = await orchestrator_node(state)
+    await guard_active(task_id, run_id)
     schema_json = updated_state.get("dynamic_schema") or {}
     discovered_competitors = (updated_state.get("task_context") or {}).get("competitors") or []
     async with async_session() as session:
@@ -666,20 +658,22 @@ async def regenerate_schema(task_id: str):
         await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
         await session.commit()
     await publish_event(
-        task_id, 
-        "schema_ready", 
+        task_id,
+        "schema_ready",
         {
-            "dynamic_schema": schema_json, 
-            "schema_version": record.version, 
+            "dynamic_schema": schema_json,
+            "schema_version": record.version,
             "competitors": discovered_competitors,
             "stats": count_schema_stats(schema_json)
-        }
+        },
+        run_id=run_id,
     )
-    await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_REVIEW", "progress": 30})
+    await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_REVIEW", "progress": 30}, run_id=run_id)
 
 
 async def run_critic_retry(
     task_id: str,
+    run_id: str,
     confirmed_feedback_ids: list[str] | None = None,
     confirmed_extensions: list[dict[str, Any]] | None = None,
 ):
@@ -698,26 +692,34 @@ async def run_critic_retry(
             existing_analysis = db_task.analysis_results or {}
             existing_critic_feedback = db_task.critic_feedback or []
 
-        await publish_event(task_id, "debug_log", {"agent": "CriticRetry", "event": "start", "message": f"Unified retry: {len(extensions)} extensions + {len(feedback_ids)} feedback items."})
+        await publish_event(task_id, "debug_log", {"agent": "CriticRetry", "event": "start", "message": f"Unified retry: {len(extensions)} extensions + {len(feedback_ids)} feedback items."}, run_id=run_id)
 
         # Step 1: process extensions → get new field IDs
         extension_field_ids: list[str] = []
         if extensions:
             updated_schema, added_fields = merge_schema_extensions(current_schema, extensions)
+            await guard_active(task_id, run_id)
             async with async_session() as session:
                 await save_schema(session, task_id, updated_schema, created_by="critic", status="active")
                 await session.commit()
+            await publish_event(task_id, "debug_log", {
+                "agent": "CriticRetry",
+                "event": "debug",
+                "message": f"Applied {len(added_fields)} schema extension field(s) from {len(extensions)} confirmed suggestion(s).",
+                "output_json": {"added_fields": added_fields},
+            }, run_id=run_id)
             await publish_event(task_id, "schema_extended", {
                 "dynamic_schema": updated_schema,
                 "added_fields": added_fields,
                 "stats": count_schema_stats(updated_schema),
-            })
+            }, run_id=run_id)
             current_schema = updated_schema
             extension_field_ids = [f["id"] for f in added_fields if f.get("id")]
 
         # Step 2: query feedback records, group by action
         retry_collection_fields: list[str] = []
         retry_analysis_context: list[dict[str, Any]] = []
+        collection_unmatched_feedback_ids: list[str] = []
         if feedback_ids:
             async with async_session() as session:
                 result = await session.execute(
@@ -730,6 +732,21 @@ async def run_critic_retry(
 
             field_index = build_field_index(current_schema)
             for f in feedback_records:
+                retry_analysis_context.append({
+                    "issue": f.message,
+                    "target": f.target_id,
+                    "action": f.suggested_action,
+                    "module_id": f.module_id,
+                    "severity": f.severity,
+                    "code": f.code,
+                })
+                if f.suggested_action == "retry_collection":
+                    matched_ids = _match_feedback_field_ids(f, field_index)
+                    if matched_ids:
+                        retry_collection_fields.extend(matched_ids)
+                    else:
+                        collection_unmatched_feedback_ids.append(f.id)
+                continue
                 if f.suggested_action == "retry_collection":
                     msg = f.message or ""
                     target = ""
@@ -746,6 +763,21 @@ async def run_critic_retry(
                 elif f.suggested_action in ("retry_analysis", "extend_schema"):
                     retry_analysis_context.append({"issue": f.message, "target": f.target_id})
 
+            await publish_event(task_id, "debug_log", {
+                "agent": "CriticRetry",
+                "event": "debug",
+                "message": (
+                    f"Mapped {len(feedback_records)} selected feedback item(s) to "
+                    f"{len(set(retry_collection_fields))} collection field(s) and "
+                    f"{len(retry_analysis_context)} analysis instruction(s)."
+                ),
+                "output_json": {
+                    "retry_collection_field_ids": list(dict.fromkeys(retry_collection_fields)),
+                    "collection_unmatched_feedback_ids": collection_unmatched_feedback_ids,
+                    "analysis_instruction_count": len(retry_analysis_context),
+                },
+            }, run_id=run_id)
+
         # Step 3: merge collection scope
         all_collection_ids = list(dict.fromkeys(extension_field_ids + retry_collection_fields))
         needs_collection = len(all_collection_ids) > 0
@@ -759,9 +791,11 @@ async def run_critic_retry(
         }
         if needs_collection:
             task_context["collection_scope_field_ids"] = all_collection_ids
+            task_context["excluded_source_urls"] = _material_urls(list(raw_materials))
 
         state: dict[str, Any] = {
             "task_id": task_id,
+            "run_id": run_id,
             "task_context": task_context,
             "dynamic_schema": current_schema,
             "raw_materials": list(raw_materials),
@@ -771,23 +805,47 @@ async def run_critic_retry(
 
         # Step 5: run from earliest node
         if needs_collection:
-            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": f"Retry collecting {len(all_collection_ids)} scoped fields."})
-            state = await collector_node(state)
+            async def publish_collector_progress(payload: dict[str, Any]):
+                await publish_event(task_id, "collector_log", payload, run_id=run_id)
+
+            async with async_session() as session:
+                await guard_active(task_id, run_id)
+                await update_task_state(session, task_id, state="COLLECTING", progress=70)
+                await session.commit()
+            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 70, "retry": True}, run_id=run_id)
+            await publish_event(task_id, "progress_update", {"progress": 70, "stage": "COLLECTING", "retry": True}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {
+                "agent": "Collector",
+                "event": "start",
+                "message": f"Retry collecting {len(all_collection_ids)} scoped fields.",
+                "output_json": {"collection_scope_field_ids": all_collection_ids},
+            }, run_id=run_id)
+            await guard_active(task_id, run_id)
+            state = await collector_node(state, on_progress=publish_collector_progress)
+            await guard_active(task_id, run_id)
             existing_ids = {m.get("id") for m in raw_materials if m.get("id")}
-            new_materials = [m for m in (state.get("raw_materials") or []) if m.get("id") not in existing_ids]
+            new_materials_by_id = {
+                m.get("id"): m
+                for m in (state.get("raw_materials") or [])
+                if m.get("id") and m.get("id") not in existing_ids
+            }
+            new_materials = list(new_materials_by_id.values())
             all_materials = raw_materials + new_materials
 
-            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "debug", "message": f"Collector done, saving {len(new_materials)} new materials to DB..."})
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "debug", "message": f"Collector done, saving {len(new_materials)} new materials to DB..."}, run_id=run_id)
             async with async_session() as session:
                 task = await update_task_state(session, task_id, state="ANALYZING", progress=95)
                 task.raw_materials = all_materials
                 await save_source_materials(session, task_id, new_materials)
                 await session.commit()
-            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": f"Re-collected {len(new_materials)} materials."})
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": f"Re-collected {len(new_materials)} materials."}, run_id=run_id)
+            await publish_event(task_id, "raw_materials_updated", {"data": all_materials, "source_stats": source_stats(all_materials), "retry": True}, run_id=run_id)
             state["raw_materials"] = all_materials
 
-        await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "start", "message": "Re-analyzing with critic feedback."})
+        await guard_active(task_id, run_id)
+        await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "start", "message": "Re-analyzing with critic feedback."}, run_id=run_id)
         state = await analyzer_node(state)
+        await guard_active(task_id, run_id)
         analysis = state.get("analysis_results") or {}
         async with async_session() as session:
             task = await update_task_state(session, task_id, state="ANALYZING", progress=97)
@@ -800,22 +858,26 @@ async def run_critic_retry(
                     evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
                 )
             await session.commit()
-        await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": "Analysis completed (retry)."})
+        await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": "Analysis completed (retry)."}, run_id=run_id)
 
         state["analysis_results"] = analysis
-        await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Re-critic after retry analysis."})
+        await guard_active(task_id, run_id)
+        await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Re-critic after retry analysis."}, run_id=run_id)
         state = await critic_node(state)
+        await guard_active(task_id, run_id)
         new_feedback = state.get("critic_feedback") or []
         async with async_session() as session:
             task = await update_task_state(session, task_id, state="CRITIQUING", progress=98)
             task.critic_feedback = new_feedback
             await save_quality_feedback(session, task_id, new_feedback)
             await session.commit()
-        await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "end", "message": "Critic done (retry)."})
+        await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "end", "message": "Critic done (retry)."}, run_id=run_id)
 
         state["critic_feedback"] = new_feedback
-        await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final report (retry)."})
+        await guard_active(task_id, run_id)
+        await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final report (retry)."}, run_id=run_id)
         state = await reporter_node(state)
+        await guard_active(task_id, run_id)
         report_analysis = state.get("analysis_results") or {}
         async with async_session() as session:
             task = await update_task_state(session, task_id, state="COMPLETED", progress=100)
@@ -831,18 +893,22 @@ async def run_critic_retry(
             if feedback_ids:
                 await resolve_feedback_items(session, task_id, feedback_ids)
             await session.commit()
-        await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "end", "message": "Report generated (retry)."})
-        await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"})
-        await publish_event(task_id, "task_state_changed", {"state": "COMPLETED", "progress": 100})
-        await publish_event(task_id, "task_completed", {"final_report_url": f"/api/v1/tasks/{task_id}/report", "state": "COMPLETED"})
+        await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "end", "message": "Report generated (retry)."}, run_id=run_id)
+        await publish_event(task_id, "progress_update", {"progress": 100, "stage": "COMPLETED"}, run_id=run_id)
+        await publish_event(task_id, "task_state_changed", {"state": "COMPLETED", "progress": 100}, run_id=run_id)
+        await publish_event(task_id, "task_completed", {"final_report_url": f"/api/v1/tasks/{task_id}/report", "state": "COMPLETED"}, run_id=run_id)
+    except (StaleRunError, asyncio.CancelledError):
+        return
     except Exception as exc:
+        if not await is_current_run(task_id, run_id):
+            return
         import logging
         logging.error(f"Error in run_critic_retry: {exc}")
-        await publish_event(task_id, "debug_log", {"agent": "CriticRetry", "event": "error", "message": f"run_critic_retry failed: {exc}"})
+        await publish_event(task_id, "debug_log", {"agent": "CriticRetry", "event": "error", "message": f"run_critic_retry failed: {exc}"}, run_id=run_id)
         async with async_session() as session:
             try:
                 await update_task_state(session, task_id, state="ERROR", error={"message": str(exc), "type": exc.__class__.__name__})
                 await session.commit()
             except Exception:
                 await session.rollback()
-        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True})
+        await publish_event(task_id, "task_failed", {"state": "ERROR", "message": str(exc), "error_type": exc.__class__.__name__, "recoverable": True}, run_id=run_id)

@@ -1,5 +1,7 @@
 from fastapi import APIRouter, HTTPException, Query
 
+from core.runtime import runner
+from models_db import async_session
 from schemas import (
     SurveyCreatePlatformRequest,
     SurveyGenerateRequest,
@@ -11,6 +13,7 @@ from schemas import (
     SurveyResponsesImportRequest,
 )
 from services.report_refresh import refresh_report_with_survey
+from services.repositories import get_task, new_run_id, set_task_run
 from services.survey_posters import generate_survey_poster
 from services.survey_campaigns import (
     approve_survey,
@@ -127,8 +130,21 @@ async def sync_task_survey_responses(task_id: str, req: SurveyCreatePlatformRequ
 
 @router.post("/api/v1/tasks/{task_id}/survey/refresh-report")
 async def refresh_task_report_with_survey(task_id: str, req: SurveyRefreshReportRequest):
+    run_id = new_run_id()
+    if not runner.claim(task_id, run_id):
+        raise HTTPException(status_code=409, detail="A pipeline is already running. Wait for it to complete or pause it first.")
+
     try:
-        return await refresh_report_with_survey(task_id, response_ids=req.response_ids, campaign_id=req.campaign_id)
+        async with async_session() as session:
+            task = await get_task(session, task_id)
+            if not task:
+                raise KeyError(task_id)
+            await set_task_run(session, task_id, run_id)
+            await session.commit()
+
+        return await refresh_report_with_survey(task_id, run_id, response_ids=req.response_ids, campaign_id=req.campaign_id)
     except KeyError as exc:
         detail = "Task not found" if str(exc).strip("'") == task_id else "Survey campaign not found"
         raise HTTPException(status_code=404, detail=detail)
+    finally:
+        runner.release(task_id, run_id)

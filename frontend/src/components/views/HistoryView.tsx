@@ -24,6 +24,8 @@ interface TaskSnapshot {
 interface HistoryViewProps {
   currentTaskId: string | null;
   onRestoreTask: (taskId: string) => Promise<void>;
+  locked?: boolean;
+  lockMessage?: string;
 }
 
 function formatDate(value?: string | null) {
@@ -33,7 +35,7 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString();
 }
 
-export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryViewProps) {
+export default function HistoryView({ currentTaskId, onRestoreTask, locked = false, lockMessage = 'A task is currently running' }: HistoryViewProps) {
   const { message } = App.useApp();
   const [tasks, setTasks] = useState<HistoryTask[]>([]);
   const [snapshots, setSnapshots] = useState<TaskSnapshot[]>([]);
@@ -43,6 +45,9 @@ export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryVie
   const [restoring, setRestoring] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
+    if (locked) {
+      return;
+    }
     setLoadingTasks(true);
     try {
       const response = await fetch('http://localhost:8000/api/v1/tasks?page=1&limit=20');
@@ -57,9 +62,13 @@ export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryVie
     } finally {
       setLoadingTasks(false);
     }
-  }, [message]);
+  }, [locked, message]);
 
   const loadSnapshots = async (taskId: string) => {
+    if (locked) {
+      message.warning(lockMessage);
+      return;
+    }
     setLoadingSnapshots(true);
     try {
       const response = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/snapshots`);
@@ -78,15 +87,28 @@ export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryVie
   };
 
   useEffect(() => {
+    if (locked) {
+      setSnapshots([]);
+      setSelectedTaskId(currentTaskId);
+      return;
+    }
     loadTasks();
-  }, [loadTasks]);
+  }, [currentTaskId, loadTasks, locked]);
 
   const selectTask = async (taskId: string) => {
+    if (locked) {
+      message.warning(lockMessage);
+      return;
+    }
     setSelectedTaskId(taskId);
     await loadSnapshots(taskId);
   };
 
   const restoreTask = async (taskId: string) => {
+    if (locked) {
+      message.warning(lockMessage);
+      return;
+    }
     setRestoring(taskId);
     setSelectedTaskId(taskId);
     try {
@@ -102,6 +124,10 @@ export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryVie
   };
 
   const restoreSnapshot = async (snapshot: TaskSnapshot) => {
+    if (locked) {
+      message.warning(lockMessage);
+      return;
+    }
     if (!selectedTaskId) {
       return;
     }
@@ -129,12 +155,14 @@ export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryVie
     <div>
       <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }}>
         <Title level={3} style={{ margin: 0 }}>Execution history and snapshots</Title>
-        <Button icon={<ReloadOutlined />} onClick={loadTasks} loading={loadingTasks}>Refresh</Button>
+        <Button icon={<ReloadOutlined />} onClick={loadTasks} loading={loadingTasks} disabled={locked}>Refresh</Button>
       </Space>
 
       <Card title="Historical tasks" style={{ marginBottom: 16 }}>
         <Spin spinning={loadingTasks}>
-          {tasks.length === 0 ? (
+          {locked ? (
+            <Empty description={lockMessage} />
+          ) : tasks.length === 0 ? (
             <Empty description="No historical tasks" />
           ) : (
             <Space orientation="vertical" size={12} style={{ width: '100%' }}>
@@ -151,6 +179,7 @@ export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryVie
                       type={task.task_id === selectedTaskId ? 'primary' : 'default'}
                       icon={<HistoryOutlined />}
                       loading={restoring === task.task_id}
+                      disabled={locked}
                       onClick={(e) => { e.stopPropagation(); restoreTask(task.task_id); }}
                     >
                       Restore
@@ -173,6 +202,8 @@ export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryVie
         <Spin spinning={loadingSnapshots}>
           {!selectedTaskId ? (
             <Empty description="Select a historical task to view snapshots" />
+          ) : locked ? (
+            <Empty description={lockMessage} />
           ) : snapshots.length === 0 ? (
             <Empty description="No snapshots for this task" />
           ) : (
@@ -186,6 +217,7 @@ export default function HistoryView({ currentTaskId, onRestoreTask }: HistoryVie
                     <Button
                       icon={<RollbackOutlined />}
                       loading={restoring === snapshot.checkpoint_id}
+                      disabled={locked}
                       onClick={() => restoreSnapshot(snapshot)}
                     >
                       Restore checkpoint

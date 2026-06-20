@@ -29,6 +29,63 @@ def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
+def new_run_id() -> str:
+    return f"run_{uuid.uuid4().hex[:12]}"
+
+
+async def start_task_run(session: AsyncSession, task_id: str) -> str:
+    task = await get_task(session, task_id)
+    if task is None:
+        raise KeyError(task_id)
+    run_id = new_run_id()
+    task.active_run_id = run_id
+    task.updated_at = datetime.utcnow()
+    await session.flush()
+    return run_id
+
+
+async def set_task_run(session: AsyncSession, task_id: str, run_id: str) -> None:
+    """Write an externally-generated run_id as the task's active_run_id."""
+    task = await get_task(session, task_id)
+    if task is None:
+        raise KeyError(task_id)
+    task.active_run_id = run_id
+    task.updated_at = datetime.utcnow()
+    await session.flush()
+
+
+async def invalidate_task_run(session: AsyncSession, task_id: str) -> None:
+    task = await get_task(session, task_id)
+    if task is None:
+        raise KeyError(task_id)
+    task.active_run_id = None
+    task.updated_at = datetime.utcnow()
+    await session.flush()
+
+
+async def is_task_run_active(session: AsyncSession, task_id: str, run_id: str | None) -> bool:
+    if not run_id:
+        return False
+    task = await get_task(session, task_id)
+    if not task:
+        return False
+    if task.active_run_id != run_id:
+        return False
+    if task.error and task.error.get("type") == "UserTerminated":
+        return False
+    return True
+
+
+async def assert_task_run_active(session: AsyncSession, task_id: str, run_id: str):
+    from models_db import TaskRecord
+    task = await get_task(session, task_id)
+    if not task or task.active_run_id != run_id:
+        raise RuntimeError("Stale task run")
+    if task.error and task.error.get("type") == "UserTerminated":
+        raise RuntimeError("Task was terminated")
+    return task
+
+
 async def get_task(session: AsyncSession, task_id: str) -> TaskRecord | None:
     return await session.get(TaskRecord, task_id)
 
@@ -140,10 +197,10 @@ def build_field_index(schema_json: dict[str, Any]) -> list[dict[str, Any]]:
     return fields
 
 
-async def add_event(session: AsyncSession, task_id: str, event_type: str, payload: dict[str, Any]) -> TaskEventRecord:
+async def add_event(session: AsyncSession, task_id: str, event_type: str, payload: dict[str, Any], run_id: str | None = None) -> TaskEventRecord:
     result = await session.execute(select(func.max(TaskEventRecord.sequence)).where(TaskEventRecord.task_id == task_id))
     sequence = int(result.scalar_one_or_none() or 0) + 1
-    event = TaskEventRecord(task_id=task_id, sequence=sequence, event_type=event_type, payload=payload)
+    event = TaskEventRecord(task_id=task_id, run_id=run_id, sequence=sequence, event_type=event_type, payload=payload)
     session.add(event)
     await session.flush()
     return event
@@ -173,7 +230,17 @@ async def write_checkpoint(
     phase: str,
     summary: str,
     snapshot_data: dict[str, Any],
-) -> TaskSnapshotRecord:
+) -> TaskSnapshotRecord | None:
+    """写入快照，同 task_id + checkpoint_id 已存在则跳过。"""
+    existing = await session.execute(
+        select(TaskSnapshotRecord).where(
+            TaskSnapshotRecord.task_id == task_id,
+            TaskSnapshotRecord.checkpoint_id == checkpoint_id,
+        ).limit(1)
+    )
+    if existing.scalar_one_or_none():
+        return None
+
     record = TaskSnapshotRecord(
         id=new_id("ckpt"),
         task_id=task_id,
@@ -204,9 +271,21 @@ async def save_source_materials(
 ) -> list[SourceMaterialRecord]:
     if not materials:
         return []
+    material_ids = [m.get("id") or new_id("src") for m in materials]
+    existing_ids: set[str] = set()
+    if material_ids:
+        result = await session.execute(
+            select(SourceMaterialRecord.id).where(
+                SourceMaterialRecord.task_id == task_id,
+                SourceMaterialRecord.id.in_(material_ids),
+            )
+        )
+        existing_ids = {str(item) for item in result.scalars()}
+
+    seen_ids: set[str] = set()
     records_data = [
         {
-            "id": m.get("id") or new_id("src"),
+            "id": material_id,
             "task_id": task_id,
             "schema_field_id": m.get("schema_field_id"),
             "competitor": m.get("competitor") or "",
@@ -225,8 +304,11 @@ async def save_source_materials(
             "source_stage": m.get("source_stage") or "search",
             "skill": m.get("skill"),
         }
-        for m in materials
+        for m, material_id in zip(materials, material_ids)
+        if material_id not in existing_ids and material_id not in seen_ids and not seen_ids.add(material_id)
     ]
+    if not records_data:
+        return []
     stmt = insert(SourceMaterialRecord)
     await session.execute(stmt, records_data)
     return []
@@ -498,6 +580,7 @@ __all__ = [
     "UserNoteRecord",
     "add_event",
     "add_intervention",
+    "assert_task_run_active",
     "build_field_index",
     "create_task_record",
     "get_checkpoint",
@@ -505,6 +588,8 @@ __all__ = [
     "get_task",
     "get_pending_feedback",
     "get_survey_campaign",
+    "invalidate_task_run",
+    "is_task_run_active",
     "latest_schema",
     "latest_survey_campaign",
     "list_survey_campaigns",
@@ -512,6 +597,7 @@ __all__ = [
     "list_survey_artifacts",
     "list_survey_responses",
     "new_id",
+    "new_run_id",
     "save_analysis_module",
     "save_quality_feedback",
     "save_schema",
@@ -519,6 +605,8 @@ __all__ = [
     "save_survey_responses",
     "resolve_feedback_items",
     "save_source_materials",
+    "set_task_run",
+    "start_task_run",
     "update_survey_campaign",
     "update_task_state",
     "write_checkpoint",

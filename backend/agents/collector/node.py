@@ -2,6 +2,7 @@ import os
 import uuid
 from collections.abc import Awaitable, Callable
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from services.privacy import contains_pii, redact_pii
 from services.web_search import PageEvidence, SearchResult, search_multi_engine, rerank_search_results
@@ -29,11 +30,74 @@ from services.events import event_broker
 from ..shared.router import route_sources, auto_save_to_knowledge_base
 from ..shared.crawler import crawl_urls
 
+
+def normalize_url(value: object) -> str:
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    try:
+        parts = urlsplit(raw)
+        path = parts.path.rstrip("/")
+        return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, "", ""))
+    except Exception:
+        return raw.rstrip("/")
+
+
+async def publish_debug(task_id: str, payload: dict[str, Any], timeout: float = 5.0) -> None:
+    try:
+        await asyncio.wait_for(event_broker.publish(task_id, "debug_log", payload), timeout=timeout)
+    except Exception:
+        return
+
+
+async def emit_progress(task_id: str, payload: dict[str, Any], on_progress: ProgressCallback | None = None, timeout: float = 5.0) -> None:
+    try:
+        if on_progress:
+            result = on_progress(payload)
+            if asyncio.iscoroutine(result):
+                await asyncio.wait_for(result, timeout=timeout)
+        else:
+            await asyncio.wait_for(event_broker.publish(task_id, "collector_log", payload), timeout=timeout)
+    except Exception:
+        await publish_debug(task_id, {
+            "agent": "Collector",
+            "event": "warning",
+            "message": f"Progress event timed out or failed for: {payload.get('query')}",
+        })
+
+
+async def crawl_urls_with_timeout(task_id: str, urls: list[str], label: str, timeout: float = 75.0) -> dict[str, str]:
+    if not urls:
+        return {}
+    try:
+        return await asyncio.wait_for(crawl_urls(urls), timeout=timeout)
+    except asyncio.TimeoutError:
+        await publish_debug(task_id, {
+            "agent": "Collector",
+            "event": "warning",
+            "message": f"Crawl timed out for {label}; continuing with available fallback paths.",
+            "output_json": {"url_count": len(urls), "timeout_seconds": timeout},
+        })
+        return {}
+    except Exception as exc:
+        await publish_debug(task_id, {
+            "agent": "Collector",
+            "event": "warning",
+            "message": f"Crawl failed for {label}: {exc.__class__.__name__}",
+        })
+        return {}
+
+
 async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progress: ProgressCallback | None = None):
     context = state.get("task_context", {})
     domain = context.get("domain", "unknown domain")
     competitors = [str(item) for item in context.get("competitors", []) if str(item).strip()]
     schema_fields = flatten_schema_fields(state.get("dynamic_schema", {}))
+    excluded_source_urls = {
+        normalize_url(item)
+        for item in context.get("excluded_source_urls", [])
+        if normalize_url(item)
+    }
     
     # Filter fields for this specific collector skill
     schema_fields = [f for f in schema_fields if (f.get("skill_category") or "company") == skill_filter]
@@ -58,10 +122,14 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
     for competitor in competitors:
         # Route sources for this competitor, filtered by skill
         routed_sources = await route_sources(domain, competitor, skill_filter)
+        routed_sources = [
+            src for src in routed_sources
+            if "url" in src and normalize_url(src.get("url")) not in excluded_source_urls
+        ]
         routed_urls = [src["url"] for src in routed_sources if "url" in src]
         
         # Crawl and cache Markdown
-        cached_markdowns = await crawl_urls(routed_urls)
+        cached_markdowns = await crawl_urls_with_timeout(task_id, routed_urls, f"curated {competitor}/{skill_filter}")
         cached_hits = sum(1 for v in cached_markdowns.values() if v)
         if routed_sources:
             await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[curated] {competitor}: {cached_hits}/{len(routed_sources)} knowledge_base URLs crawled successfully"})
@@ -102,11 +170,20 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
                     discovered_results += len(search_results)
                     await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] Multi-engine returned {len(search_results)} results for: {query}"})
                     search_results = rerank_search_results(query, search_results)
+                    if excluded_source_urls:
+                        before_filter_count = len(search_results)
+                        search_results = [
+                            result for result in search_results
+                            if normalize_url(result.url) not in excluded_source_urls
+                        ]
+                        skipped_count = before_filter_count - len(search_results)
+                        if skipped_count:
+                            await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] Skipped {skipped_count} previously collected URL(s) for: {query}"})
                     await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "debug", "message": f"[search] Reranked results for: {query}"})
 
                     # Use Crawl4ai to fetch pages as clean Markdown (JS rendering, anti-bot)
                     search_urls = [r.url for r in search_results[:3]]
-                    crawled_markdowns = await crawl_urls(search_urls)
+                    crawled_markdowns = await crawl_urls_with_timeout(task_id, search_urls, f"search {competitor}/{field.get('name') or field.get('id')}", timeout=60.0)
 
                     # Collect all crawled search pages
                     search_pages = [
@@ -157,13 +234,7 @@ async def run_collector_for_skill(state: AgentState, skill_filter: str, on_progr
                 "degraded_reason": material.get("degraded_reason"),
                 "skill": skill_filter,
             }
-            if on_progress:
-                if asyncio.iscoroutinefunction(on_progress):
-                    await on_progress(payload)
-                else:
-                    on_progress(payload)
-            else:
-                await event_broker.publish(task_id, "collector_log", payload)
+            await emit_progress(task_id, payload, on_progress)
 
     await event_broker.publish(task_id, "debug_log", {"agent": agent_name, "event": "end", "message": f"Completed collecting {skill_filter} dimensions.", "latency": 1.5})
 
@@ -208,7 +279,12 @@ def flatten_schema_fields(schema: dict[str, Any]) -> list[dict[str, Any]]:
             if not isinstance(field, dict):
                 continue
             field_id = field.get("id") or f"{group_name}.{field.get('name', 'field')}"
-            fields.append({**field, "id": field_id, "group": group_name})
+            fields.append({
+                **field,
+                "id": field_id,
+                "group": group_name,
+                "skill_category": field.get("skill_category") or "company",
+            })
     return fields
 
 
@@ -274,12 +350,12 @@ async def build_material_from_pages(
             ])
             chain = prompt_template | llm
             config = {"callbacks": callbacks} if callbacks else None
-            res = await chain.ainvoke({
+            res = await asyncio.wait_for(chain.ainvoke({
                 "competitor": competitor,
                 "field_name": field.get("name") or field.get("id"),
                 "field_reason": field.get("reason") or "N/A",
                 "excerpt": merged_excerpt
-            }, config=config)
+            }, config=config), timeout=45)
             ans = res.content.strip()
             if ans == "NOT_FOUND":
                 is_not_found = True

@@ -498,166 +498,6 @@ sources:
     tags: ["auto-discovered"]
     competitors: ["扇贝单词"]
 
-  - url: "https://www.douyin.com/video/7584480860273200436"
-    name: "auto: 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
-    description: "Auto-discovered from 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://news.qq.com/rain/a/20250416A07YXJ00"
-    name: "auto: 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
-    description: "Auto-discovered from 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://zhuanlan.zhihu.com/p/1897652316787696854"
-    name: "auto: 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
-    description: "Auto-discovered from 抖音 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://news.qq.com/rain/a/20250330A05SSE00"
-    name: "auto: 抖音 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为）"
-    description: "Auto-discovered from 抖音 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为） analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://developer.aliyun.com/article/1665676"
-    name: "auto: 抖音 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为）"
-    description: "Auto-discovered from 抖音 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为） analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://www.php.cn/faq/1913645.html"
-    name: "auto: 抖音 新用户冷启动时的推荐表现"
-    description: "Auto-discovered from 抖音 新用户冷启动时的推荐表现 analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://zhuanlan.zhihu.com/p/25567110298"
-    name: "auto: 抖音 新用户冷启动时的推荐表现"
-    description: "Auto-discovered from 抖音 新用户冷启动时的推荐表现 analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://insight.xiaoduoai.com/service-based-marketing/https-insight-xiaoduoai-com-service-based-marketing-new-account-posting-works-will-be-restricted-in-traffic-how-can-new-accounts-obtain-high-traffic-detailed-explanation-of-official-cold-start-policy.html"
-    name: "auto: 抖音 新用户冷启动时的推荐表现"
-    description: "Auto-discovered from 抖音 新用户冷启动时的推荐表现 analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://news.qq.com/rain/a/20250415A09UYB00"
-    name: "auto: 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
-    description: "Auto-discovered from 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://zhuanlan.zhihu.com/p/16285931697"
-    name: "auto: 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
-    description: "Auto-discovered from 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://www.xinhuanet.com/tech/20250417/9b2e3622d8764c408c2b667bf73d1d29/c.html"
-    name: "auto: 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
-    description: "Auto-discovered from 抖音 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["抖音"]
-
-  - url: "https://www.sohu.com/a/897091963_362225"
-    name: "auto: 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
-    description: "Auto-discovered from 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://bk.taobao.com/k/kuaishou_227/b91939733b542221c235c06503aaf464.html"
-    name: "auto: 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
-    description: "Auto-discovered from 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://bk.taobao.com/k/kuaishou_227/0ac51df902f68d489fe46a39ebbb0070.html"
-    name: "auto: 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理）"
-    description: "Auto-discovered from 快手 用户主动兴趣调节能力（屏蔽/不喜欢/标签管理） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://wenku.csdn.net/column/645vi6bq0g"
-    name: "auto: 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为）"
-    description: "Auto-discovered from 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为） analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://developer.baidu.com/article/detail.html?id=5283121"
-    name: "auto: 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为）"
-    description: "Auto-discovered from 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为） analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://cloud.tencent.com/developer/article/2607720"
-    name: "auto: 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为）"
-    description: "Auto-discovered from 快手 推荐算法核心逻辑（兴趣标签/协同过滤/用户行为） analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://news.qq.com/rain/a/20251030A05IIZ00"
-    name: "auto: 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
-    description: "Auto-discovered from 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://www.toutiao.com/article/7567779979216290346/"
-    name: "auto: 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
-    description: "Auto-discovered from 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://zhuanlan.zhihu.com/p/1968325982462146487"
-    name: "auto: 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾）"
-    description: "Auto-discovered from 快手 推荐内容的多样性（是否只推荐爆款或兼顾长尾） analysis"
-    skills: ["product"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://zhuanlan.zhihu.com/p/660797252"
-    name: "auto: 快手 新用户冷启动时的推荐表现"
-    description: "Auto-discovered from 快手 新用户冷启动时的推荐表现 analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://wenku.csdn.net/column/20qrhx5rhp"
-    name: "auto: 快手 新用户冷启动时的推荐表现"
-    description: "Auto-discovered from 快手 新用户冷启动时的推荐表现 analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
-
-  - url: "https://zhuanlan.zhihu.com/p/660981728"
-    name: "auto: 快手 新用户冷启动时的推荐表现"
-    description: "Auto-discovered from 快手 新用户冷启动时的推荐表现 analysis"
-    skills: ["technical"]
-    tags: ["auto-discovered"]
-    competitors: ["快手"]
 
   - url: "https://blog.comox.ai/2026/04/unpacking-claude-mythos-preview.html"
     name: "auto: Claude Mythos Preview 模型底层架构"
@@ -1771,3 +1611,878 @@ sources:
     skills: ["business"]
     tags: ["auto-discovered"]
     competitors: ["DeepSeek"]
+
+  - url: "http://www.zqrb.cn/shipin/shipinhangye/2025-03-25/A1742819490593.html"
+    name: "auto: 京东外卖 餐饮商家覆盖密度与品类丰富度"
+    description: "Auto-discovered from 京东外卖 餐饮商家覆盖密度与品类丰富度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://www.163.com/dy/article/K33HO1NJ055284JB.html"
+    name: "auto: 京东外卖 餐饮商家覆盖密度与品类丰富度"
+    description: "Auto-discovered from 京东外卖 餐饮商家覆盖密度与品类丰富度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://finance.sina.com.cn/jjxw/2025-03-25/doc-ineqvenw7250735.shtml"
+    name: "auto: 京东外卖 餐饮商家覆盖密度与品类丰富度"
+    description: "Auto-discovered from 京东外卖 餐饮商家覆盖密度与品类丰富度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://baike.baidu.com/item/京东外卖/65384088"
+    name: "auto: 京东外卖 母公司主体资源背景"
+    description: "Auto-discovered from 京东外卖 母公司主体资源背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://zh.wikipedia.org/wiki/京东外卖"
+    name: "auto: 京东外卖 母公司主体资源背景"
+    description: "Auto-discovered from 京东外卖 母公司主体资源背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://baike.baidu.com/item/京东外卖/67003027"
+    name: "auto: 京东外卖 母公司主体资源背景"
+    description: "Auto-discovered from 京东外卖 母公司主体资源背景 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://www.sohu.com/a/887003094_121721205"
+    name: "auto: 京东外卖 用户端近期补贴优惠力度"
+    description: "Auto-discovered from 京东外卖 用户端近期补贴优惠力度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://news.qq.com/rain/a/20250528A06DAC00"
+    name: "auto: 京东外卖 用户端近期补贴优惠力度"
+    description: "Auto-discovered from 京东外卖 用户端近期补贴优惠力度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://www.thepaper.cn/newsDetail_forward_30623882"
+    name: "auto: 京东外卖 用户端近期补贴优惠力度"
+    description: "Auto-discovered from 京东外卖 用户端近期补贴优惠力度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://www.sohu.com/a/899716388_122300611"
+    name: "auto: 京东外卖 下单全路径操作流畅度"
+    description: "Auto-discovered from 京东外卖 下单全路径操作流畅度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://www.cnblogs.com/Jcloud/p/18778845"
+    name: "auto: 京东外卖 下单全路径操作流畅度"
+    description: "Auto-discovered from 京东外卖 下单全路径操作流畅度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://finance.sina.com.cn/stock/t/2025-06-18/doc-infannhn8321373.shtml"
+    name: "auto: 京东外卖 外卖业务线战略优先级"
+    description: "Auto-discovered from 京东外卖 外卖业务线战略优先级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "http://jjckb.xinhuanet.com/20250707/cfea46c6f9a046049cd060b3009ea68b/c.html"
+    name: "auto: 京东外卖 外卖业务线战略优先级"
+    description: "Auto-discovered from 京东外卖 外卖业务线战略优先级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://wallstreetcn.com/articles/3759329"
+    name: "auto: 京东外卖 外卖业务线战略优先级"
+    description: "Auto-discovered from 京东外卖 外卖业务线战略优先级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://caifuhao.eastmoney.com/news/20250416102049397561200"
+    name: "auto: 京东外卖 非峰值时段平均配送时效"
+    description: "Auto-discovered from 京东外卖 非峰值时段平均配送时效 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1898064371244074591"
+    name: "auto: 京东外卖 非峰值时段平均配送时效"
+    description: "Auto-discovered from 京东外卖 非峰值时段平均配送时效 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://www.jianshu.com/p/5d31ee2c1412"
+    name: "auto: 京东外卖 非峰值时段平均配送时效"
+    description: "Auto-discovered from 京东外卖 非峰值时段平均配送时效 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://news.qq.com/rain/a/20250815A03L4500"
+    name: "auto: 京东外卖 近3个月业务动态加码动作"
+    description: "Auto-discovered from 京东外卖 近3个月业务动态加码动作 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://news.qq.com/rain/a/20250708A0950V00"
+    name: "auto: 京东外卖 近3个月业务动态加码动作"
+    description: "Auto-discovered from 京东外卖 近3个月业务动态加码动作 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://www.thepaper.cn/newsDetail_forward_31404613"
+    name: "auto: 京东外卖 近3个月业务动态加码动作"
+    description: "Auto-discovered from 京东外卖 近3个月业务动态加码动作 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://www.sohu.com/a/934153155_122513634"
+    name: "auto: 京东外卖 商家端服务费抽成比例区间"
+    description: "Auto-discovered from 京东外卖 商家端服务费抽成比例区间 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://www.toutiao.com/article/7493373531661566527/"
+    name: "auto: 京东外卖 商家端服务费抽成比例区间"
+    description: "Auto-discovered from 京东外卖 商家端服务费抽成比例区间 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://www.sohu.com/a/884390400_122001006"
+    name: "auto: 京东外卖 商家端服务费抽成比例区间"
+    description: "Auto-discovered from 京东外卖 商家端服务费抽成比例区间 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["京东外卖"]
+
+  - url: "https://news.qq.com/rain/a/20250703A07C3T00"
+    name: "auto: 淘宝闪购 用户端近期补贴优惠力度"
+    description: "Auto-discovered from 淘宝闪购 用户端近期补贴优惠力度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://bk.taobao.com/k/taobaoshangou_19032/5cf4e6130d9bee522f61f1055846e2ae.html"
+    name: "auto: 淘宝闪购 用户端近期补贴优惠力度"
+    description: "Auto-discovered from 淘宝闪购 用户端近期补贴优惠力度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://www.xinhuanet.com/tech/20250708/d637d8f967c241c69d3542eb611fecdf/c.html"
+    name: "auto: 淘宝闪购 用户端近期补贴优惠力度"
+    description: "Auto-discovered from 淘宝闪购 用户端近期补贴优惠力度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://m.36kr.com/p/3272759747027072"
+    name: "auto: 淘宝闪购 即时配送业务布局起始节点与集团战略定位等级"
+    description: "Auto-discovered from 淘宝闪购 即时配送业务布局起始节点与集团战略定位等级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://www.sohu.com/a/890898436_121956424"
+    name: "auto: 淘宝闪购 即时配送业务布局起始节点与集团战略定位等级"
+    description: "Auto-discovered from 淘宝闪购 即时配送业务布局起始节点与集团战略定位等级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://finance.sina.com.cn/stock/bxjj/2025-08-31/doc-infnwmfa3648035.shtml"
+    name: "auto: 淘宝闪购 即时配送业务布局起始节点与集团战略定位等级"
+    description: "Auto-discovered from 淘宝闪购 即时配送业务布局起始节点与集团战略定位等级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://www.ithome.com/0/900/640.htm"
+    name: "auto: 淘宝闪购 近1年即时配送相关业务的专项投入规模"
+    description: "Auto-discovered from 淘宝闪购 近1年即时配送相关业务的专项投入规模 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://www.sohu.com/a/930425626_121948416"
+    name: "auto: 淘宝闪购 近1年即时配送相关业务的专项投入规模"
+    description: "Auto-discovered from 淘宝闪购 近1年即时配送相关业务的专项投入规模 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://baike.baidu.com/item/淘宝闪购/65653137"
+    name: "auto: 淘宝闪购 可配送商品品类的覆盖范围"
+    description: "Auto-discovered from 淘宝闪购 可配送商品品类的覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://news.china.com/socialgd/10000169/20250912/48818356.html"
+    name: "auto: 淘宝闪购 可配送商品品类的覆盖范围"
+    description: "Auto-discovered from 淘宝闪购 可配送商品品类的覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://bk.taobao.com/k/taobaoshangou_19032/99f1dfa1069455f6bb5551d9e758dd8c.html"
+    name: "auto: 淘宝闪购 可配送商品品类的覆盖范围"
+    description: "Auto-discovered from 淘宝闪购 可配送商品品类的覆盖范围 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://bk.taobao.com/k/taobaoshangou_19032/f428a69eed0cfca931a0167c556f37dc.html"
+    name: "auto: 淘宝闪购 全区域订单的平均实际配送履约时长"
+    description: "Auto-discovered from 淘宝闪购 全区域订单的平均实际配送履约时长 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://news.qq.com/rain/a/20250526A06JGA00"
+    name: "auto: 淘宝闪购 全区域订单的平均实际配送履约时长"
+    description: "Auto-discovered from 淘宝闪购 全区域订单的平均实际配送履约时长 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://app.dahecube.com/nweb/news/20250526/236145n7f950ad44b0.htm"
+    name: "auto: 淘宝闪购 全区域订单的平均实际配送履约时长"
+    description: "Auto-discovered from 淘宝闪购 全区域订单的平均实际配送履约时长 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://zhuanlan.zhihu.com/p/528101498"
+    name: "auto: 美团 常规订单用户端平均配送费+日常补贴力度"
+    description: "Auto-discovered from 美团 常规订单用户端平均配送费+日常补贴力度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["美团"]
+
+  - url: "https://xueqiu.com/1610173858/343660439"
+    name: "auto: 美团 常规订单用户端平均配送费+日常补贴力度"
+    description: "Auto-discovered from 美团 常规订单用户端平均配送费+日常补贴力度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["美团"]
+
+  - url: "https://www.toutiao.com/article/7107850958671118848/"
+    name: "auto: 美团 常规订单用户端平均配送费+日常补贴力度"
+    description: "Auto-discovered from 美团 常规订单用户端平均配送费+日常补贴力度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["美团"]
+
+  - url: "https://www.sohu.com/a/1010962785_121948396"
+    name: "auto: 淘宝闪购 近3年平台涉及配送服务的监管处罚记录数量"
+    description: "Auto-discovered from 淘宝闪购 近3年平台涉及配送服务的监管处罚记录数量 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://news.qq.com/rain/a/20251024A00HVE00"
+    name: "auto: 淘宝闪购 近3年平台涉及配送服务的监管处罚记录数量"
+    description: "Auto-discovered from 淘宝闪购 近3年平台涉及配送服务的监管处罚记录数量 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://www.samr.gov.cn/xw/zj/art/2026/art_9714ee2bef9244819134ef4ffdd14017.html"
+    name: "auto: 淘宝闪购 近3年平台涉及配送服务的监管处罚记录数量"
+    description: "Auto-discovered from 淘宝闪购 近3年平台涉及配送服务的监管处罚记录数量 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://bk.taobao.com/k/taobaoshangou_19032/283efa6bfbc06664709c276494c15014.html"
+    name: "auto: 淘宝闪购 配送服务覆盖的城市总量及区域渗透密度"
+    description: "Auto-discovered from 淘宝闪购 配送服务覆盖的城市总量及区域渗透密度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://bk.taobao.com/k/taobaoshangou_19032/d5517fc4387aadba3000bcd6931d3746.html"
+    name: "auto: 淘宝闪购 配送服务覆盖的城市总量及区域渗透密度"
+    description: "Auto-discovered from 淘宝闪购 配送服务覆盖的城市总量及区域渗透密度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://m.guancha.cn/economy/2025_11_13_796924.shtml"
+    name: "auto: 淘宝闪购 配送服务覆盖的城市总量及区域渗透密度"
+    description: "Auto-discovered from 淘宝闪购 配送服务覆盖的城市总量及区域渗透密度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://www.meituan.com/investor-relations"
+    name: "auto: 美团 所属主体公司整体营收规模/市场估值"
+    description: "Auto-discovered from 美团 所属主体公司整体营收规模/市场估值 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["美团"]
+
+  - url: "https://finance.sina.com.cn/stock/marketresearch/2026-03-27/doc-inhsmnzu2045944.shtml"
+    name: "auto: 美团 所属主体公司整体营收规模/市场估值"
+    description: "Auto-discovered from 美团 所属主体公司整体营收规模/市场估值 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["美团"]
+
+  - url: "https://www.sohu.com/a/950842239_121804985"
+    name: "auto: 淘宝闪购 主APP内即时配送下单入口的交互便捷度"
+    description: "Auto-discovered from 淘宝闪购 主APP内即时配送下单入口的交互便捷度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["淘宝闪购"]
+
+  - url: "https://www.oceanengine.com/"
+    name: "auto: 抖音 非会员场景广告插入密度"
+    description: "Auto-discovered from 抖音 非会员场景广告插入密度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://developer.open-douyin.com/docs/resource/zh-CN/mini-app/design/design-guidelines/Control/ad-card"
+    name: "auto: 抖音 非会员场景广告插入密度"
+    description: "Auto-discovered from 抖音 非会员场景广告插入密度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://webzilla.global/cn/douyin-ad-guide/"
+    name: "auto: 抖音 非会员场景广告插入密度"
+    description: "Auto-discovered from 抖音 非会员场景广告插入密度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.toutiao.com/w/1830699827462155/"
+    name: "auto: 抖音 会员免广告权益覆盖范围"
+    description: "Auto-discovered from 抖音 会员免广告权益覆盖范围 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.douyin.com/search/免广告权益卡使用范围"
+    name: "auto: 抖音 会员免广告权益覆盖范围"
+    description: "Auto-discovered from 抖音 会员免广告权益覆盖范围 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.douyin.com/search/抖音会员开了能免广告吗"
+    name: "auto: 抖音 会员免广告权益覆盖范围"
+    description: "Auto-discovered from 抖音 会员免广告权益覆盖范围 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://aiqicha.baidu.com/company_detail_15766206804018"
+    name: "auto: 抖音 背后运营主体"
+    description: "Auto-discovered from 抖音 背后运营主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.qcc.com/crun/ce211dbdab20dce66a9472847133d1be.html"
+    name: "auto: 抖音 背后运营主体"
+    description: "Auto-discovered from 抖音 背后运营主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.douyin.com/aboutus/"
+    name: "auto: 抖音 背后运营主体"
+    description: "Auto-discovered from 抖音 背后运营主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://juejin.cn/post/7504288329904570377"
+    name: "auto: 抖音 打开APP后的默认feed流加载逻辑"
+    description: "Auto-discovered from 抖音 打开APP后的默认feed流加载逻辑 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://blog.csdn.net/brycegao321/article/details/161824241"
+    name: "auto: 抖音 打开APP后的默认feed流加载逻辑"
+    description: "Auto-discovered from 抖音 打开APP后的默认feed流加载逻辑 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://juejin.cn/post/7360358836589903882"
+    name: "auto: 抖音 打开APP后的默认feed流加载逻辑"
+    description: "Auto-discovered from 抖音 打开APP后的默认feed流加载逻辑 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.douyin.com/search/连播规则"
+    name: "auto: 抖音 视频自动连播规则"
+    description: "Auto-discovered from 抖音 视频自动连播规则 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.douyin.com/video/7645859757912123235"
+    name: "auto: 抖音 视频自动连播规则"
+    description: "Auto-discovered from 抖音 视频自动连播规则 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://jishuzhan.net/article/1898366627310325762"
+    name: "auto: 抖音 视频自动连播规则"
+    description: "Auto-discovered from 抖音 视频自动连播规则 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.iimedia.cn/c1040/107250.html"
+    name: "auto: 抖音 该短视频业务线的企业战略优先级"
+    description: "Auto-discovered from 抖音 该短视频业务线的企业战略优先级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://m.36kr.com/p/3076868698046213"
+    name: "auto: 抖音 该短视频业务线的企业战略优先级"
+    description: "Auto-discovered from 抖音 该短视频业务线的企业战略优先级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.toutiao.com/article/7482435784067400219/"
+    name: "auto: 抖音 该短视频业务线的企业战略优先级"
+    description: "Auto-discovered from 抖音 该短视频业务线的企业战略优先级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1909635394884076684"
+    name: "auto: 抖音 非内容导流入口的显性程度"
+    description: "Auto-discovered from 抖音 非内容导流入口的显性程度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.163.com/dy/article/K26A0PM00519BE46.html"
+    name: "auto: 抖音 非内容导流入口的显性程度"
+    description: "Auto-discovered from 抖音 非内容导流入口的显性程度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.digitaling.com/articles/973370.html"
+    name: "auto: 抖音 非内容导流入口的显性程度"
+    description: "Auto-discovered from 抖音 非内容导流入口的显性程度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://zhuanlan.zhihu.com/p/638658972"
+    name: "auto: 抖音 业务线核心考核导向"
+    description: "Auto-discovered from 抖音 业务线核心考核导向 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://blog.ihr360.com/p/103139/"
+    name: "auto: 抖音 业务线核心考核导向"
+    description: "Auto-discovered from 抖音 业务线核心考核导向 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://developer.open-douyin.com/docs/resource/zh-CN/mini-app/develop/tutorial/experience-optimization/tools/debug/audits/rules/accessibility"
+    name: "auto: 抖音 非内容类弹窗/插卡的出现频率"
+    description: "Auto-discovered from 抖音 非内容类弹窗/插卡的出现频率 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.douyin.com/video/7409208802265943315"
+    name: "auto: 抖音 非内容类弹窗/插卡的出现频率"
+    description: "Auto-discovered from 抖音 非内容类弹窗/插卡的出现频率 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.zhihu.com/question/544760756"
+    name: "auto: 抖音 非内容类弹窗/插卡的出现频率"
+    description: "Auto-discovered from 抖音 非内容类弹窗/插卡的出现频率 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.qcc.com/crun/9c9efa4bd873bfcb46066f9dcc5d0fc4.html"
+    name: "auto: 快手 背后运营主体"
+    description: "Auto-discovered from 快手 背后运营主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://aiqicha.baidu.com/company_detail_29832368084423"
+    name: "auto: 快手 背后运营主体"
+    description: "Auto-discovered from 快手 背后运营主体 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.douyin.com/search/抖音沉浸式模块操作指南"
+    name: "auto: 抖音 沉浸式专属功能配置"
+    description: "Auto-discovered from 抖音 沉浸式专属功能配置 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.sohu.com/a/823211523_362225"
+    name: "auto: 抖音 沉浸式专属功能配置"
+    description: "Auto-discovered from 抖音 沉浸式专属功能配置 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://developer.open-douyin.com/forum/questio&wd=&eqid=871ca6af00056a640000000264bd512a"
+    name: "auto: 抖音 沉浸式专属功能配置"
+    description: "Auto-discovered from 抖音 沉浸式专属功能配置 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://zhuanlan.zhihu.com/p/19822185726"
+    name: "auto: 快手 非会员场景广告插入密度"
+    description: "Auto-discovered from 快手 非会员场景广告插入密度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://e.kuaishou.com/ads"
+    name: "auto: 快手 非会员场景广告插入密度"
+    description: "Auto-discovered from 快手 非会员场景广告插入密度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://img3.gelonghui.com/pdf/45fba-23bb021d-face-47b1-b782-8438b82014f5.pdf"
+    name: "auto: 快手 非会员场景广告插入密度"
+    description: "Auto-discovered from 快手 非会员场景广告插入密度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1897652316787696854"
+    name: "auto: 抖音 内容推荐匹配精准度"
+    description: "Auto-discovered from 抖音 内容推荐匹配精准度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://journal.hdu.edu.cn/CN/10.13954/j.cnki.hduss.2024.02.003"
+    name: "auto: 抖音 内容推荐匹配精准度"
+    description: "Auto-discovered from 抖音 内容推荐匹配精准度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://news.qq.com/rain/a/20230119A06VWJ00"
+    name: "auto: 抖音 内容推荐匹配精准度"
+    description: "Auto-discovered from 抖音 内容推荐匹配精准度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://bk.taobao.com/k/kuaishou_227/96cde4f88d0011bd028a7e3a7449df8c.html"
+    name: "auto: 快手 会员免广告权益覆盖范围"
+    description: "Auto-discovered from 快手 会员免广告权益覆盖范围 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://bk.taobao.com/k/kuaishou_227/1c8b75170a3d70713b80546be17b5275.html"
+    name: "auto: 快手 会员免广告权益覆盖范围"
+    description: "Auto-discovered from 快手 会员免广告权益覆盖范围 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.zhihu.com/question/7017768768"
+    name: "auto: 快手 会员免广告权益覆盖范围"
+    description: "Auto-discovered from 快手 会员免广告权益覆盖范围 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.woshipm.com/ucd/5801307.html"
+    name: "auto: 抖音 核心交互手势设计逻辑"
+    description: "Auto-discovered from 抖音 核心交互手势设计逻辑 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://www.sohu.com/a/665121456_114819"
+    name: "auto: 抖音 核心交互手势设计逻辑"
+    description: "Auto-discovered from 抖音 核心交互手势设计逻辑 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "http://www.visionunion.com/article.jsp?code=202304160006"
+    name: "auto: 抖音 核心交互手势设计逻辑"
+    description: "Auto-discovered from 抖音 核心交互手势设计逻辑 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["抖音"]
+
+  - url: "https://juejin.cn/post/7549973124987043886"
+    name: "auto: 快手 打开APP后的默认feed流加载逻辑"
+    description: "Auto-discovered from 快手 打开APP后的默认feed流加载逻辑 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://jishuzhan.net/article/1967529516538576897"
+    name: "auto: 快手 打开APP后的默认feed流加载逻辑"
+    description: "Auto-discovered from 快手 打开APP后的默认feed流加载逻辑 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://cloud.tencent.com/developer/article/2415170"
+    name: "auto: 快手 打开APP后的默认feed流加载逻辑"
+    description: "Auto-discovered from 快手 打开APP后的默认feed流加载逻辑 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.datastory.com.cn/details/1211"
+    name: "auto: 快手 非内容导流入口的显性程度"
+    description: "Auto-discovered from 快手 非内容导流入口的显性程度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.sohu.com/a/903159370_121118996"
+    name: "auto: 快手 非内容导流入口的显性程度"
+    description: "Auto-discovered from 快手 非内容导流入口的显性程度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.sohu.com/a/900049620_122425094"
+    name: "auto: 快手 非内容导流入口的显性程度"
+    description: "Auto-discovered from 快手 非内容导流入口的显性程度 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["快手"]
+
+  - url: "https://www.ai-insight.org/reports/gpt-image-2-2026"
+    name: "auto: GPT 质量与逼真度"
+    description: "Auto-discovered from GPT 质量与逼真度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://news.qq.com/rain/a/20260422A06VUV00"
+    name: "auto: GPT 质量与逼真度"
+    description: "Auto-discovered from GPT 质量与逼真度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://www.douban.com/group/topic/484933791/?_spm_id=MTA1NjUyMQ"
+    name: "auto: GPT 质量与逼真度"
+    description: "Auto-discovered from GPT 质量与逼真度 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://openai.com/zh-Hans-CN/gpt-5/"
+    name: "auto: GPT 支持语言数量"
+    description: "Auto-discovered from GPT 支持语言数量 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1961753875510989799"
+    name: "auto: GPT 支持语言数量"
+    description: "Auto-discovered from GPT 支持语言数量 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://openai.com/zh-Hans-CN/index/introducing-gpt-5-2/"
+    name: "auto: GPT 支持语言数量"
+    description: "Auto-discovered from GPT 支持语言数量 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://zhuanlan.zhihu.com/p/679302458"
+    name: "auto: GPT 典型应用场景（对话/编程/创作/分析）"
+    description: "Auto-discovered from GPT 典型应用场景（对话/编程/创作/分析） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://openai.com/zh-Hans-CN/"
+    name: "auto: GPT 典型应用场景（对话/编程/创作/分析）"
+    description: "Auto-discovered from GPT 典型应用场景（对话/编程/创作/分析） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://chatgpt.com/zh-Hans-CN/overview/"
+    name: "auto: GPT 典型应用场景（对话/编程/创作/分析）"
+    description: "Auto-discovered from GPT 典型应用场景（对话/编程/创作/分析） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://www.sohu.com/a/962680011_121869969"
+    name: "auto: GPT 行业解决方案（金融/医疗/教育等）"
+    description: "Auto-discovered from GPT 行业解决方案（金融/医疗/教育等） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1993701912592278158"
+    name: "auto: GPT 行业解决方案（金融/医疗/教育等）"
+    description: "Auto-discovered from GPT 行业解决方案（金融/医疗/教育等） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://gemini.google.com/?hl=zh-cn"
+    name: "auto: Gemini 典型应用场景（对话/编程/创作/分析）"
+    description: "Auto-discovered from Gemini 典型应用场景（对话/编程/创作/分析） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://zhuanlan.zhihu.com/p/16629789727"
+    name: "auto: Gemini 典型应用场景（对话/编程/创作/分析）"
+    description: "Auto-discovered from Gemini 典型应用场景（对话/编程/创作/分析） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://youngxuesong.github.io/posts/f0f07359/index.html"
+    name: "auto: Gemini 典型应用场景（对话/编程/创作/分析）"
+    description: "Auto-discovered from Gemini 典型应用场景（对话/编程/创作/分析） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://www.ufcn.cn/article/2274764.html"
+    name: "auto: Gemini 行业解决方案（金融/医疗/教育等）"
+    description: "Auto-discovered from Gemini 行业解决方案（金融/医疗/教育等） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://www.php.cn/faq/2252301.html"
+    name: "auto: Gemini 行业解决方案（金融/医疗/教育等）"
+    description: "Auto-discovered from Gemini 行业解决方案（金融/医疗/教育等） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://zhuanlan.zhihu.com/p/2007551114376126586"
+    name: "auto: GPT 主要定价模式/版本层级"
+    description: "Auto-discovered from GPT 主要定价模式/版本层级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://www.cursor-ide.com/blog/gpt-5-pricing"
+    name: "auto: GPT 主要定价模式/版本层级"
+    description: "Auto-discovered from GPT 主要定价模式/版本层级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://openai.com/zh-Hans-CN/index/introducing-gpt-5/"
+    name: "auto: GPT 行业解决方案（金融/医疗/教育等）"
+    description: "Auto-discovered from GPT 行业解决方案（金融/医疗/教育等） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://www.sangfor.com.cn/"
+    name: "auto: GPT 行业解决方案（金融/医疗/教育等）"
+    description: "Auto-discovered from GPT 行业解决方案（金融/医疗/教育等） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://www.thepaper.cn/newsDetail_forward_23463237"
+    name: "auto: GPT 行业解决方案（金融/医疗/教育等）"
+    description: "Auto-discovered from GPT 行业解决方案（金融/医疗/教育等） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://cloud.google.com/products/gemini-enterprise-agent-platform?hl=zh-cn"
+    name: "auto: Gemini 行业解决方案（金融/医疗/教育等）"
+    description: "Auto-discovered from Gemini 行业解决方案（金融/医疗/教育等） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://deepmind.google/models/gemini/"
+    name: "auto: Gemini 行业解决方案（金融/医疗/教育等）"
+    description: "Auto-discovered from Gemini 行业解决方案（金融/医疗/教育等） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://gemini-pro-cn.com/gemini/applications.html"
+    name: "auto: Gemini 行业解决方案（金融/医疗/教育等）"
+    description: "Auto-discovered from Gemini 行业解决方案（金融/医疗/教育等） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://yingtu.ai/zh/blog/gemini-api-free-tier-vs-paid-tier-cost-and-benefits"
+    name: "auto: Gemini 主要定价模式/版本层级"
+    description: "Auto-discovered from Gemini 主要定价模式/版本层级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://yingtu.ai/zh/blog/gemini-api-pricing-limits"
+    name: "auto: Gemini 主要定价模式/版本层级"
+    description: "Auto-discovered from Gemini 主要定价模式/版本层级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://www.cursor-ide.com/blog/gemini-api-free-tier-limits-2026"
+    name: "auto: Gemini 主要定价模式/版本层级"
+    description: "Auto-discovered from Gemini 主要定价模式/版本层级 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]

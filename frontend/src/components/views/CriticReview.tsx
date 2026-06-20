@@ -10,29 +10,50 @@ interface CriticReviewProps {
   taskId?: string | null;
   extensionRequest?: { visible: boolean; suggestions: any[] };
   onApplied?: () => void;
+  onRunStarted?: (runId: string | null) => void;
+  onStateChange?: (state: string, progress?: number) => void;
 }
 
-export default function CriticReview({ taskId, extensionRequest, onApplied }: CriticReviewProps) {
+export default function CriticReview({ taskId, extensionRequest, onApplied, onRunStarted, onStateChange }: CriticReviewProps) {
   const { message } = App.useApp();
   const [feedbackItems, setFeedbackItems] = useState<any[]>([]);
+  const [localSuggestions, setLocalSuggestions] = useState<any[]>([]);
   const [selectedFeedback, setSelectedFeedback] = useState<Set<string>>(new Set());
   const [selectedExtensions, setSelectedExtensions] = useState<Set<number>>(new Set());
+  const [submittedFeedback, setSubmittedFeedback] = useState<Set<string>>(new Set());
   const [applying, setApplying] = useState(false);
 
   useEffect(() => {
     if (!taskId) return;
     fetch(`${API_BASE}/api/v1/tasks/${taskId}/feedback/pending`)
       .then(r => r.json())
-      .then(d => setFeedbackItems(d.feedback || []))
+      .then(d => {
+        const items = d.feedback || [];
+        setFeedbackItems(items.filter((item: any) => !submittedFeedback.has(item.id)));
+      })
       .catch(() => {});
-  }, [taskId, extensionRequest]);
+  }, [taskId, extensionRequest, submittedFeedback]);
 
-  const suggestions = extensionRequest?.suggestions || [];
+  useEffect(() => {
+    setSubmittedFeedback(new Set());
+    setSelectedFeedback(new Set());
+  }, [taskId]);
+
+  useEffect(() => {
+    setLocalSuggestions(extensionRequest?.suggestions || []);
+    setSelectedExtensions(new Set());
+  }, [extensionRequest]);
+
+  const suggestions = localSuggestions;
 
   const toggleFeedback = (id: string) => {
     setSelectedFeedback(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next;
     });
   };
@@ -40,7 +61,11 @@ export default function CriticReview({ taskId, extensionRequest, onApplied }: Cr
   const toggleExtension = (idx: number) => {
     setSelectedExtensions(prev => {
       const next = new Set(prev);
-      next.has(idx) ? next.delete(idx) : next.add(idx);
+      if (next.has(idx)) {
+        next.delete(idx);
+      } else {
+        next.add(idx);
+      }
       return next;
     });
   };
@@ -72,7 +97,7 @@ export default function CriticReview({ taskId, extensionRequest, onApplied }: Cr
       const confirmedFeedbackIds = Array.from(selectedFeedback);
       const confirmedExtensions = suggestions.filter((_: any, i: number) => selectedExtensions.has(i));
 
-      await fetch(`${API_BASE}/api/v1/tasks/${taskId}/critic/apply`, {
+      const resp = await fetch(`${API_BASE}/api/v1/tasks/${taskId}/critic/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -81,8 +106,18 @@ export default function CriticReview({ taskId, extensionRequest, onApplied }: Cr
           confirmed_extensions: confirmedExtensions,
         }),
       });
+      if (!resp.ok) throw new Error(await resp.text());
+      const respData = await resp.json();
+      if (respData.run_id && onRunStarted) onRunStarted(respData.run_id);
+      const selectedCollectionFeedback = feedbackItems.some((item: any) => (
+        selectedFeedback.has(item.id) && item.suggested_action === 'retry_collection'
+      ));
+      const willCollect = confirmedExtensions.length > 0 || selectedCollectionFeedback;
+      onStateChange?.(willCollect ? 'COLLECTING' : 'ANALYZING', willCollect ? 70 : 95);
 
       message.success('已应用选中的审查意见');
+      setSubmittedFeedback(prev => new Set([...Array.from(prev), ...confirmedFeedbackIds, ...rejectedFeedback]));
+      setLocalSuggestions(prev => prev.filter((_: any, i: number) => !selectedExtensions.has(i)));
       setFeedbackItems(prev => prev.filter((f: any) => !confirmedFeedbackIds.includes(f.id) && !rejectedFeedback.includes(f.id)));
       setSelectedFeedback(new Set());
       setSelectedExtensions(new Set());
@@ -98,11 +133,13 @@ export default function CriticReview({ taskId, extensionRequest, onApplied }: Cr
     if (!taskId) return;
     setApplying(true);
     try {
-      await fetch(`${API_BASE}/api/v1/tasks/${taskId}/calibration`, {
+      const calResp = await fetch(`${API_BASE}/api/v1/tasks/${taskId}/calibration`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'reject' }),
       });
+      const calData = await calResp.json();
+      if (calData.run_id && onRunStarted) onRunStarted(calData.run_id);
       const allIds = feedbackItems.map((f: any) => f.id);
       if (allIds.length > 0) {
         await fetch(`${API_BASE}/api/v1/tasks/${taskId}/feedback/apply`, {
@@ -112,7 +149,9 @@ export default function CriticReview({ taskId, extensionRequest, onApplied }: Cr
         });
       }
       message.info('已拒绝全部建议');
+      setSubmittedFeedback(prev => new Set([...Array.from(prev), ...allIds]));
       setFeedbackItems([]);
+      setLocalSuggestions([]);
       setSelectedFeedback(new Set());
       setSelectedExtensions(new Set());
       onApplied?.();

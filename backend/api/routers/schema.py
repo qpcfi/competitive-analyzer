@@ -7,7 +7,7 @@ from core.runtime import runner
 from models_db import SourceMaterialRecord, async_session
 from schemas import SchemaUpdateRequest
 from services.pipeline import process_agent_pipeline, publish_event, regenerate_schema
-from services.repositories import add_intervention, get_task, latest_schema, save_schema, update_task_state
+from services.repositories import add_intervention, get_task, latest_schema, new_run_id, save_schema, set_task_run, update_task_state
 from services.state_machine import can_transition
 from services.stats import count_schema_stats
 
@@ -53,11 +53,11 @@ async def update_schema(task_id: str, req: SchemaUpdateRequest):
         except Exception:
             pass
     await publish_event(
-        task_id, 
-        "schema_ready", 
+        task_id,
+        "schema_ready",
         {
-            "dynamic_schema": req.dynamic_schema, 
-            "schema_version": record.version, 
+            "dynamic_schema": req.dynamic_schema,
+            "schema_version": record.version,
             "competitors": db_task.competitors or [],
             "stats": count_schema_stats(req.dynamic_schema)
         }
@@ -68,46 +68,68 @@ async def update_schema(task_id: str, req: SchemaUpdateRequest):
 
 @router.post("/api/v1/tasks/{task_id}/reject_schema")
 async def reject_schema(task_id: str, background_tasks: BackgroundTasks):
-    async with async_session() as session:
-        db_task = await get_task(session, task_id)
-        if not db_task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        if not can_transition(db_task.state, "SCHEMA_GENERATING"):
-            raise HTTPException(status_code=409, detail=f"Cannot reject schema while task is {db_task.state}")
-        await add_intervention(session, task_id, "schema_reject", {"previous_state": db_task.state})
-        await update_task_state(session, task_id, state="SCHEMA_GENERATING", progress=10)
-        await session.commit()
-
-    await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "progress": 10})
-    await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Regenerating schema after user rejection"})
-    if not runner.start(task_id, lambda: regenerate_schema(task_id)):
+    run_id = new_run_id()
+    if not runner.claim(task_id, run_id):
         raise HTTPException(status_code=409, detail="Pipeline already running for this task")
-    return {"status": "regenerating", "state": "SCHEMA_GENERATING"}
+
+    try:
+        async with async_session() as session:
+            db_task = await get_task(session, task_id)
+            if not db_task:
+                raise HTTPException(status_code=404, detail="Task not found")
+            if not can_transition(db_task.state, "SCHEMA_GENERATING"):
+                raise HTTPException(status_code=409, detail=f"Cannot reject schema while task is {db_task.state}")
+            await add_intervention(session, task_id, "schema_reject", {"previous_state": db_task.state})
+            await update_task_state(session, task_id, state="SCHEMA_GENERATING", progress=10)
+            await set_task_run(session, task_id, run_id)
+            await session.commit()
+    except Exception:
+        runner.release(task_id, run_id)
+        raise
+
+    if not runner.start_claimed(task_id, run_id, lambda: regenerate_schema(task_id, run_id)):
+        runner.release(task_id, run_id)
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+
+    await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "progress": 10}, run_id=run_id)
+    await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Regenerating schema after user rejection"}, run_id=run_id)
+    return {"status": "regenerating", "state": "SCHEMA_GENERATING", "run_id": run_id}
 
 
 @router.post("/api/v1/tasks/{task_id}/resume")
 async def resume_task(task_id: str, background_tasks: BackgroundTasks):
-    async with async_session() as session:
-        db_task = await get_task(session, task_id)
-        if not db_task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        if not can_transition(db_task.state, "COLLECTING"):
-            raise HTTPException(status_code=409, detail=f"Cannot resume task while task is {db_task.state}")
-        # 清除上次采集的旧数据，重新开始
-        db_task.raw_materials = []
-        db_task.analysis_results = {}
-        db_task.critic_feedback = []
-        db_task.error = None
-        await session.execute(
-            SourceMaterialRecord.__table__.delete().where(SourceMaterialRecord.task_id == task_id)
-        )
-        schema_record = await latest_schema(session, task_id)
-        await add_intervention(session, task_id, "schema_confirm", {"schema_version": schema_record.version if schema_record else None})
-        await update_task_state(session, task_id, state="COLLECTING", progress=40)
-        await session.commit()
-
-    await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "previous_state": "SCHEMA_REVIEW", "progress": 40})
-    await publish_event(task_id, "progress_update", {"progress": 40, "stage": "COLLECTING"})
-    if not runner.start(task_id, lambda: process_agent_pipeline(task_id)):
+    run_id = new_run_id()
+    if not runner.claim(task_id, run_id):
         raise HTTPException(status_code=409, detail="Pipeline already running for this task")
-    return {"status": "resumed", "state": "COLLECTING"}
+
+    try:
+        async with async_session() as session:
+            db_task = await get_task(session, task_id)
+            if not db_task:
+                raise HTTPException(status_code=404, detail="Task not found")
+            if not can_transition(db_task.state, "COLLECTING"):
+                raise HTTPException(status_code=409, detail=f"Cannot resume task while task is {db_task.state}")
+            # 清除上次采集的旧数据，重新开始
+            db_task.raw_materials = []
+            db_task.analysis_results = {}
+            db_task.critic_feedback = []
+            db_task.error = None
+            await session.execute(
+                SourceMaterialRecord.__table__.delete().where(SourceMaterialRecord.task_id == task_id)
+            )
+            schema_record = await latest_schema(session, task_id)
+            await add_intervention(session, task_id, "schema_confirm", {"schema_version": schema_record.version if schema_record else None})
+            await update_task_state(session, task_id, state="COLLECTING", progress=40)
+            await set_task_run(session, task_id, run_id)
+            await session.commit()
+    except Exception:
+        runner.release(task_id, run_id)
+        raise
+
+    if not runner.start_claimed(task_id, run_id, lambda: process_agent_pipeline(task_id, run_id)):
+        runner.release(task_id, run_id)
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+
+    await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "previous_state": "SCHEMA_REVIEW", "progress": 40}, run_id=run_id)
+    await publish_event(task_id, "progress_update", {"progress": 40, "stage": "COLLECTING"}, run_id=run_id)
+    return {"status": "resumed", "state": "COLLECTING", "run_id": run_id}

@@ -4,16 +4,28 @@ from collections import defaultdict
 from typing import Any, AsyncIterator
 
 from models_db import async_session
-from services.repositories import add_event, list_events
+from services.repositories import add_event, is_task_run_active, list_events
 
 
 class EventBroker:
     def __init__(self) -> None:
         self._queues: dict[str, set[asyncio.Queue[dict[str, Any]]]] = defaultdict(set)
 
-    async def publish(self, task_id: str, event_type: str, payload: dict[str, Any]) -> dict[str, Any]:
+    async def publish(self, task_id: str, event_type: str, payload: dict[str, Any], run_id: str | None = None, allow_inactive: bool = False) -> dict[str, Any] | None:
+        # If run_id is provided, check if this run is still active (skip stale run events)
+        if run_id and not allow_inactive:
+            async with async_session() as session:
+                if not await is_task_run_active(session, task_id, run_id):
+                    return None
+
+        payload = {
+            "task_id": task_id,
+            "run_id": run_id,
+            **payload,
+        }
+
         async with async_session() as session:
-            event = await add_event(session, task_id, event_type, payload)
+            event = await add_event(session, task_id, event_type, payload, run_id=run_id)
             await session.commit()
             data = {"sequence": event.sequence, **payload}
         message = {"event": event_type, "data": data}

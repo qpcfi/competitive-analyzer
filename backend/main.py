@@ -14,7 +14,10 @@ _uvicorn_log_config["formatters"]["access"]["fmt"] = "%(asctime)s [%(levelname)s
 _uvicorn_log_config["formatters"]["access"]["datefmt"] = "%Y-%m-%d %H:%M:%S"
 
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Query
+
+load_dotenv(Path(__file__).with_name(".env"), override=True)
+
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -25,7 +28,7 @@ from api.routers.discovery import get_competitor_recommendations
 from api.routers.feedback import record_feedback, save_note
 from api.routers.recovery import force_next, partial_rerun, pause_task
 from api.routers.reports import export_report, get_report, share_report, verify_links
-from api.routers.schema import reject_schema, resume_task, schema_advice, update_schema
+from api.routers.schema import update_schema
 from api.routers.sources import (
     add_source_material,
     apply_intervention,
@@ -38,11 +41,10 @@ from api.routers.tasks import create_task, get_task_status, list_snapshots, list
 from core import runtime
 from models_db import async_session, init_db
 from schemas import SchemaUpdateRequest
-from services.pipeline import event_generator, make_initial_state, process_agent_pipeline, process_graph_events, publish_event, regenerate_schema
-from services.repositories import add_intervention, get_task, latest_schema, save_schema, update_task_state
-from services.stats import count_schema_stats, source_stats
-
-load_dotenv(Path(__file__).with_name(".env"), override=True)
+from services.pipeline import event_generator, publish_event
+from services.repositories import add_intervention, get_task, save_schema, update_task_state
+from services.stats import count_schema_stats
+from agents.shared.llm import get_llm_config, mask_secret
 
 try:
     from langgraph.checkpoint.postgres import PostgresSaver
@@ -144,6 +146,17 @@ async def get_competitor_recommendations(
     return {"items": items}
 
 
+@app.get("/api/v1/debug/llm-config")
+async def debug_llm_config():
+    config = get_llm_config()
+    return {
+        "api_key": mask_secret(config.get("api_key")),
+        "base_url": config.get("base_url"),
+        "model": config.get("model"),
+        "display_name": os.environ.get("LLM_DISPLAY_NAME"),
+    }
+
+
 async def update_schema(task_id: str, req: SchemaUpdateRequest):
     async with async_session() as session:
         db_task = await get_task(session, task_id)
@@ -166,40 +179,6 @@ async def update_schema(task_id: str, req: SchemaUpdateRequest):
     await publish_event(task_id, "debug_log", {"agent": "System", "event": "info", "message": "Schema draft saved."})
     return {"status": "updated", "schema_version": record.version, "state": "SCHEMA_REVIEW"}
 
-
-async def reject_schema(task_id: str, background_tasks: BackgroundTasks):
-    async with async_session() as session:
-        db_task = await get_task(session, task_id)
-        if not db_task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        if db_task.state not in {"SCHEMA_REVIEW", "SCHEMA_GENERATING", "INITIALIZING"}:
-            raise HTTPException(status_code=409, detail=f"Cannot reject schema while task is {db_task.state}")
-        await add_intervention(session, task_id, "schema_reject", {"previous_state": db_task.state})
-        await update_task_state(session, task_id, state="SCHEMA_GENERATING", progress=10)
-        await session.commit()
-
-    await publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "progress": 10})
-    await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Regenerating schema after user rejection"})
-    asyncio.create_task(regenerate_schema(task_id))
-    return {"status": "regenerating", "state": "SCHEMA_GENERATING"}
-
-
-async def resume_task(task_id: str, background_tasks: BackgroundTasks):
-    async with async_session() as session:
-        db_task = await get_task(session, task_id)
-        if not db_task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        if db_task.state not in {"SCHEMA_REVIEW", "PAUSED"}:
-            raise HTTPException(status_code=409, detail=f"Cannot resume task while task is {db_task.state}")
-        schema_record = await latest_schema(session, task_id)
-        await add_intervention(session, task_id, "schema_confirm", {"schema_version": schema_record.version if schema_record else None})
-        await update_task_state(session, task_id, state="COLLECTING", progress=40)
-        await session.commit()
-
-    await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "previous_state": "SCHEMA_REVIEW", "progress": 40})
-    await publish_event(task_id, "progress_update", {"progress": 40, "stage": "COLLECTING"})
-    asyncio.create_task(process_agent_pipeline(task_id))
-    return {"status": "resumed", "state": "COLLECTING"}
 
 
 if __name__ == "__main__":

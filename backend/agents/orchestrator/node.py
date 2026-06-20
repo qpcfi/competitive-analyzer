@@ -202,14 +202,11 @@ def build_schema_from_context(context: dict) -> dict:
 def ensure_schema_metadata(schema: dict) -> dict:
     normalized = {}
     total_fields = 0
-    max_fields = 12
     for group_name, fields in schema.items():
         if not isinstance(fields, list):
             continue
         normalized[group_name] = []
         for index, field in enumerate(fields):
-            if total_fields >= max_fields:
-                break
             if not isinstance(field, dict):
                 continue
             field_name = str(field.get("name") or f"field_{index + 1}")
@@ -223,7 +220,7 @@ def ensure_schema_metadata(schema: dict) -> dict:
                 "source": field.get("source") or "public_web",
                 "origin": field.get("origin") or "agent",
                 "feasibility": field.get("feasibility") or "medium",
-                "skill_category": field["skill_category"],
+                "skill_category": field.get("skill_category") or "company",
             }
             for metadata_key in ("confidence", "reason", "evidence", "affected_competitors"):
                 if metadata_key in field:
@@ -232,8 +229,6 @@ def ensure_schema_metadata(schema: dict) -> dict:
             total_fields += 1
         if not normalized[group_name]:
             normalized.pop(group_name, None)
-        if total_fields >= max_fields:
-            break
     if not normalized:
         return {
             "Core Profile": [
@@ -245,6 +240,7 @@ def ensure_schema_metadata(schema: dict) -> dict:
                     "source": "official",
                     "origin": "system",
                     "feasibility": "high",
+                    "skill_category": "company",
                 }
             ]
         }
@@ -257,9 +253,7 @@ def merge_schema_extensions(schema: dict, extensions: list[dict]) -> tuple[dict,
     for extension in extensions:
         if not isinstance(extension, dict):
             continue
-        confidence = safe_float(extension.get("confidence"), 0.0)
-        if confidence < 0.8:
-            continue
+        confidence = safe_float(extension.get("confidence"), 1.0)
         group_name = str(extension.get("dimension_group") or extension.get("group") or "Extended Attributes").strip()
         field_name = str(extension.get("new_field") or extension.get("name") or "").strip()
         if not group_name or not field_name:
@@ -277,13 +271,23 @@ def merge_schema_extensions(schema: dict, extensions: list[dict]) -> tuple[dict,
             "source": extension.get("source") or "public_web",
             "origin": "critic",
             "feasibility": "medium",
+            "skill_category": extension.get("skill_category") or extension.get("skill") or "company",
             "confidence": confidence,
             "evidence": extension.get("evidence") or [],
             "affected_competitors": extension.get("affected_competitors") or [],
         }
         group.append(field)
         added_fields.append({**field, "group": group_name})
-    return ensure_schema_metadata(updated), added_fields
+    normalized = ensure_schema_metadata(updated)
+    added_ids = {field.get("id") for field in added_fields if field.get("id")}
+    normalized_added: list[dict] = []
+    for group_name, fields in normalized.items():
+        if not isinstance(fields, list):
+            continue
+        for field in fields:
+            if isinstance(field, dict) and field.get("id") in added_ids:
+                normalized_added.append({**field, "group": group_name})
+    return normalized, normalized_added
 
 
 def safe_float(value: object, default: float) -> float:

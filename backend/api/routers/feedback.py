@@ -5,14 +5,15 @@ from core.runtime import runner
 from models_db import async_session
 from schemas import FeedbackApplyRequest, FeedbackRequest, NoteRequest
 from services.pipeline import (
-    calibration_confirm,
     publish_event,
     run_critic_retry,
 )
 from services.repositories import (
     get_pending_feedback,
     get_task,
+    new_run_id,
     resolve_feedback_items,
+    set_task_run,
 )
 from services.state_machine import can_transition
 
@@ -77,15 +78,27 @@ async def apply_critic_retry(task_id: str, req: CriticApplyRequest):
     if not has_feedback and not has_extensions:
         return {"status": "skipped", "reason": "nothing to apply"}
 
-    if has_extensions and not has_feedback:
-        started = runner.start(task_id, lambda: calibration_confirm(task_id))
-    else:
-        started = runner.start(task_id, lambda: run_critic_retry(
-            task_id,
-            confirmed_feedback_ids=confirmed_ids,
-            confirmed_extensions=confirmed_extensions if has_extensions else None,
-        ))
+    run_id = new_run_id()
+    if not runner.claim(task_id, run_id):
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+
+    try:
+        async with async_session() as session:
+            await set_task_run(session, task_id, run_id)
+            await session.commit()
+    except Exception:
+        runner.release(task_id, run_id)
+        raise
+
+    started = runner.start_claimed(task_id, run_id, lambda: run_critic_retry(
+        task_id,
+        run_id,
+        confirmed_feedback_ids=confirmed_ids,
+        confirmed_extensions=confirmed_extensions if has_extensions else None,
+    ))
+
     if not started:
+        runner.release(task_id, run_id)
         raise HTTPException(status_code=409, detail="Pipeline already running for this task")
 
     return {
@@ -93,6 +106,7 @@ async def apply_critic_retry(task_id: str, req: CriticApplyRequest):
         "confirmed_feedback": len(confirmed_ids),
         "confirmed_extensions": len(confirmed_extensions),
         "rejected": len(rejected),
+        "run_id": run_id,
     }
 
 

@@ -11,7 +11,7 @@ from services.pipeline import (
     calibration_confirm,
     calibration_reject,
 )
-from services.repositories import add_intervention, get_task, save_analysis_module, update_task_state
+from services.repositories import add_intervention, get_task, invalidate_task_run, new_run_id, save_analysis_module, set_task_run, update_task_state
 from services.state_machine import can_transition
 
 router = APIRouter()
@@ -26,10 +26,12 @@ async def pause_task(task_id: str):
         if not can_transition(db_task.state, "PAUSED"):
             raise HTTPException(status_code=409, detail=f"Cannot pause task while it is {db_task.state}")
         await add_intervention(session, task_id, "pause", {"previous_state": db_task.state})
+        old_run_id = db_task.active_run_id
+        await invalidate_task_run(session, task_id)
         await update_task_state(session, task_id, state="PAUSED")
         await session.commit()
-    runner.cancel(task_id)
-    await publish_event(task_id, "task_state_changed", {"state": "PAUSED"})
+    runner.cancel(task_id, old_run_id)
+    await publish_event(task_id, "task_state_changed", {"state": "PAUSED"}, run_id=old_run_id, allow_inactive=True)
     return {"status": "paused", "state": "PAUSED"}
 
 
@@ -72,7 +74,7 @@ async def partial_rerun(task_id: str, req: Request):
         db_task = await get_task(session, task_id)
         if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
-        if runner.is_running(task_id):
+        if runner.is_active(task_id):
             raise HTTPException(status_code=409, detail="Cannot rerun while pipeline is active. Pause the task first.")
         if not can_transition(db_task.state, "ANALYZING"):
             raise HTTPException(status_code=409, detail=f"Cannot rerun while task is {db_task.state}")
@@ -88,17 +90,18 @@ async def partial_rerun(task_id: str, req: Request):
         await add_intervention(session, task_id, "partial_rerun", body)
         await update_task_state(session, task_id, state="ANALYZING")
         await session.commit()
-    await publish_event(task_id, "module_updated", {"module_id": module_id, "new_content": new_content, "version": record.version, "updated_at": datetime.utcnow().isoformat()})
+    await publish_event(task_id, "module_updated", {"module_id": module_id, "new_content": new_content, "version": record.version, "updated_at": datetime.utcnow().isoformat()}, allow_inactive=True)
     return {"status": "rerunning", "module_id": module_id, "state": "ANALYZING"}
 
 
 @router.post("/api/v1/tasks/{task_id}/terminate")
 async def terminate_task(task_id: str):
-    runner.cancel(task_id)
     async with async_session() as session:
         db_task = await get_task(session, task_id)
         if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
+        old_run_id = db_task.active_run_id
+        await invalidate_task_run(session, task_id)
         await add_intervention(session, task_id, "terminate", {"previous_state": db_task.state})
         await update_task_state(session, task_id, state="ERROR", error={"message": "Task terminated by user", "type": "UserTerminated"})
         db_task.analysis_results = {}
@@ -106,30 +109,43 @@ async def terminate_task(task_id: str):
         db_task.raw_materials = []
         db_task.critic_feedback = []
         await session.commit()
-    await publish_event(task_id, "task_state_changed", {"state": "ERROR", "terminated": True})
-    await publish_event(task_id, "debug_log", {"agent": "System", "event": "terminate", "message": "Task terminated by user."})
+    runner.cancel(task_id, old_run_id)
+    await publish_event(task_id, "task_state_changed", {"state": "ERROR", "terminated": True}, run_id=old_run_id, allow_inactive=True)
+    await publish_event(task_id, "debug_log", {"agent": "System", "event": "terminate", "message": "Task terminated by user."}, run_id=old_run_id, allow_inactive=True)
     return {"status": "terminated"}
 
 
 @router.post("/api/v1/tasks/{task_id}/continue-analysis")
 async def continue_analysis(task_id: str):
-    async with async_session() as session:
-        db_task = await get_task(session, task_id)
-        if not db_task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        if db_task.state not in ("COLLECTING", "PAUSED", "ERROR"):
-            raise HTTPException(status_code=409, detail=f"Cannot continue analysis while task is {db_task.state}")
-        raw_materials = list(db_task.raw_materials or [])
-        if not raw_materials:
-            raise HTTPException(status_code=409, detail="No collected materials to analyze. Collect data first.")
-        await add_intervention(session, task_id, "continue_analysis", {"previous_state": db_task.state})
-        await update_task_state(session, task_id, state="COLLECTING", progress=60)
-        await session.commit()
-    await publish_event(task_id, "debug_log", {"agent": "System", "event": "continue", "message": "Continuing analysis from post-collection state."})
-    await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60})
-    if not runner.start(task_id, lambda: process_agent_pipeline(task_id, start_from="analyzer")):
+    run_id = new_run_id()
+    if not runner.claim(task_id, run_id):
         raise HTTPException(status_code=409, detail="Pipeline already running for this task")
-    return {"status": "continuing", "state": "ANALYZING"}
+
+    try:
+        async with async_session() as session:
+            db_task = await get_task(session, task_id)
+            if not db_task:
+                raise HTTPException(status_code=404, detail="Task not found")
+            if db_task.state not in ("COLLECTING", "PAUSED", "ERROR"):
+                raise HTTPException(status_code=409, detail=f"Cannot continue analysis while task is {db_task.state}")
+            raw_materials = list(db_task.raw_materials or [])
+            if not raw_materials:
+                raise HTTPException(status_code=409, detail="No collected materials to analyze. Collect data first.")
+            await add_intervention(session, task_id, "continue_analysis", {"previous_state": db_task.state})
+            await update_task_state(session, task_id, state="COLLECTING", progress=60)
+            await set_task_run(session, task_id, run_id)
+            await session.commit()
+    except Exception:
+        runner.release(task_id, run_id)
+        raise
+
+    if not runner.start_claimed(task_id, run_id, lambda: process_agent_pipeline(task_id, run_id, start_from="analyzer")):
+        runner.release(task_id, run_id)
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+
+    await publish_event(task_id, "debug_log", {"agent": "System", "event": "continue", "message": "Continuing analysis from post-collection state."}, run_id=run_id)
+    await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60}, run_id=run_id)
+    return {"status": "continuing", "state": "ANALYZING", "run_id": run_id}
 
 
 @router.post("/api/v1/tasks/{task_id}/calibration")
@@ -138,13 +154,26 @@ async def calibration_action(task_id: str, req: Request):
     action = body.get("action", "")
     if action not in ("confirm", "reject"):
         raise HTTPException(status_code=400, detail="action must be 'confirm' or 'reject'")
-    async with async_session() as session:
-        db_task = await get_task(session, task_id)
-        if not db_task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        if db_task.state not in ("NEEDS_INTERVENTION",):
-            raise HTTPException(status_code=409, detail=f"Cannot calibrate while task is {db_task.state}")
-    started = runner.start(task_id, lambda: calibration_confirm(task_id) if action == "confirm" else calibration_reject(task_id))
-    if not started:
+
+    run_id = new_run_id()
+    if not runner.claim(task_id, run_id):
         raise HTTPException(status_code=409, detail="Pipeline already running for this task")
-    return {"status": "calibrating", "action": action, "state": "PROCESSING"}
+
+    try:
+        async with async_session() as session:
+            db_task = await get_task(session, task_id)
+            if not db_task:
+                raise HTTPException(status_code=404, detail="Task not found")
+            if db_task.state not in ("NEEDS_INTERVENTION",):
+                raise HTTPException(status_code=409, detail=f"Cannot calibrate while task is {db_task.state}")
+            await set_task_run(session, task_id, run_id)
+            await session.commit()
+    except Exception:
+        runner.release(task_id, run_id)
+        raise
+
+    if not runner.start_claimed(task_id, run_id, lambda: calibration_confirm(task_id, run_id) if action == "confirm" else calibration_reject(task_id, run_id)):
+        runner.release(task_id, run_id)
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+
+    return {"status": "calibrating", "action": action, "state": "PROCESSING", "run_id": run_id}

@@ -6,6 +6,7 @@ const { Title, Text } = Typography;
 
 interface InfoDashboardProps {
   taskId?: string | null;
+  taskName?: string;
   taskState?: string | null;
   rawMaterials?: any[];
   collectorLogs?: any[];
@@ -15,9 +16,10 @@ interface InfoDashboardProps {
     discovered_results?: number;
   } | null;
   onResume?: () => void;
+  onRunStarted?: (runId: string | null) => void;
 }
 
-export default function InfoDashboard({ taskId, taskState, rawMaterials = [], collectorLogs = [], collectionProgress = null, onResume }: InfoDashboardProps) {
+export default function InfoDashboard({ taskId, taskName, taskState, rawMaterials = [], collectorLogs = [], collectionProgress = null, onResume, onRunStarted }: InfoDashboardProps) {
   const { message } = App.useApp();
   const [loading, setLoading] = useState<string | null>(null);
   const accepted = rawMaterials.filter(item => item.validation_status === 'accepted').length;
@@ -51,6 +53,8 @@ export default function InfoDashboard({ taskId, taskState, rawMaterials = [], co
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      if (data.run_id && onRunStarted) onRunStarted(data.run_id);
       message.success('操作已提交');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '操作失败');
@@ -82,7 +86,7 @@ export default function InfoDashboard({ taskId, taskState, rawMaterials = [], co
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <Title level={3} style={{ margin: 0 }}>任务: AI大模型分析_20260525</Title>
+          <Title level={3} style={{ margin: 0 }}>任务: {taskName || taskId || '未命名'}</Title>
           <Space style={{ marginTop: 8 }}>
           {taskState === 'PAUSED' ? (
             <Tag color="warning" icon={<PauseCircleOutlined />}>已暂停</Tag>

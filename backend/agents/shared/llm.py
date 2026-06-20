@@ -1,4 +1,5 @@
 import os
+import logging
 from typing import Any
 
 try:
@@ -26,12 +27,32 @@ def get_llm_config() -> dict[str, str | None]:
     }
 
 
+def mask_secret(value: str | None) -> str:
+    if not value:
+        return "(empty)"
+    if len(value) <= 8:
+        return "***"
+    return f"{value[:4]}...{value[-4:]}"
+
+
+_logged_config = False
+
+
 def create_chat_llm(timeout: int = 90, **kwargs: Any):
     """Create a LangChain ChatOpenAI client for OpenAI-compatible providers."""
     if ChatOpenAI is None:
         return None
 
     config = get_llm_config()
+    global _logged_config
+    if not _logged_config:
+        logging.info(
+            "LLM config loaded: base_url=%s model=%s api_key=%s",
+            config["base_url"],
+            config["model"],
+            mask_secret(config["api_key"]),
+        )
+        _logged_config = True
     if not config["api_key"]:
         return None
 

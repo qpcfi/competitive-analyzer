@@ -8,6 +8,7 @@ const { TextArea } = Input;
 interface SurveyPanelProps {
   taskId?: string | null;
   onReportUpdated?: (analysis: any) => void;
+  onRunStarted?: (runId: string | null) => void;
 }
 
 type SurveyArtifact = {
@@ -73,7 +74,7 @@ function attachSurveyUrlToPosts(posts: Record<string, any>, surveyUrl?: string |
   );
 }
 
-export default function SurveyPanel({ taskId, onReportUpdated }: SurveyPanelProps) {
+export default function SurveyPanel({ taskId, onReportUpdated, onRunStarted }: SurveyPanelProps) {
   const { message } = App.useApp();
   const [campaign, setCampaign] = useState<SurveyCampaign | null>(null);
   const [campaigns, setCampaigns] = useState<SurveyCampaign[]>([]);
@@ -263,6 +264,7 @@ export default function SurveyPanel({ taskId, onReportUpdated }: SurveyPanelProp
       });
       if (!response.ok) throw new Error(await response.text());
       const data = await response.json();
+      if (data.run_id && onRunStarted) onRunStarted(data.run_id);
       if (data.analysis && onReportUpdated) {
         onReportUpdated(data.analysis);
       }

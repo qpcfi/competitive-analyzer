@@ -11,9 +11,11 @@ interface SchemaEditorProps {
   taskState?: string;
   onNext: () => void;
   onOpenDrawer: (type: string, data?: any) => void;
+  onRunStarted?: (runId: string | null) => void;
+  onStateChange?: (state: string, progress?: number) => void;
 }
 
-export default function SchemaEditor({ taskId, schemaData, competitors = [], taskState, onNext, onOpenDrawer }: SchemaEditorProps) {
+export default function SchemaEditor({ taskId, schemaData, competitors = [], taskState, onNext, onOpenDrawer, onRunStarted, onStateChange }: SchemaEditorProps) {
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
   const hasSchema = !!schemaData && Object.keys(schemaData).length > 0;
@@ -52,6 +54,9 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
     try {
       const response = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/reject_schema`, { method: 'POST' });
       if (!response.ok) throw new Error(await response.text());
+      const data = await response.json();
+      if (data.run_id && onRunStarted) onRunStarted(data.run_id);
+      onStateChange?.('SCHEMA_GENERATING', 10);
       message.success('已通知 Orchestrator 重新生成 Schema');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '拒绝失败');
@@ -108,6 +113,9 @@ export default function SchemaEditor({ taskId, schemaData, competitors = [], tas
       await saveDraft();
       const response = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/resume`, { method: 'POST' });
       if (!response.ok) throw new Error(await response.text());
+      const resData = await response.json();
+      if (resData.run_id && onRunStarted) onRunStarted(resData.run_id);
+      onStateChange?.('COLLECTING', 40);
       message.success('已放行，进入采集与分析阶段');
       onNext();
     } catch (error) {

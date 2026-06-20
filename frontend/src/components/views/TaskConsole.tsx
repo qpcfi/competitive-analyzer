@@ -3,7 +3,7 @@ import { Steps, Input, Button, Radio, Card, Space, Tag, Table, Checkbox, App, Mo
 import { PlusOutlined, DeleteOutlined, EditOutlined, BulbOutlined, ReloadOutlined } from '@ant-design/icons';
 
 interface TaskConsoleProps {
-  onNext: (taskId: string) => void;
+  onNext: (taskId: string, runId?: string) => void;
 }
 
 interface PredefinedSchemaField {
@@ -302,7 +302,7 @@ export default function TaskConsole({ onNext }: TaskConsoleProps) {
       if (res.ok && data.task_id) {
         window.localStorage.setItem('competitive-analyzer:last-task-id', data.task_id);
         message.success('任务创建成功');
-        onNext(data.task_id);
+        onNext(data.task_id, data.run_id);
       } else {
         message.error(formatApiErrorDetail(data.detail, '创建失败'));
       }

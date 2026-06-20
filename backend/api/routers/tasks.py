@@ -11,7 +11,7 @@ from core.runtime import runner
 from models_db import TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
 from schemas import TaskCreateRequest, TaskCreateResponse
 from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
-from services.repositories import add_intervention, create_task_record, get_task, latest_schema, save_schema, update_task_state
+from services.repositories import add_intervention, create_task_record, get_task, latest_schema, new_run_id, save_schema, set_task_run, update_task_state
 from services.serialization import serialize_task
 
 router = APIRouter()
@@ -19,29 +19,41 @@ router = APIRouter()
 
 @router.post("/api/v1/tasks", response_model=TaskCreateResponse)
 async def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks):
-    if runner.is_any_running():
+    if not runner.has_capacity():
         raise HTTPException(status_code=409, detail="A pipeline is already running. Wait for it to complete or pause it first.")
     task_id = f"task_{uuid.uuid4().hex[:8]}"
+    run_id = new_run_id()
 
-    async with async_session() as session:
-        await create_task_record(
-            session,
-            task_id=task_id,
-            task_name=req.task_name or f"{req.domain}_{datetime.now().strftime('%Y%m%d')}",
-            domain=req.domain,
-            main_product=req.main_product,
-            competitors=req.competitors,
-            execution_mode=req.execution_mode,
-        )
-        if req.predefined_schema:
-            await save_schema(session, task_id, {"User Defined": req.predefined_schema}, created_by="user", status="draft")
-        await session.commit()
+    if not runner.claim(task_id, run_id):
+        raise HTTPException(status_code=409, detail="A pipeline is already running. Wait for it to complete or pause it first.")
 
-    asyncio.create_task(publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "previous_state": "INITIALIZING", "progress": 10}))
-    asyncio.create_task(publish_event(task_id, "progress_update", {"progress": 10, "stage": "SCHEMA_GENERATING"}))
-    runner.start(task_id, lambda: process_initial_pipeline(task_id, make_initial_state(req, task_id), continue_after_schema=req.execution_mode == "auto"))
+    try:
+        async with async_session() as session:
+            await create_task_record(
+                session,
+                task_id=task_id,
+                task_name=req.task_name or f"{req.domain}_{datetime.now().strftime('%Y%m%d')}",
+                domain=req.domain,
+                main_product=req.main_product,
+                competitors=req.competitors,
+                execution_mode=req.execution_mode,
+            )
+            if req.predefined_schema:
+                await save_schema(session, task_id, {"User Defined": req.predefined_schema}, created_by="user", status="draft")
+            await set_task_run(session, task_id, run_id)
+            await session.commit()
+    except Exception:
+        runner.release(task_id, run_id)
+        raise
 
-    return {"task_id": task_id, "state": "INITIALIZING", "stream_url": f"/api/v1/tasks/{task_id}/stream"}
+    if not runner.start_claimed(task_id, run_id, lambda: process_initial_pipeline(task_id, run_id, make_initial_state(req, task_id, run_id), continue_after_schema=req.execution_mode == "auto")):
+        runner.release(task_id, run_id)
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+
+    asyncio.create_task(publish_event(task_id, "task_state_changed", {"state": "SCHEMA_GENERATING", "previous_state": "INITIALIZING", "progress": 10}, run_id=run_id))
+    asyncio.create_task(publish_event(task_id, "progress_update", {"progress": 10, "stage": "SCHEMA_GENERATING"}, run_id=run_id))
+
+    return {"task_id": task_id, "run_id": run_id, "state": "INITIALIZING", "stream_url": f"/api/v1/tasks/{task_id}/stream"}
 
 
 @router.get("/api/v1/tasks")
@@ -77,6 +89,7 @@ async def list_tasks(page: int = Query(1, ge=1), limit: int = Query(20, ge=1, le
                     "main_product": task.main_product,
                     "state": task.state,
                     "progress": task.progress or 0,
+                    "run_id": task.active_run_id,
                     "snapshot_count": snapshot_count,
                     "created_at": task.created_at.isoformat() if task.created_at else None,
                     "updated_at": task.updated_at.isoformat() if task.updated_at else None,
@@ -148,8 +161,8 @@ async def restore_snapshot(task_id: str, req: Request):
     body = await req.json()
     checkpoint_id = body.get("checkpoint_id")
 
-    if runner.is_running(task_id):
-        raise HTTPException(status_code=409, detail="Cannot restore snapshot while a pipeline is running. Pause the task first.")
+    if runner.active_count() > 0:
+        raise HTTPException(status_code=409, detail="Cannot restore snapshot while a backend task is running. Wait for it to complete or terminate it first.")
 
     async with async_session() as session:
         task = await get_task(session, task_id)
@@ -195,6 +208,7 @@ async def restore_snapshot(task_id: str, req: Request):
             task.error = None
             task.final_report = {}
             task.completed_at = None
+            task.active_run_id = None
             await add_intervention(session, task_id, "restore_snapshot", {"checkpoint_id": checkpoint_id, "type": "post_collection"})
             await session.commit()
 
@@ -211,38 +225,47 @@ async def restore_snapshot(task_id: str, req: Request):
             task.error = None
             task.final_report = {}
             task.completed_at = None
+            task.active_run_id = None
             await add_intervention(session, task_id, "restore_snapshot", {"checkpoint_id": checkpoint_id})
             await session.commit()
 
     if checkpoint_id == "post_collection" or snapshot.state == "COLLECTING":
-        await publish_event(task_id, "debug_log", {"agent": "System", "event": "restore", "message": f"Restored from post-collection snapshot {checkpoint_id}. 数据已就绪，点击「继续分析」进入分析阶段。"})
-        await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"})
-        await publish_event(task_id, "task_state_changed", {
-            "state": "COLLECTING", "progress": 60, "restored_from": checkpoint_id,
-        })
+        await publish_event(task_id, "snapshot_restored", {
+            "task_id": task_id,
+            "state": "COLLECTING",
+            "progress": 60,
+            "restored_from": checkpoint_id,
+            "snapshot_type": "post_collection",
+            "non_run_event": True,
+        }, allow_inactive=True)
 
         return {"task_id": task_id, "state": "COLLECTING", "restored": True}
 
     restored_schema = snap_data.get("dynamic_schema", {})
-    await publish_event(task_id, "debug_log", {"agent": "System", "event": "restore", "message": f"Restored from snapshot {checkpoint_id}, awaiting schema review."})
-    await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"})
-    await publish_event(task_id, "schema_ready", {
+    await publish_event(task_id, "snapshot_restored", {
+        "task_id": task_id,
+        "state": "SCHEMA_REVIEW",
+        "progress": 30,
+        "restored_from": checkpoint_id,
+        "snapshot_type": "schema",
         "dynamic_schema": restored_schema,
         "competitors": snap_data.get("competitors", []),
-        "stats": {"restored": True, "checkpoint_id": checkpoint_id},
-    })
-    await publish_event(task_id, "task_state_changed", {
-        "state": "SCHEMA_REVIEW", "progress": 30, "restored_from": checkpoint_id,
-    })
+        "non_run_event": True,
+    }, allow_inactive=True)
     return {"task_id": task_id, "state": "SCHEMA_REVIEW", "restored": True}
 
 
 @router.post("/api/v1/tasks/{task_id}/generate-swot")
 async def generate_swot(task_id: str):
+    if runner.is_active(task_id):
+        raise HTTPException(status_code=409, detail="Cannot generate SWOT while a pipeline is running for this task.")
+
     async with async_session() as session:
         db_task = await get_task(session, task_id)
         if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
+        if db_task.state in ("COLLECTING", "ANALYZING", "CRITIQUING", "SCHEMA_GENERATING", "SCHEMA_CALIBRATING"):
+            raise HTTPException(status_code=409, detail="Cannot generate SWOT while task is in a running state.")
         schema_record = await latest_schema(session, task_id)
         task_context = {
             "domain": db_task.domain or "",
@@ -275,5 +298,5 @@ async def generate_swot(task_id: str):
             db_task.analysis_results = results
             await session.commit()
 
-    await publish_event(task_id, "analysis_progress", {"module_id": "swot", "data": {"swot": swot}})
+    await publish_event(task_id, "analysis_progress", {"module_id": "swot", "data": {"swot": swot}, "non_run_event": True})
     return {"swot": swot}

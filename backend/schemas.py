@@ -35,6 +35,7 @@ class TaskCreateRequest(BaseModel):
 
 class TaskCreateResponse(BaseModel):
     task_id: str
+    run_id: str
     state: str
     stream_url: str
 
