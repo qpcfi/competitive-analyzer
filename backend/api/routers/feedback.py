@@ -64,12 +64,13 @@ async def apply_critic_retry(task_id: str, req: CriticApplyRequest):
             raise HTTPException(status_code=409, detail=f"Cannot apply feedback while task is {db_task.state}")
 
     rejected = req.rejected_feedback_ids
-    if rejected:
+    confirmed_ids = req.confirmed_feedback_ids
+    resolved_ids = list(dict.fromkeys([*rejected, *confirmed_ids]))
+    if resolved_ids:
         async with async_session() as session:
-            await resolve_feedback_items(session, task_id, rejected)
+            await resolve_feedback_items(session, task_id, resolved_ids)
             await session.commit()
 
-    confirmed_ids = req.confirmed_feedback_ids
     confirmed_extensions = req.confirmed_extensions
 
     has_feedback = len(confirmed_ids) > 0

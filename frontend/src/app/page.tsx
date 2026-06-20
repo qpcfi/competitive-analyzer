@@ -22,6 +22,7 @@ const { Title, Text } = Typography;
 const RUNTIME_EVENT_TYPES = new Set([
   'schema_ready',
   'schema_extended',
+  'schema_extension_request',
   'raw_materials_updated',
   'analysis_progress',
   'progress_update',
@@ -110,6 +111,7 @@ export default function Home() {
     // When an active run exists, runtime events must carry matching run_id
     const activeRun = activeRunRef.current;
     const type = eventType || data.event_type || data._eventType || '';
+    if (!activeRun && data.run_id && RUNTIME_EVENT_TYPES.has(type)) return false;
     if (activeRun && RUNTIME_EVENT_TYPES.has(type)) {
       if (!data.run_id) return false;
       if (data.run_id !== activeRun) return false;
@@ -287,8 +289,6 @@ export default function Home() {
         }, 15000);
       }
     };
-    const connectedAt = Date.now();
-
     const rememberSequence = (data: any) => {
       if (data?.sequence) {
         window.localStorage.setItem(`competitive-analyzer:${taskId}:last-sequence`, String(data.sequence));
@@ -324,6 +324,20 @@ export default function Home() {
           setTaskState(taskData.state || 'INITIALIZING');
           setProgress(taskData.progress || 0);
           setRunId(taskData.run_id || null);
+          setExtensionRequest({ visible: false, suggestions: [] });
+          const stateToView: Record<string, string> = {
+            'INITIALIZING': 'task-config',
+            'SCHEMA_GENERATING': 'schema',
+            'SCHEMA_REVIEW': 'schema',
+            'COLLECTING': 'dashboard',
+            'PAUSED': 'dashboard',
+            'ANALYZING': 'analysis',
+            'QUALITY_REVIEW': 'critic-review',
+            'NEEDS_INTERVENTION': 'critic-review',
+            'COMPLETED': 'report',
+            'ERROR': 'dashboard',
+          };
+          setCurrentView(stateToView[taskData.state] || 'dashboard');
         })
         .catch(() => {});
     }));
@@ -348,9 +362,7 @@ export default function Home() {
     }));
 
     evtSource.addEventListener('raw_materials_updated', (e) => handleEvent(e, 'raw_materials_updated', (data) => {
-      if (Date.now() - connectedAt > 3000) {
-        setRawMaterials(Array.isArray(data.data) ? data.data : []);
-      }
+      setRawMaterials(Array.isArray(data.data) ? data.data : []);
     }));
 
     evtSource.addEventListener('collector_log', (e) => {
@@ -372,12 +384,10 @@ export default function Home() {
     });
 
     evtSource.addEventListener('analysis_progress', (e) => handleEvent(e, 'analysis_progress', (data) => {
-      if (Date.now() - connectedAt > 3000) {
-        setAnalysisResults((prev: any) => {
-          const payload = data.data?.data || data.data;
-          return payload ? (prev ? { ...prev, ...payload } : payload) : prev;
-        });
-      }
+      setAnalysisResults((prev: any) => {
+        const payload = data.data?.data || data.data;
+        return payload ? (prev ? { ...prev, ...payload } : payload) : prev;
+      });
     }));
 
     evtSource.addEventListener('task_state_changed', (e) => handleEvent(e, 'task_state_changed', (data) => {
@@ -392,14 +402,14 @@ export default function Home() {
             setExtensionRequest({ visible: true, suggestions: data.suggested_schema_extensions });
           }
           setCurrentView('critic-review');
+        } else {
+          setExtensionRequest({ visible: false, suggestions: [] });
         }
       }
     }));
 
     evtSource.addEventListener('progress_update', (e) => handleEvent(e, 'progress_update', (data) => {
-      if (Date.now() - connectedAt > 3000) {
-        setProgress(data.progress);
-      }
+      setProgress(data.progress);
     }));
 
     evtSource.addEventListener('debug_log', (e) => {
@@ -413,9 +423,7 @@ export default function Home() {
     });
 
     evtSource.addEventListener('token_update', (e) => handleEvent(e, 'token_update', (data) => {
-      if (Date.now() - connectedAt > 3000) {
-        setTokenUsage(data.data || data);
-      }
+      setTokenUsage(data.data || data);
     }));
 
     evtSource.addEventListener('task_completed', (e) => handleEvent(e, 'task_completed', async (data) => {
@@ -590,7 +598,20 @@ export default function Home() {
           <InfoDashboard taskId={taskId} taskName={taskName} taskState={taskState} rawMaterials={rawMaterials} collectorLogs={collectorLogs} collectionProgress={collectionProgress} onResume={() => { setRawMaterials([]); setCollectionProgress(null); }} onRunStarted={onRunStarted} />
         </div>
         <div style={{ display: currentView === 'history' ? 'block' : 'none', height: '100%' }}>
-          <HistoryView currentTaskId={taskId} onRestoreTask={restoreHistoricalTask} locked={isTaskLocked} lockMessage={TASK_LOCK_MESSAGE} />
+          <HistoryView
+            currentTaskId={taskId}
+            onRestoreTask={restoreHistoricalTask}
+            onSnapshotRestored={(restoredTaskId, eventCutoffSequence) => {
+              if (typeof eventCutoffSequence === 'number') {
+                window.localStorage.setItem(`competitive-analyzer:${restoredTaskId}:last-sequence`, String(eventCutoffSequence));
+              } else {
+                window.localStorage.removeItem(`competitive-analyzer:${restoredTaskId}:last-sequence`);
+              }
+              setExtensionRequest({ visible: false, suggestions: [] });
+            }}
+            locked={isTaskLocked}
+            lockMessage={TASK_LOCK_MESSAGE}
+          />
         </div>
         <div style={{ display: currentView === 'schema' ? 'block' : 'none', height: '100%' }}>
           <SchemaEditor

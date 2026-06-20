@@ -24,6 +24,7 @@ interface TaskSnapshot {
 interface HistoryViewProps {
   currentTaskId: string | null;
   onRestoreTask: (taskId: string) => Promise<void>;
+  onSnapshotRestored?: (taskId: string, eventCutoffSequence?: number) => void;
   locked?: boolean;
   lockMessage?: string;
 }
@@ -35,7 +36,7 @@ function formatDate(value?: string | null) {
   return new Date(value).toLocaleString();
 }
 
-export default function HistoryView({ currentTaskId, onRestoreTask, locked = false, lockMessage = 'A task is currently running' }: HistoryViewProps) {
+export default function HistoryView({ currentTaskId, onRestoreTask, onSnapshotRestored, locked = false, lockMessage = 'A task is currently running' }: HistoryViewProps) {
   const { message } = App.useApp();
   const [tasks, setTasks] = useState<HistoryTask[]>([]);
   const [snapshots, setSnapshots] = useState<TaskSnapshot[]>([]);
@@ -141,6 +142,8 @@ export default function HistoryView({ currentTaskId, onRestoreTask, locked = fal
       if (!response.ok) {
         throw new Error('Failed to restore snapshot');
       }
+      const data = await response.json();
+      onSnapshotRestored?.(selectedTaskId, data.event_cutoff_sequence);
       await onRestoreTask(selectedTaskId);
       message.success('Snapshot restored');
     } catch (error) {

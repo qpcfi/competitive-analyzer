@@ -562,6 +562,21 @@ async def resolve_feedback_items(
     return result.rowcount
 
 
+async def resolve_all_pending_feedback(session: AsyncSession, task_id: str) -> int:
+    from sqlalchemy import update
+
+    stmt = (
+        update(QualityFeedbackRecord)
+        .where(
+            QualityFeedbackRecord.task_id == task_id,
+            QualityFeedbackRecord.resolved == False,
+        )
+        .values(resolved=True, resolved_at=datetime.utcnow())
+    )
+    result = await session.execute(stmt)
+    return result.rowcount
+
+
 __all__ = [
     "AnalysisResultRecord",
     "DynamicSchemaRecord",
@@ -604,6 +619,7 @@ __all__ = [
     "save_survey_artifact",
     "save_survey_responses",
     "resolve_feedback_items",
+    "resolve_all_pending_feedback",
     "save_source_materials",
     "set_task_run",
     "start_task_run",

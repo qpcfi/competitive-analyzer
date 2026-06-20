@@ -11,7 +11,7 @@ from core.runtime import runner
 from models_db import TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
 from schemas import TaskCreateRequest, TaskCreateResponse
 from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
-from services.repositories import add_intervention, create_task_record, get_task, latest_schema, new_run_id, save_schema, set_task_run, update_task_state
+from services.repositories import add_intervention, create_task_record, get_task, latest_schema, new_run_id, resolve_all_pending_feedback, save_schema, set_task_run, update_task_state
 from services.serialization import serialize_task
 
 router = APIRouter()
@@ -196,12 +196,15 @@ async def restore_snapshot(task_id: str, req: Request):
             return {"task_id": clone_id, "state": snapshot.state}
 
         # post_collection restore: go to COLLECTING, preserve materials, wait for user to click "继续分析"
+        restored_schema_record = None
+        restored_schema = snap_data.get("dynamic_schema") if isinstance(snap_data, dict) else None
+
         if checkpoint_id == "post_collection" or snapshot.state == "COLLECTING":
             task.state = "COLLECTING"
             task.progress = snap_data.get("progress", 60)
             task.competitors = snap_data.get("competitors", task.competitors or [])
-            if "dynamic_schema" in snap_data:
-                task.dynamic_schema = snap_data["dynamic_schema"]
+            if isinstance(restored_schema, dict):
+                restored_schema_record = await save_schema(session, task_id, restored_schema, created_by="snapshot", status="active")
             task.raw_materials = snap_data.get("raw_materials", []) or list(task.raw_materials or [])
             task.analysis_results = {}
             task.critic_feedback = []
@@ -209,6 +212,7 @@ async def restore_snapshot(task_id: str, req: Request):
             task.final_report = {}
             task.completed_at = None
             task.active_run_id = None
+            await resolve_all_pending_feedback(session, task_id)
             await add_intervention(session, task_id, "restore_snapshot", {"checkpoint_id": checkpoint_id, "type": "post_collection"})
             await session.commit()
 
@@ -217,8 +221,8 @@ async def restore_snapshot(task_id: str, req: Request):
             task.state = "SCHEMA_REVIEW"
             task.progress = snap_data.get("progress", 30)
             task.competitors = snap_data.get("competitors", task.competitors or [])
-            if "dynamic_schema" in snap_data:
-                task.dynamic_schema = snap_data["dynamic_schema"]
+            if isinstance(restored_schema, dict):
+                restored_schema_record = await save_schema(session, task_id, restored_schema, created_by="snapshot", status="active")
             task.raw_materials = snap_data.get("raw_materials", [])
             task.analysis_results = {}
             task.critic_feedback = []
@@ -226,33 +230,39 @@ async def restore_snapshot(task_id: str, req: Request):
             task.final_report = {}
             task.completed_at = None
             task.active_run_id = None
+            await resolve_all_pending_feedback(session, task_id)
             await add_intervention(session, task_id, "restore_snapshot", {"checkpoint_id": checkpoint_id})
             await session.commit()
 
     if checkpoint_id == "post_collection" or snapshot.state == "COLLECTING":
-        await publish_event(task_id, "snapshot_restored", {
+        restore_event = await publish_event(task_id, "snapshot_restored", {
             "task_id": task_id,
             "state": "COLLECTING",
             "progress": 60,
             "restored_from": checkpoint_id,
             "snapshot_type": "post_collection",
+            "schema_version": restored_schema_record.version if restored_schema_record else None,
+            "dynamic_schema": restored_schema if isinstance(restored_schema, dict) else {},
+            "competitors": snap_data.get("competitors", []),
             "non_run_event": True,
         }, allow_inactive=True)
+        cutoff_sequence = restore_event.get("sequence") if restore_event else None
 
-        return {"task_id": task_id, "state": "COLLECTING", "restored": True}
+        return {"task_id": task_id, "state": "COLLECTING", "restored": True, "event_cutoff_sequence": cutoff_sequence}
 
-    restored_schema = snap_data.get("dynamic_schema", {})
-    await publish_event(task_id, "snapshot_restored", {
+    restore_event = await publish_event(task_id, "snapshot_restored", {
         "task_id": task_id,
         "state": "SCHEMA_REVIEW",
         "progress": 30,
         "restored_from": checkpoint_id,
         "snapshot_type": "schema",
-        "dynamic_schema": restored_schema,
+        "dynamic_schema": restored_schema if isinstance(restored_schema, dict) else {},
+        "schema_version": restored_schema_record.version if restored_schema_record else None,
         "competitors": snap_data.get("competitors", []),
         "non_run_event": True,
     }, allow_inactive=True)
-    return {"task_id": task_id, "state": "SCHEMA_REVIEW", "restored": True}
+    cutoff_sequence = restore_event.get("sequence") if restore_event else None
+    return {"task_id": task_id, "state": "SCHEMA_REVIEW", "restored": True, "event_cutoff_sequence": cutoff_sequence}
 
 
 @router.post("/api/v1/tasks/{task_id}/generate-swot")

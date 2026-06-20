@@ -11,7 +11,7 @@ from services.pipeline import (
     calibration_confirm,
     calibration_reject,
 )
-from services.repositories import add_intervention, get_task, invalidate_task_run, new_run_id, save_analysis_module, set_task_run, update_task_state
+from services.repositories import add_intervention, get_task, invalidate_task_run, new_run_id, resolve_all_pending_feedback, save_analysis_module, set_task_run, update_task_state
 from services.state_machine import can_transition
 
 router = APIRouter()
@@ -108,6 +108,7 @@ async def terminate_task(task_id: str):
         db_task.final_report = {}
         db_task.raw_materials = []
         db_task.critic_feedback = []
+        await resolve_all_pending_feedback(session, task_id)
         await session.commit()
     runner.cancel(task_id, old_run_id)
     await publish_event(task_id, "task_state_changed", {"state": "ERROR", "terminated": True}, run_id=old_run_id, allow_inactive=True)
