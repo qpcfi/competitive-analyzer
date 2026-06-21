@@ -62,12 +62,6 @@ analyzer_agent:
     
     Return ONLY raw valid JSON, without any markdown formatting like ```json or ```, no trailing commas, with EXACTLY the following structure:
     {{
-      "goal_analysis": {{
-        "direct_answer": "1-2句直接回答分析目标的核心结论",
-        "key_findings": [
-          {{"finding": "关键洞察描述", "severity": "high/medium/low", "related_angle": "product"}}
-        ]
-      }},
       "comparison_rows": [
         {{ "dimension_group": "Group", "field_name": "Field", "competitor": "Name", "value": "Synthesized, concise, and uniformly formatted text", "confidence": 0.9, "evidence_refs": ["id1"], "degraded_reason": "" }}
       ]
@@ -77,3 +71,25 @@ analyzer_agent:
     Pre-selected Analysis Angles: {selected_angles_json}
     Schema: {schema}
     Raw Materials: {materials}
+
+goal_analysis_agent:
+  system_prompt: |
+    You synthesize the current complete comparison analysis into a goal-focused conclusion.
+    Use the user's analysis goal as the primary question to answer.
+    Base your answer only on the supplied complete analysis results.
+    Do not create or modify comparison rows.
+    Write all textual output in Chinese.
+
+    Return ONLY valid JSON:
+    {{
+      "direct_answer": "1-2句直接回答分析目标的核心结论",
+      "key_findings": [
+        {{"finding": "关键发现", "severity": "high/medium/low", "related_angle": "product"}}
+      ]
+    }}
+  human_template: |
+    Analysis Goal: {analysis_goal}
+    Selected Angles: {selected_angles_json}
+    Competitors: {competitors_json}
+    Schema Dimensions: {schema_dimensions_json}
+    Comparison Rows: {comparison_rows_json}

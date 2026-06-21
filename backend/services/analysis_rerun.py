@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from agents.analyzer import analyzer_node
+from agents.analyzer import analyzer_node, generate_goal_analysis
 from agents.state import AgentState
 from models_db import async_session
 from services.pipeline import publish_event
@@ -413,6 +413,11 @@ async def run_incremental_analysis_rerun(
             scope=normalized_scope,
         )
 
+        # 5b. Refresh goal_analysis from the complete merged results
+        merged_analysis = await refresh_goal_analysis_for_merged(
+            ctx, merged_analysis, run_id, [normalized_scope],
+        )
+
         # 6. Persist (own DB session)
         next_state = "ANALYSIS_REVIEW"
         await persist_incremental_analysis(
@@ -606,4 +611,38 @@ async def run_scoped_rerun_with_ctx(
     for scope in normalized:
         merged = merge_analysis_patch(merged, rerun_analysis, scope)
 
+    merged = await refresh_goal_analysis_for_merged(ctx, merged, run_id, normalized)
+
     return merged
+
+
+async def refresh_goal_analysis_for_merged(
+    ctx: RerunContext,
+    merged_analysis: dict,
+    run_id: str,
+    scopes: list[dict],
+) -> dict:
+    """Re-generate *goal_analysis* from the complete merged analysis.
+
+    Called after every batch or single-scope merge so the top-level conclusion
+    always reflects the full *comparison_rows* (not just the scoped delta).
+
+    If the LLM call fails, the existing *goal_analysis* (if any) is preserved.
+    """
+    merged_analysis = dict(merged_analysis)  # don't mutate caller ref
+
+    # Build a minimal state with the merged analysis as the source
+    goal_state = build_scoped_analyzer_state(
+        ctx=ctx,
+        scope={"type": "goal_analysis_refresh", "items": scopes},
+        instruction="基于增量重跑合并后的完整分析结果，刷新顶部分析结论",
+        run_id=run_id,
+    )
+    # The merged analysis replaces the original ctx.analysis_results
+    goal_state["analysis_results"] = merged_analysis
+
+    goal = await generate_goal_analysis(goal_state, merged_analysis, reason="incremental_rerun")
+    if goal:
+        merged_analysis["goal_analysis"] = goal
+
+    return merged_analysis

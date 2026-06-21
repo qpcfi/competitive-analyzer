@@ -14,6 +14,7 @@ from ..schemas import AnalysisResult
 from ..shared.analysis_angles import ANALYSIS_ANGLES, VALID_ANGLE_KEYS
 from ..shared.llm import create_chat_llm
 from core.callbacks import RealtimeDebugCallbackHandler
+from services.events import event_broker
 
 llm = create_chat_llm(timeout=90)
 
@@ -82,8 +83,8 @@ async def analyzer_node(state: AgentState):
             if rerun_instruction:
                 rerun_text += f"指令: {rerun_instruction}\n"
             rerun_text += (
-                "注意: 你仍然需要输出完整的 analysis_results 结构（comparison_rows / goal_analysis / executive_summary），"
-                "但请确保重点关注指定范围的质量和准确性。指定范围之外的内容可参考已有结果保持稳定。\n"
+                "注意: 你只需要输出符合主提示结构的 comparison_rows。"
+                "顶部 goal_analysis 会在局部补丁合并到完整结果后单独生成。\n"
             )
             materials_input = rerun_text + "\n" + materials_input
         # ── Critic feedback ──
@@ -149,8 +150,131 @@ async def analyzer_node(state: AgentState):
         result = build_deterministic_analysis(state)
 
     result["selected_angles"] = selected_angles
+
+    # Rerun paths refresh goal_analysis after scoped patches are merged into
+    # the complete analysis, so the conclusion is based on the final state.
+    is_scoped_rerun = bool((state.get("task_context") or {}).get("analysis_rerun_scope"))
+    if not is_scoped_rerun:
+        goal = await generate_goal_analysis(state, result, reason="initial_analysis")
+        if goal:
+            result["goal_analysis"] = goal
+
     state["analysis_results"] = result
     return state
+
+
+async def generate_goal_analysis(
+    state: AgentState,
+    analysis_results: dict,
+    *,
+    reason: str = "analysis",
+) -> dict | None:
+    """Generate *goal_analysis* from the complete merged analysis results.
+
+    This is a separate, focused LLM call that reads the full ``comparison_rows``
+    (not just a scoped subset) and answers the user's *analysis_goal*.
+
+    Parameters
+    ----------
+    state :
+        The current agent state (used for *analysis_goal* and *task_id*).
+    analysis_results :
+        The **complete** merged analysis (must contain ``comparison_rows``,
+        ``discovered_competitors``, ``schema_dimensions``, ``selected_angles``).
+    reason :
+        A label for logging (e.g. ``"initial_analysis"``, ``"incremental_rerun"``).
+
+    Returns
+    -------
+    A dict with ``direct_answer`` and ``key_findings``, or ``None`` on failure.
+    """
+    task_id = state.get("task_id")
+
+    async def publish_goal_log(event: str, message: str, output_json: dict | None = None):
+        if not task_id:
+            return
+        payload = {"agent": "GoalAnalysis", "event": event, "message": message}
+        if output_json is not None:
+            payload["output_json"] = output_json
+        await event_broker.publish(task_id, "debug_log", payload)
+
+    if llm is None or ChatPromptTemplate is None:
+        await publish_goal_log("skip", "Goal analysis skipped: LLM or prompt runtime is unavailable.")
+        return None
+
+    rows = analysis_results.get("comparison_rows") or []
+    if not rows:
+        await publish_goal_log("skip", "Goal analysis skipped: comparison_rows is empty.", {
+            "analysis_keys": list(analysis_results.keys()) if isinstance(analysis_results, dict) else [],
+        })
+        return None
+
+    prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
+    try:
+        with open(prompt_path, "r", encoding="utf-8") as f:
+            PROMPT_CONFIG = yaml.safe_load(f)
+    except Exception as e:
+        await publish_goal_log("error", f"Goal analysis skipped: failed to load prompt config: {e}")
+        return None
+
+    goal_config = PROMPT_CONFIG.get("goal_analysis_agent")
+    if not goal_config:
+        await publish_goal_log("skip", "Goal analysis skipped: goal_analysis_agent prompt is missing.")
+        return None
+
+    try:
+        await publish_goal_log("start", "Generating goal-focused conclusion from complete analysis.", {
+            "reason": reason,
+            "row_count": len(rows),
+            "competitor_count": len(analysis_results.get("discovered_competitors") or []),
+        })
+        prompt_template = ChatPromptTemplate.from_messages([
+            ("system", goal_config["system_prompt"]),
+            ("human", goal_config["human_template"]),
+        ])
+        chain = prompt_template | llm
+
+        task_id = state.get("task_id")
+        callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
+        config = {"callbacks": callbacks} if callbacks else None
+
+        response = await chain.ainvoke({
+            "analysis_goal": (state.get("task_context") or {}).get("analysis_goal") or "",
+            "selected_angles_json": json.dumps(
+                analysis_results.get("selected_angles") or [], ensure_ascii=False,
+            ),
+            "competitors_json": json.dumps(
+                analysis_results.get("discovered_competitors") or [], ensure_ascii=False,
+            ),
+            "schema_dimensions_json": json.dumps(
+                analysis_results.get("schema_dimensions") or [], ensure_ascii=False,
+            ),
+            "comparison_rows_json": json.dumps(rows, ensure_ascii=False),
+        }, config=config)
+
+        content = str(response.content)
+        content = re.sub(r'```json\s*', '', content)
+        content = re.sub(r'```\s*', '', content)
+        match = re.search(r"\{.*\}", content, re.DOTALL)
+        parsed = json.loads(match.group(0) if match else content)
+
+        if isinstance(parsed, dict) and parsed.get("direct_answer"):
+            await publish_goal_log("end", "Goal analysis generated.", {
+                "reason": reason,
+                "has_key_findings": bool(parsed.get("key_findings")),
+            })
+            return {
+                "direct_answer": parsed["direct_answer"],
+                "key_findings": parsed.get("key_findings", []),
+            }
+        await publish_goal_log("error", "Goal analysis response did not include direct_answer.", {
+            "parsed_keys": list(parsed.keys()) if isinstance(parsed, dict) else [],
+        })
+    except Exception as e:
+        logging.warning("generate_goal_analysis (%s) failed: %s", reason, e)
+        await publish_goal_log("error", f"Goal analysis failed: {e}")
+
+    return None
 
 
 def build_deterministic_analysis(state: AgentState) -> dict:
