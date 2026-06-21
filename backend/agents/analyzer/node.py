@@ -190,10 +190,17 @@ async def generate_goal_analysis(
     """
     task_id = state.get("task_id")
 
-    async def publish_goal_log(event: str, message: str, output_json: dict | None = None):
+    async def publish_goal_log(
+        event: str,
+        message: str,
+        input_json: dict | None = None,
+        output_json: dict | None = None,
+    ):
         if not task_id:
             return
         payload = {"agent": "GoalAnalysis", "event": event, "message": message}
+        if input_json is not None:
+            payload["input_json"] = input_json
         if output_json is not None:
             payload["output_json"] = output_json
         await event_broker.publish(task_id, "debug_log", payload)
@@ -204,9 +211,11 @@ async def generate_goal_analysis(
 
     rows = analysis_results.get("comparison_rows") or []
     if not rows:
-        await publish_goal_log("skip", "Goal analysis skipped: comparison_rows is empty.", {
-            "analysis_keys": list(analysis_results.keys()) if isinstance(analysis_results, dict) else [],
-        })
+        await publish_goal_log(
+            "skip",
+            "Goal analysis skipped: comparison_rows is empty.",
+            output_json={"analysis_keys": list(analysis_results.keys()) if isinstance(analysis_results, dict) else []},
+        )
         return None
 
     prompt_path = os.path.join(os.path.dirname(__file__), "prompts.yaml")
@@ -223,11 +232,7 @@ async def generate_goal_analysis(
         return None
 
     try:
-        await publish_goal_log("start", "Generating goal-focused conclusion from complete analysis.", {
-            "reason": reason,
-            "row_count": len(rows),
-            "competitor_count": len(analysis_results.get("discovered_competitors") or []),
-        })
+        await publish_goal_log("start", "Generating goal-focused conclusion from complete analysis.")
         prompt_template = ChatPromptTemplate.from_messages([
             ("system", goal_config["system_prompt"]),
             ("human", goal_config["human_template"]),
@@ -252,29 +257,107 @@ async def generate_goal_analysis(
             "comparison_rows_json": json.dumps(rows, ensure_ascii=False),
         }, config=config)
 
-        content = str(response.content)
+        content = str(getattr(response, "content", "") or "").strip()
+        if not content:
+            metadata = getattr(response, "response_metadata", {}) or {}
+            additional = getattr(response, "additional_kwargs", {}) or {}
+            await publish_goal_log(
+                "error",
+                "Goal analysis LLM returned empty content.",
+                output_json={
+                    "reason": reason,
+                    "response_metadata": metadata,
+                    "additional_kwargs_keys": list(additional.keys()) if isinstance(additional, dict) else [],
+                },
+            )
+            return build_goal_analysis_fallback(
+                (state.get("task_context") or {}).get("analysis_goal") or "",
+                analysis_results,
+            )
+
         content = re.sub(r'```json\s*', '', content)
         content = re.sub(r'```\s*', '', content)
         match = re.search(r"\{.*\}", content, re.DOTALL)
-        parsed = json.loads(match.group(0) if match else content)
+        clean_content = match.group(0) if match else content
+        try:
+            parsed = json.loads(clean_content)
+        except json.JSONDecodeError:
+            clean_content = re.sub(r',\s*([\]}])', r'\1', clean_content)
+            try:
+                parsed = json.loads(clean_content)
+            except json.JSONDecodeError as parse_error:
+                await publish_goal_log(
+                    "error",
+                    f"Goal analysis response is not valid JSON: {parse_error}",
+                    output_json={
+                        "reason": reason,
+                        "content_preview": content[:500],
+                        "content_length": len(content),
+                    },
+                )
+                return build_goal_analysis_fallback(
+                    (state.get("task_context") or {}).get("analysis_goal") or "",
+                    analysis_results,
+                )
 
         if isinstance(parsed, dict) and parsed.get("direct_answer"):
-            await publish_goal_log("end", "Goal analysis generated.", {
-                "reason": reason,
-                "has_key_findings": bool(parsed.get("key_findings")),
-            })
-            return {
+            goal = {
                 "direct_answer": parsed["direct_answer"],
                 "key_findings": parsed.get("key_findings", []),
             }
-        await publish_goal_log("error", "Goal analysis response did not include direct_answer.", {
-            "parsed_keys": list(parsed.keys()) if isinstance(parsed, dict) else [],
-        })
+            await publish_goal_log(
+                "end",
+                "Goal analysis generated.",
+            )
+            return goal
+        await publish_goal_log(
+            "error",
+            "Goal analysis response did not include direct_answer.",
+            output_json={"parsed_keys": list(parsed.keys()) if isinstance(parsed, dict) else []},
+        )
+        return build_goal_analysis_fallback(
+            (state.get("task_context") or {}).get("analysis_goal") or "",
+            analysis_results,
+        )
     except Exception as e:
         logging.warning("generate_goal_analysis (%s) failed: %s", reason, e)
         await publish_goal_log("error", f"Goal analysis failed: {e}")
+        return build_goal_analysis_fallback(
+            (state.get("task_context") or {}).get("analysis_goal") or "",
+            analysis_results,
+        )
 
     return None
+
+
+def build_goal_analysis_fallback(analysis_goal: str, analysis_results: dict) -> dict | None:
+    rows = analysis_results.get("comparison_rows") or []
+    if not rows:
+        return None
+
+    competitors = analysis_results.get("discovered_competitors") or []
+    dimension_names = [
+        row.get("dimension") or row.get("dimension_id")
+        for row in rows[:3]
+        if row.get("dimension") or row.get("dimension_id")
+    ]
+    goal_text = f"围绕“{analysis_goal}”" if analysis_goal else "围绕当前分析目标"
+    competitor_text = "、".join(map(str, competitors[:3])) if competitors else "当前竞品"
+    dimension_text = "、".join(map(str, dimension_names)) if dimension_names else "已完成的对比维度"
+
+    return {
+        "direct_answer": (
+            f"{goal_text}，已基于 {competitor_text} 在 {dimension_text} 等维度形成对比结果；"
+            "详细判断请优先查看下方各维度分析。"
+        ),
+        "key_findings": [
+            {
+                "finding": f"当前结论基于 {len(rows)} 个对比维度生成；GoalAnalysis LLM 未返回可解析 JSON 时使用保底摘要。",
+                "severity": "medium",
+                "related_angle": "product",
+            }
+        ],
+    }
 
 
 def build_deterministic_analysis(state: AgentState) -> dict:

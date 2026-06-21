@@ -76,7 +76,7 @@ class RealtimeDebugCallbackHandler(AsyncCallbackHandler):
                 "message": f"LLM execution started",
                 "prompt": system_prompt,
                 "input_json": input_data,
-                "run_id": str(run_id)
+                "llm_run_id": str(run_id)
             }
         )
 
@@ -117,7 +117,8 @@ class RealtimeDebugCallbackHandler(AsyncCallbackHandler):
                 "message": f"LLM execution finished",
                 "latency": latency,
                 "tokens": used,
-                "output_json": llm_output_text
+                "output_json": llm_output_text,
+                "llm_run_id": str(run_id)
             }
         )
         await event_broker.publish(

@@ -254,20 +254,19 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
     <div style={{ padding: 4 }}>
       {goalAnalysis?.direct_answer && <GoalAnalysisHeader data={goalAnalysis} />}
       {selectedAngles && selectedAngles.length > 0 && <AngleBar angles={selectedAngles} />}
-
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <Title level={4} style={{ margin: 0 }}>竞品深度对比</Title>
-        <Space>
+        <div style={{ width: 176 }}>
           {waitingForCritic && (
-            <Button type="primary" loading={continuingCritic} onClick={onContinueCritic}>
+            <Button type="primary" block loading={continuingCritic} onClick={onContinueCritic} style={{ marginBottom: 8 }}>
               确认分析并进入 Critic
             </Button>
           )}
-          <Radio.Group value={viewMode} onChange={e => setViewMode(e.target.value)} buttonStyle="solid" size="small">
-          <Radio.Button value="tile">平铺对比</Radio.Button>
-          <Radio.Button value="focus">单品聚焦</Radio.Button>
+          <Radio.Group value={viewMode} onChange={e => setViewMode(e.target.value)} buttonStyle="solid" size="small" style={{ width: '100%', display: 'flex' }}>
+            <Radio.Button value="tile" style={{ flex: 1, textAlign: 'center' }}>平铺对比</Radio.Button>
+            <Radio.Button value="focus" style={{ flex: 1, textAlign: 'center' }}>单品聚焦</Radio.Button>
           </Radio.Group>
-        </Space>
+        </div>
       </div>
 
       {viewMode === 'tile' ? (

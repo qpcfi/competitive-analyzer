@@ -15,6 +15,7 @@ interface DebugLog {
   input_json?: any;
   output_json?: any;
   receivedAt?: string;
+  llm_run_id?: string;
 }
 
 interface TokenUsage {
@@ -32,10 +33,166 @@ interface DebugPanelProps {
   rawMaterials?: any[];
 }
 
+type LogDisplayItem =
+  | { type: 'single'; log: DebugLog; key: string }
+  | { type: 'llm-call'; start?: DebugLog; end?: DebugLog; key: string };
+
+function formatRaw(value: any) {
+  return typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+}
+
+function rawPanels(log: DebugLog) {
+  return [
+    ...(log.prompt ? [{
+      key: 'prompt',
+      label: 'System Prompt 摘要',
+      children: (
+        <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: '展开完整' }}>
+          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12 }}>
+            {log.prompt}
+          </pre>
+        </Paragraph>
+      ),
+    }] : []),
+    ...(log.input_json ? [{
+      key: 'input',
+      label: <Space><CodeOutlined /> 输入 Raw Data (JSON)</Space>,
+      children: (
+        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12, background: '#282c34', color: '#abb2bf', padding: 8, borderRadius: 4, maxHeight: 300, overflow: 'auto' }}>
+          {formatRaw(log.input_json)}
+        </pre>
+      ),
+    }] : []),
+    ...(log.output_json ? [{
+      key: 'output',
+      label: <Space><CodeOutlined /> 输出 Raw Data (JSON)</Space>,
+      children: (
+        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12, background: '#282c34', color: '#98c379', padding: 8, borderRadius: 4, maxHeight: 300, overflow: 'auto' }}>
+          {formatRaw(log.output_json)}
+        </pre>
+      ),
+    }] : []),
+  ];
+}
+
+function LogCard({ log }: { log: DebugLog }) {
+  const panels = rawPanels(log);
+
+  return (
+    <Card size="small" styles={{ body: { padding: '8px 12px' } }} variant="borderless" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, gap: 12 }}>
+        <Space wrap>
+          <Tag color={log.agent === 'LLM' ? 'purple' : (log.agent === 'Tool' ? 'orange' : 'blue')}>{log.agent}</Tag>
+          <Tag color={log.event === 'start' ? 'processing' : (log.event === 'end' ? 'success' : (log.event === 'error' ? 'error' : 'default'))}>{log.event.toUpperCase()}</Tag>
+          <Text strong>{log.message}</Text>
+        </Space>
+        <Space>
+          <Text type="secondary" style={{ fontSize: 12 }}>{log.receivedAt ? new Date(log.receivedAt).toLocaleTimeString() : ''}</Text>
+          {log.latency && <Text type="secondary"><ClockCircleOutlined /> {log.latency.toFixed(2)}s</Text>}
+          {log.tokens !== undefined && <Tag color="gold" style={{ margin: 0 }}>{log.tokens} tokens</Tag>}
+        </Space>
+      </div>
+      {panels.length > 0 && (
+        <Collapse ghost size="small" style={{ marginTop: 8, background: '#f5f5f5', borderRadius: 4 }} items={panels} />
+      )}
+    </Card>
+  );
+}
+
+function LlmCallCard({ start, end }: { start?: DebugLog; end?: DebugLog }) {
+  const log = end || start;
+  if (!log) return null;
+
+  const panels = [
+    ...(start?.prompt ? [{
+      key: 'prompt',
+      label: 'System Prompt 摘要',
+      children: (
+        <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: '展开完整' }}>
+          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12 }}>
+            {start.prompt}
+          </pre>
+        </Paragraph>
+      ),
+    }] : []),
+    ...(start?.input_json ? [{
+      key: 'input',
+      label: <Space><CodeOutlined /> 输入 Raw Data (JSON)</Space>,
+      children: (
+        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12, background: '#282c34', color: '#abb2bf', padding: 8, borderRadius: 4, maxHeight: 300, overflow: 'auto' }}>
+          {formatRaw(start.input_json)}
+        </pre>
+      ),
+    }] : []),
+    ...(end?.output_json ? [{
+      key: 'output',
+      label: <Space><CodeOutlined /> 输出 Raw Data (JSON)</Space>,
+      children: (
+        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12, background: '#282c34', color: '#98c379', padding: 8, borderRadius: 4, maxHeight: 300, overflow: 'auto' }}>
+          {formatRaw(end.output_json)}
+        </pre>
+      ),
+    }] : []),
+  ];
+
+  return (
+    <Card size="small" styles={{ body: { padding: '8px 12px' } }} variant="borderless" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, gap: 12 }}>
+        <Space wrap>
+          <Tag color="purple">LLM</Tag>
+          <Tag color={end ? 'success' : 'processing'}>{end ? 'END' : 'START'}</Tag>
+          <Text strong>{end ? 'LLM execution finished' : 'LLM execution started'}</Text>
+          {start && end && <Text type="secondary">输入输出已绑定</Text>}
+        </Space>
+        <Space>
+          <Text type="secondary" style={{ fontSize: 12 }}>{log.receivedAt ? new Date(log.receivedAt).toLocaleTimeString() : ''}</Text>
+          {end?.latency && <Text type="secondary"><ClockCircleOutlined /> {end.latency.toFixed(2)}s</Text>}
+          {end?.tokens !== undefined && <Tag color="gold" style={{ margin: 0 }}>{end.tokens} tokens</Tag>}
+        </Space>
+      </div>
+      {panels.length > 0 && (
+        <Collapse ghost size="small" style={{ marginTop: 8, background: '#f5f5f5', borderRadius: 4 }} items={panels} />
+      )}
+    </Card>
+  );
+}
+
+function buildLogDisplayItems(logs: DebugLog[]): LogDisplayItem[] {
+  const items: LogDisplayItem[] = [];
+  const pendingLlm = new Map<string, number>();
+
+  logs.forEach((log, index) => {
+    if (log.agent === 'LLM' && log.llm_run_id) {
+      if (log.event === 'start') {
+        items.push({ type: 'llm-call', start: log, key: `llm-${log.llm_run_id}` });
+        pendingLlm.set(log.llm_run_id, items.length - 1);
+        return;
+      }
+
+      if (log.event === 'end') {
+        const pendingIndex = pendingLlm.get(log.llm_run_id);
+        if (pendingIndex !== undefined) {
+          const item = items[pendingIndex];
+          if (item?.type === 'llm-call') {
+            items[pendingIndex] = { ...item, end: log };
+            pendingLlm.delete(log.llm_run_id);
+            return;
+          }
+        }
+        items.push({ type: 'llm-call', end: log, key: `llm-end-${log.llm_run_id}-${index}` });
+        return;
+      }
+    }
+
+    items.push({ type: 'single', log, key: `log-${index}` });
+  });
+
+  return items;
+}
+
 export default function DebugPanel({ logs, tokenUsage, height, taskId, taskState, rawMaterials = [] }: DebugPanelProps) {
   const percent = tokenUsage ? Math.round((tokenUsage.total_used / tokenUsage.budget) * 100) : 0;
-  
-  // Find current running agent node and latency
+
   const currentAgentNode = useMemo(() => {
     for (let i = logs.length - 1; i >= 0; i--) {
       const log = logs[i];
@@ -50,8 +207,8 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId, taskState
     return null;
   }, [logs]);
 
-  // Natural order: oldest at top, newest at bottom
   const orderedLogs = useMemo(() => [...logs], [logs]);
+  const displayItems = useMemo(() => buildLogDisplayItems(orderedLogs), [orderedLogs]);
 
   return (
     <div style={{ height: `${height}px`, borderTop: '1px solid #ccc', background: '#fafafa', overflow: 'auto', padding: '16px' }}>
@@ -59,18 +216,18 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId, taskState
         <Title level={4} style={{ margin: 0 }}>调试与可观测性面板 (Debug & Observability)</Title>
         <Space>
           <a href="https://smith.langchain.com/" target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '4px 12px', background: '#fff', border: '1px solid #d9d9d9', borderRadius: 4, color: 'inherit', textDecoration: 'none' }}>
-            🦜🔗 LangSmith Trace 追踪
+            LangSmith Trace
           </a>
-          <a 
-            href={taskId ? `http://localhost:8000/api/v1/tasks/${taskId}` : '#'} 
-            target={taskId ? "_blank" : "_self"}
+          <a
+            href={taskId ? `http://localhost:8000/api/v1/tasks/${taskId}` : '#'}
+            target={taskId ? '_blank' : '_self'}
             style={{ display: 'inline-block', padding: '4px 12px', background: '#1677ff', border: '1px solid #1677ff', borderRadius: 4, color: '#fff', textDecoration: 'none', opacity: taskId ? 1 : 0.5 }}
           >
             下载 State Graph 快照
           </a>
         </Space>
       </div>
-      
+
       <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap' }}>
         <Card size="small" title="Token 消耗仪表盘" style={{ flex: '1 1 300px' }}>
           {tokenUsage ? (
@@ -114,63 +271,13 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId, taskState
 
       <Title level={5} style={{ marginTop: 16 }}>执行日志与 Raw Data</Title>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        {orderedLogs.length === 0 ? (
+        {displayItems.length === 0 ? (
           <Text type="secondary">暂无日志</Text>
         ) : (
-          orderedLogs.map((log, i) => (
-            <Card key={i} size="small" styles={{ body: { padding: '8px 12px' } }} variant="borderless" style={{ boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                <Space>
-                  <Tag color={log.agent === 'LLM' ? 'purple' : (log.agent === 'Tool' ? 'orange' : 'blue')}>{log.agent}</Tag>
-                  <Tag color={log.event === 'start' ? 'processing' : (log.event === 'end' ? 'success' : 'default')}>{log.event.toUpperCase()}</Tag>
-                  <Text strong>{log.message}</Text>
-                </Space>
-                <Space>
-                  <Text type="secondary" style={{ fontSize: 12 }}>{log.receivedAt ? new Date(log.receivedAt).toLocaleTimeString() : ''}</Text>
-                  {log.latency && <Text type="secondary"><ClockCircleOutlined /> {log.latency.toFixed(2)}s</Text>}
-                  {log.tokens !== undefined && <Tag color="gold" style={{ margin: 0 }}>{log.tokens} tokens</Tag>}
-                </Space>
-              </div>
-              
-              {(log.prompt || log.input_json || log.output_json) && (
-                <Collapse
-                  ghost
-                  size="small"
-                  style={{ marginTop: 8, background: '#f5f5f5', borderRadius: 4 }}
-                  items={[
-                    ...(log.prompt ? [{
-                      key: 'prompt',
-                      label: 'System Prompt 摘要',
-                      children: (
-                        <Paragraph ellipsis={{ rows: 2, expandable: true, symbol: '展开完整' }}>
-                          <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12 }}>
-                            {log.prompt}
-                          </pre>
-                        </Paragraph>
-                      ),
-                    }] : []),
-                    ...(log.input_json ? [{
-                      key: 'input',
-                      label: <Space><CodeOutlined /> 输入 Raw Data (JSON)</Space>,
-                      children: (
-                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12, background: '#282c34', color: '#abb2bf', padding: 8, borderRadius: 4, maxHeight: 300, overflow: 'auto' }}>
-                          {typeof log.input_json === 'string' ? log.input_json : JSON.stringify(log.input_json, null, 2)}
-                        </pre>
-                      ),
-                    }] : []),
-                    ...(log.output_json ? [{
-                      key: 'output',
-                      label: <Space><CodeOutlined /> 输出 Raw Data (JSON)</Space>,
-                      children: (
-                        <pre style={{ margin: 0, whiteSpace: 'pre-wrap', wordBreak: 'break-all', fontFamily: 'monospace', fontSize: 12, background: '#282c34', color: '#98c379', padding: 8, borderRadius: 4, maxHeight: 300, overflow: 'auto' }}>
-                          {typeof log.output_json === 'string' ? log.output_json : JSON.stringify(log.output_json, null, 2)}
-                        </pre>
-                      ),
-                    }] : []),
-                  ]}
-                />
-              )}
-            </Card>
+          displayItems.map(item => (
+            item.type === 'single'
+              ? <LogCard key={item.key} log={item.log} />
+              : <LlmCallCard key={item.key} start={item.start} end={item.end} />
           ))
         )}
       </div>

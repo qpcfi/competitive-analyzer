@@ -164,6 +164,9 @@ export default function AgentGraph({ logs, taskState, rawMaterials = [] }: Agent
         states[agentId].status = 'error';
       }
     });
+    if (states.reporter.status === 'completed') {
+      markCompleted('critic');
+    }
     return states;
   }, [logs, taskState, rawMaterials]);
 

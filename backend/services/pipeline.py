@@ -439,7 +439,16 @@ async def run_schema_calibration(task_id: str, run_id: str, state: dict[str, Any
             print("[CALIBRATION] update + intervention + feedback done, committing...", file=sys.stderr, flush=True)
             await session.commit()
         print("[CALIBRATION] DB done, publishing events...", file=sys.stderr, flush=True)
-        await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "debug", "message": f"Intervention saved, {len(suggestions)} extensions + {len(feedback)} feedback items pending user review."}, run_id=run_id)
+        await publish_event(
+            task_id,
+            "debug_log",
+            {
+                "agent": "Critic",
+                "event": "end",
+                "message": "Critic evaluation completed; waiting for user review.",
+            },
+            run_id=run_id,
+        )
         await publish_event(
             task_id,
             "schema_extension_request",
@@ -577,8 +586,6 @@ async def calibration_reject(task_id: str, run_id: str):
             if not db_task:
                 return
 
-        await publish_event(task_id, "debug_log", {"agent": "Calibration", "event": "start", "message": "User rejected schema extensions, continuing to reporter."}, run_id=run_id)
-
         state = {
             "task_id": task_id,
             "task_context": {
@@ -593,6 +600,7 @@ async def calibration_reject(task_id: str, run_id: str):
             "critic_feedback": db_task.critic_feedback or [],
         }
 
+        await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final structured report."}, run_id=run_id)
         state = await reporter_node(state)
         await guard_active(task_id, run_id)
         report_analysis = state.get("analysis_results") or {}
@@ -951,6 +959,11 @@ async def run_critic_retry(
             "agent": "CriticRetry",
             "event": "info",
             "message": "Skipping second Critic pass after confirmed feedback; proceeding to Reporter.",
+        }, run_id=run_id)
+        await publish_event(task_id, "debug_log", {
+            "agent": "Critic",
+            "event": "end",
+            "message": "Critic feedback resolved; no second Critic pass required.",
         }, run_id=run_id)
         await guard_active(task_id, run_id)
         await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final report (retry)."}, run_id=run_id)

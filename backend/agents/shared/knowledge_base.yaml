@@ -2577,3 +2577,31 @@ sources:
     skills: ["product"]
     tags: ["auto-discovered"]
     competitors: ["Gemini"]
+
+  - url: "https://www.sohu.com/a/990953362_121956424"
+    name: "auto: GPT 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from GPT 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://gemini.google.com/"
+    name: "auto: Gemini 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from Gemini 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://docs.feishu.cn/v/wiki/La8PwDrNjiihk9keVZlcHfYCnBf/af"
+    name: "auto: Gemini 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from Gemini 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://ai.google.dev/"
+    name: "auto: Gemini 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from Gemini 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
