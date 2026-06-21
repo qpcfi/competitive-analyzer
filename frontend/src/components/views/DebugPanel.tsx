@@ -196,12 +196,17 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId, taskState
   const currentAgentNode = useMemo(() => {
     for (let i = logs.length - 1; i >= 0; i--) {
       const log = logs[i];
-      if (log.agent === 'LLM' || log.agent === 'Tool') {
-        if (log.event === 'start') {
-          return { name: log.agent, status: 'running', message: log.message, latency: null };
-        } else if (log.event === 'end') {
-          return { name: log.agent, status: 'finished', message: log.message, latency: log.latency };
-        }
+      if (!log.agent) {
+        continue;
+      }
+      if (log.event === 'start') {
+        return { name: log.agent, status: 'running', message: log.message, latency: null };
+      }
+      if (log.event === 'end') {
+        return { name: log.agent, status: 'finished', message: log.message, latency: log.latency };
+      }
+      if (log.event === 'error') {
+        return { name: log.agent, status: 'error', message: log.message, latency: null };
       }
     }
     return null;
@@ -216,11 +221,11 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId, taskState
         <Title level={4} style={{ margin: 0 }}>调试与可观测性面板 (Debug & Observability)</Title>
         <Space>
           <a href="https://smith.langchain.com/" target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '4px 12px', background: '#fff', border: '1px solid #d9d9d9', borderRadius: 4, color: 'inherit', textDecoration: 'none' }}>
-            LangSmith Trace
+            🦜🔗 LangSmith Trace 追踪
           </a>
-          <a
-            href={taskId ? `http://localhost:8000/api/v1/tasks/${taskId}` : '#'}
-            target={taskId ? '_blank' : '_self'}
+          <a 
+            href={taskId ? `http://localhost:8000/api/v1/tasks/${taskId}` : '#'} 
+            target={taskId ? "_blank" : "_self"}
             style={{ display: 'inline-block', padding: '4px 12px', background: '#1677ff', border: '1px solid #1677ff', borderRadius: 4, color: '#fff', textDecoration: 'none', opacity: taskId ? 1 : 0.5 }}
           >
             下载 State Graph 快照
@@ -245,10 +250,10 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId, taskState
           {currentAgentNode ? (
             <div>
               <Space>
-                {currentAgentNode.status === 'running' ? <SyncOutlined spin style={{ color: '#1677ff' }} /> : <ClockCircleOutlined style={{ color: '#52c41a' }} />}
+                {currentAgentNode.status === 'running' ? <SyncOutlined spin style={{ color: '#1677ff' }} /> : <ClockCircleOutlined style={{ color: currentAgentNode.status === 'error' ? '#ff4d4f' : '#52c41a' }} />}
                 <Text strong>{currentAgentNode.name}</Text>
-                <Tag color={currentAgentNode.status === 'running' ? 'processing' : 'success'}>
-                  {currentAgentNode.status === 'running' ? '执行中' : '已完成'}
+                <Tag color={currentAgentNode.status === 'running' ? 'processing' : currentAgentNode.status === 'error' ? 'error' : 'success'}>
+                  {currentAgentNode.status === 'running' ? '执行中' : currentAgentNode.status === 'error' ? '错误' : '已完成'}
                 </Tag>
               </Space>
               <div style={{ marginTop: 8 }}>

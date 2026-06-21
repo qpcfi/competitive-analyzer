@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, App, Button, Card, Checkbox, Col, Collapse, Empty, Form, Input, InputNumber, Progress, Row, Select, Space, Tag, Timeline, Typography } from 'antd';
-import { CheckCircleOutlined, CloudUploadOutlined, FileSearchOutlined, FormOutlined, PictureOutlined, ReloadOutlined, SaveOutlined, SendOutlined } from '@ant-design/icons';
+import { CloudUploadOutlined, FileSearchOutlined, FormOutlined, PictureOutlined, ReloadOutlined, SaveOutlined, SendOutlined } from '@ant-design/icons';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -79,13 +79,12 @@ export default function SurveyPanel({ taskId, onReportUpdated, onRunStarted }: S
   const [campaign, setCampaign] = useState<SurveyCampaign | null>(null);
   const [campaigns, setCampaigns] = useState<SurveyCampaign[]>([]);
   const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null);
-  const [historyRetentionDays, setHistoryRetentionDays] = useState<number>(30);
   const [responseItems, setResponseItems] = useState<SurveyResponse[]>([]);
   const [selectedResponseIds, setSelectedResponseIds] = useState<string[]>([]);
   const [loading, setLoading] = useState<string | null>(null);
   const [manualUrl, setManualUrl] = useState('');
   const [postImagesText, setPostImagesText] = useState('');
-  const [postTagsText, setPostTagsText] = useState('AI调研, 用户体验');
+  const [postTagsText, setPostTagsText] = useState('');
   const [questionnaireDraft, setQuestionnaireDraft] = useState<any>(null);
   const [postDrafts, setPostDrafts] = useState<Record<string, any>>({});
   const [reportRefreshProgress, setReportRefreshProgress] = useState<ReportRefreshProgress | null>(null);
@@ -110,8 +109,7 @@ export default function SurveyPanel({ taskId, onReportUpdated, onRunStarted }: S
   const fetchCampaigns = async (silent = false) => {
     if (!taskId) return;
     try {
-      const query = historyRetentionDays > 0 ? `?retention_days=${historyRetentionDays}` : '?retention_days=0';
-      const response = await fetch(`${API_BASE}/tasks/${taskId}/survey/campaigns${query}`);
+      const response = await fetch(`${API_BASE}/tasks/${taskId}/survey/campaigns`);
       if (response.status === 404) {
         setCampaigns([]);
         setSelectedCampaignId(null);
@@ -193,7 +191,7 @@ export default function SurveyPanel({ taskId, onReportUpdated, onRunStarted }: S
     setCampaigns([]);
     setResponseItems([]);
     fetchCampaigns(true);
-  }, [taskId, historyRetentionDays]);
+  }, [taskId]);
 
   useEffect(() => {
     if (!taskId || !selectedCampaignId) return;
@@ -326,8 +324,6 @@ export default function SurveyPanel({ taskId, onReportUpdated, onRunStarted }: S
     campaign_id: activeCampaignId || undefined,
     ...body,
   });
-
-  const approveSurvey = () => postJson('/survey/approve', 'approve', withCampaign());
 
   const saveQuestionnaire = () => putJson('/survey/questionnaire', 'save-questionnaire', withCampaign({ questionnaire: questionnaireDraft }));
 
@@ -512,20 +508,7 @@ export default function SurveyPanel({ taskId, onReportUpdated, onRunStarted }: S
             title="历史问卷链接"
             style={{ marginBottom: 16 }}
             extra={
-              <Space size={8}>
-                <Select
-                  size="small"
-                  value={historyRetentionDays}
-                  style={{ width: 100 }}
-                  onChange={setHistoryRetentionDays}
-                  options={[
-                    { value: 7, label: '近 7 天' },
-                    { value: 30, label: '近 30 天' },
-                    { value: 0, label: '全部' },
-                  ]}
-                />
-                <Button size="small" icon={<ReloadOutlined />} disabled={!taskId} onClick={() => fetchCampaigns()}>刷新</Button>
-              </Space>
+              <Button size="small" icon={<ReloadOutlined />} disabled={!taskId} onClick={() => fetchCampaigns()}>刷新</Button>
             }
           >
             {campaigns.length ? (
@@ -592,9 +575,6 @@ export default function SurveyPanel({ taskId, onReportUpdated, onRunStarted }: S
               </Form.Item>
               <Button block type="primary" icon={<FormOutlined />} loading={loading === 'generate'} disabled={!taskId} onClick={generateSurvey}>
                 生成问卷
-              </Button>
-              <Button block icon={<CheckCircleOutlined />} loading={loading === 'approve'} disabled={!campaign} onClick={approveSurvey} style={{ marginTop: 8 }}>
-                审核通过
               </Button>
               <div style={{ marginTop: 16, marginBottom: 12 }}>
                 <Text type="secondary">当前问卷链接</Text>
@@ -665,7 +645,7 @@ chmod +x ./xiaohongshu-mcp-darwin-arm64
                 <Input
                   value={postTagsText}
                   onChange={event => setPostTagsText(event.target.value)}
-                  placeholder="AI调研, 用户体验"
+                  placeholder=""
                 />
               </Form.Item>
               <Button block icon={<SendOutlined />} loading={loading === 'publish-post'} disabled={!campaign} onClick={publishPost}>

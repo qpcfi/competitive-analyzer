@@ -137,7 +137,8 @@ async def refresh_report_with_survey(task_id: str, run_id: str, response_ids: li
             "module_updates": [],
             "retry_counts": {},
         }
-        state = await analyzer_node(state)
+        state = await analyzer_node({**state, "task_id": None})
+        state["task_id"] = task_id
         await guard_active(task_id, run_id)
         await publish_event(
             task_id,
@@ -145,7 +146,9 @@ async def refresh_report_with_survey(task_id: str, run_id: str, response_ids: li
             {"stage": "reporting", "progress": 82, "status": "running", "message": "Analyzer 已完成，正在重新生成结构化报告。"},
             run_id=run_id,
         )
-        state = await reporter_node(state)
+        state = await analyzer_node({**state, "task_id": None})
+        state["task_id"] = task_id
+
         await guard_active(task_id, run_id)
         analysis = state.get("analysis_results") or {}
         analysis.setdefault("report", {})
@@ -163,56 +166,48 @@ async def refresh_report_with_survey(task_id: str, run_id: str, response_ids: li
             ),
         }
 
-        await guard_active(task_id, run_id)
-        await publish_event(
-            task_id,
-            "survey_report_refresh_progress",
-            {"stage": "saving_report", "progress": 92, "status": "running", "message": "正在保存调研增强版报告并更新分析模块。"},
-            run_id=run_id,
-        )
-        async with async_session() as session:
-            await guard_active(task_id, run_id)
-            task = await get_task(session, task_id)
-            if task:
-                task.analysis_results = analysis
-                task.final_report = analysis.get("report", {})
-            for module_id in ("comparison", "swot", "report"):
-                content = analysis.get(module_id, {}) if isinstance(analysis, dict) else {}
-                await save_analysis_module(
-                    session,
-                    task_id,
-                    module_id=module_id,
-                    module_type=module_id,
-                    content=content if isinstance(content, dict) else {"items": content},
-                    evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
-                    quality_status="survey_enriched",
-                )
-            await update_survey_campaign(session, campaign.id, status="report_updated")
-            await session.commit()
+    await publish_event(
+        task_id,
+        "survey_report_refresh_progress",
+        {"stage": "saving_report", "progress": 92, "status": "running", "message": "正在保存调研增强版报告并更新分析模块。"},
+    )
+    async with async_session() as session:
+        task = await get_task(session, task_id)
+        if task:
+            task.analysis_results = analysis
+            task.final_report = analysis.get("report", {})
+        for module_id in ("comparison", "swot", "report"):
+            content = analysis.get(module_id, {}) if isinstance(analysis, dict) else {}
+            await save_analysis_module(
+                session,
+                task_id,
+                module_id=module_id,
+                module_type=module_id,
+                content=content if isinstance(content, dict) else {"items": content},
+                evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
+                quality_status="survey_enriched",
+            )
+        await update_survey_campaign(session, campaign.id, status="report_updated")
+        await session.commit()
 
-        await guard_active(task_id, run_id)
-        await publish_event(
-            task_id,
-            "report_updated",
-            {"version": 2, "reason": "survey_enrichment", "campaign_id": campaign.id, "survey_material_count": len(survey_materials)},
-            run_id=run_id,
-        )
-        await publish_event(
-            task_id,
-            "survey_report_refresh_progress",
-            {
-                "stage": "completed",
-                "progress": 100,
-                "status": "completed",
-                "message": "调研增强版报告已生成。",
-                "survey_material_count": len(survey_materials),
-                "selected_response_count": len(responses),
-            },
-            run_id=run_id,
-        )
-        return {"status": "updated", "version": 2, "survey_material_count": len(survey_materials), "analysis": analysis, "run_id": run_id}
-    except (StaleRunError, asyncio.CancelledError):
-        return {"status": "cancelled"}
+    await publish_event(
+        task_id,
+        "report_updated",
+        {"version": 2, "reason": "survey_enrichment", "campaign_id": campaign.id, "survey_material_count": len(survey_materials)},
+    )
+    await publish_event(
+        task_id,
+        "survey_report_refresh_progress",
+        {
+            "stage": "completed",
+            "progress": 100,
+            "status": "completed",
+            "message": "调研增强版报告已生成。",
+            "survey_material_count": len(survey_materials),
+            "selected_response_count": len(responses),
+        },
+    )
+    return {"status": "updated", "version": 2, "survey_material_count": len(survey_materials), "analysis": analysis}
 
 
 def build_report_comparison(
