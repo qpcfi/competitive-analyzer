@@ -221,11 +221,11 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId, taskState
         <Title level={4} style={{ margin: 0 }}>调试与可观测性面板 (Debug & Observability)</Title>
         <Space>
           <a href="https://smith.langchain.com/" target="_blank" rel="noreferrer" style={{ display: 'inline-block', padding: '4px 12px', background: '#fff', border: '1px solid #d9d9d9', borderRadius: 4, color: 'inherit', textDecoration: 'none' }}>
-            🦜🔗 LangSmith Trace 追踪
+            LangSmith Trace 追踪
           </a>
-          <a 
-            href={taskId ? `http://localhost:8000/api/v1/tasks/${taskId}` : '#'} 
-            target={taskId ? "_blank" : "_self"}
+          <a
+            href={taskId ? `http://localhost:8000/api/v1/tasks/${taskId}` : '#'}
+            target={taskId ? '_blank' : '_self'}
             style={{ display: 'inline-block', padding: '4px 12px', background: '#1677ff', border: '1px solid #1677ff', borderRadius: 4, color: '#fff', textDecoration: 'none', opacity: taskId ? 1 : 0.5 }}
           >
             下载 State Graph 快照
