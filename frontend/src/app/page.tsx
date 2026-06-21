@@ -254,6 +254,7 @@ export default function Home() {
           'COLLECTING': 'dashboard',
           'PAUSED': 'dashboard',
           'ANALYZING': 'analysis',
+          'ANALYSIS_REVIEW': 'analysis',
           'QUALITY_REVIEW': 'critic-review',
           'NEEDS_INTERVENTION': 'critic-review',
           'COMPLETED': 'report',
@@ -332,6 +333,7 @@ export default function Home() {
             'COLLECTING': 'dashboard',
             'PAUSED': 'dashboard',
             'ANALYZING': 'analysis',
+            'ANALYSIS_REVIEW': 'analysis',
             'QUALITY_REVIEW': 'critic-review',
             'NEEDS_INTERVENTION': 'critic-review',
             'COMPLETED': 'report',
@@ -402,6 +404,9 @@ export default function Home() {
             setExtensionRequest({ visible: true, suggestions: data.suggested_schema_extensions });
           }
           setCurrentView('critic-review');
+        } else if (data.state === 'ANALYSIS_REVIEW') {
+          setCurrentView('analysis');
+          setExtensionRequest({ visible: false, suggestions: [] });
         } else {
           setExtensionRequest({ visible: false, suggestions: [] });
         }
@@ -526,6 +531,7 @@ export default function Home() {
     'COLLECTING': 'dashboard',
     'PAUSED': 'dashboard',
     'ANALYZING': 'analysis',
+    'ANALYSIS_REVIEW': 'analysis',
     'QUALITY_REVIEW': 'critic-review',
     'NEEDS_INTERVENTION': 'critic-review',
     'COMPLETED': 'report',
@@ -565,6 +571,24 @@ export default function Home() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   const canTerminate = taskId && !['INITIALIZING', 'ERROR', 'COMPLETED'].includes(taskState);
+
+  const continueCritic = async () => {
+    if (!taskId) return;
+    setActionLoading('continue-critic');
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/tasks/${taskId}/continue-critic`, { method: 'POST' });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+      onRunStarted(data.run_id || null);
+      setTaskState(data.state || 'CRITIQUING');
+      setProgress(prev => Math.max(prev, 95));
+      message.success('已进入 Critic 质检');
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '继续 Critic 失败');
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   const terminateTask = async () => {
     if (!taskId) return;
@@ -639,6 +663,9 @@ export default function Home() {
             taskId={taskId}
             analysisResults={analysisResults}
             mainProduct={mainProduct}
+            taskState={taskState}
+            continuingCritic={actionLoading === 'continue-critic'}
+            onContinueCritic={continueCritic}
             onOpenDrawer={openDrawer}
             onNavigateToSwot={(competitor) => {
               setMainProduct(competitor);
@@ -759,6 +786,7 @@ export default function Home() {
         taskId={taskId}
         data={drawerConfig.data}
         onClose={closeDrawer}
+        onRunStarted={onRunStarted}
       />
     </div>
   );

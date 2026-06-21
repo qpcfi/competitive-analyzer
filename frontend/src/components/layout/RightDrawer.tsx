@@ -11,9 +11,10 @@ interface RightDrawerProps {
   taskId?: string | null;
   data?: any;
   onClose: () => void;
+  onRunStarted?: (runId: string | null) => void;
 }
 
-export default function RightDrawer({ isOpen, type, taskId, data, onClose }: RightDrawerProps) {
+export default function RightDrawer({ isOpen, type, taskId, data, onClose, onRunStarted }: RightDrawerProps) {
   const { message } = App.useApp();
   const [url, setUrl] = useState('');
   const [instruction, setInstruction] = useState('');
@@ -48,6 +49,19 @@ export default function RightDrawer({ isOpen, type, taskId, data, onClose }: Rig
     };
   }, [data, isOpen, message, taskId, type]);
 
+  const buildScope = (data: any) => {
+    if (!data) return { type: 'comparison', module_id: 'comparison' };
+    const moduleId = data.moduleId;
+    const module_id = data.module_id;
+    const competitor = data.competitor;
+    if (module_id === 'swot') return { type: 'swot', module_id: 'swot' };
+    if (module_id === 'report') return { type: 'report', module_id: 'report' };
+    if (moduleId && competitor) return { type: 'cell', module_id: 'comparison', dimension_id: moduleId, competitor };
+    if (moduleId) return { type: 'dimension', module_id: 'comparison', dimension_id: moduleId };
+    if (competitor) return { type: 'competitor', module_id: 'comparison', competitor };
+    return { type: 'comparison', module_id: 'comparison' };
+  };
+
   const postJson = async (path: string, body?: any) => {
     if (!taskId) return;
     setLoading(true);
@@ -58,6 +72,10 @@ export default function RightDrawer({ isOpen, type, taskId, data, onClose }: Rig
         body: body ? JSON.stringify(body) : undefined,
       });
       if (!response.ok) throw new Error(await response.text());
+      const result = await response.json();
+      if (result.run_id && onRunStarted) {
+        onRunStarted(result.run_id);
+      }
       message.success('操作已提交');
     } catch (error) {
       message.error(error instanceof Error ? error.message : '操作失败');
@@ -153,7 +171,7 @@ export default function RightDrawer({ isOpen, type, taskId, data, onClose }: Rig
             <Checkbox style={{ marginBottom: 16 }}>级联更新依赖模块</Checkbox>
             <Divider />
             <Space>
-              <Button type="primary" loading={loading} disabled={!taskId} onClick={() => postJson('/partial_rerun', { target_module: data?.moduleId || 'analysis', new_instruction: instruction, rerun_scope: 'current_only' })}>执行重跑</Button>
+              <Button type="primary" loading={loading} disabled={!taskId} onClick={() => postJson('/partial_rerun', { scope: buildScope(data), instruction })}>执行重跑</Button>
               <Button onClick={onClose}>取消</Button>
             </Space>
           </>

@@ -72,7 +72,21 @@ async def analyzer_node(state: AgentState):
         callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
         config = {"callbacks": callbacks} if callbacks else None
         materials_input = json.dumps(materials, ensure_ascii=False)
-        critic_feedback = state.get("critic_feedback") or []
+        critic_feedback = state.get("critic_feedback", []) or []
+        # ── Rerun scope context (injected before critic feedback) ──
+        rerun_scope = (state.get("task_context") or {}).get("analysis_rerun_scope")
+        rerun_instruction = (state.get("task_context") or {}).get("analysis_rerun_instruction")
+        if rerun_scope:
+            rerun_text = "\n\n=== 局部重跑 - 请专注于以下范围 ===\n"
+            rerun_text += f"范围: {json.dumps(rerun_scope, ensure_ascii=False)}\n"
+            if rerun_instruction:
+                rerun_text += f"指令: {rerun_instruction}\n"
+            rerun_text += (
+                "注意: 你仍然需要输出完整的 analysis_results 结构（comparison_rows / goal_analysis / executive_summary），"
+                "但请确保重点关注指定范围的质量和准确性。指定范围之外的内容可参考已有结果保持稳定。\n"
+            )
+            materials_input = rerun_text + "\n" + materials_input
+        # ── Critic feedback ──
         if critic_feedback:
             feedback_text = "\n\n=== CRITIC质量审查-请修复以下问题 ===\n"
             for item in critic_feedback:

@@ -45,10 +45,10 @@ class SchemaUpdateRequest(BaseModel):
 
 
 class PartialRerunRequest(BaseModel):
-    target_module: str = "analysis"
-    new_instruction: str = ""
-    rerun_scope: Literal["current_only", "cascading"] = "current_only"
-    override_system_prompt: str | None = None
+    scope: dict = Field(default_factory=dict)
+    instruction: str = ""
+    target_module: str | None = None  # kept for backwards compat
+    new_instruction: str | None = None  # kept for backwards compat
 
 
 class ForceNextRequest(BaseModel):

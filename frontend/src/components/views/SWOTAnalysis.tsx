@@ -171,8 +171,7 @@ export default function SWOTAnalysis({ taskId, analysisResults, mainProduct, onO
         </div>
         <Space>
           <Button icon={<ReloadOutlined />}>刷新</Button>
-          <Button onClick={() => onOpenDrawer('re-run')}>局部重跑</Button>
-          <Button type="primary" icon={<ExportOutlined />} onClick={downloadCSV}>导出CSV</Button>
+          <Button onClick={() => onOpenDrawer('re-run', { module_id: 'swot' })}>局部重跑</Button>          <Button type="primary" icon={<ExportOutlined />} onClick={downloadCSV}>导出CSV</Button>
         </Space>
       </div>
 
@@ -192,7 +191,7 @@ export default function SWOTAnalysis({ taskId, analysisResults, mainProduct, onO
           type="warning"
           showIcon
           style={{ marginTop: 24 }}
-          action={<Button size="small" type="primary" onClick={() => onOpenDrawer('re-run')}>一键修正</Button>}
+          action={<Button size="small" type="primary" onClick={() => onOpenDrawer('re-run', { module_id: 'swot' })}>一键修正</Button>}
         />
       )}
     </div>

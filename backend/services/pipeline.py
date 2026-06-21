@@ -348,9 +348,19 @@ async def process_agent_pipeline(task_id: str, run_id: str, start_from: str = "c
             await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"}, run_id=run_id)
             await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90}, run_id=run_id)
             await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis}, run_id=run_id)
+            execution_mode = (state.get("task_context") or {}).get("execution_mode")
+            if execution_mode != "auto":
+                async with async_session() as session:
+                    await guard_active(task_id, run_id)
+                    await update_task_state(session, task_id, state="ANALYSIS_REVIEW", progress=90)
+                    await session.commit()
+                await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "wait", "message": "Analysis is ready. Waiting for manual confirmation before Critic."}, run_id=run_id)
+                await publish_event(task_id, "task_state_changed", {"state": "ANALYSIS_REVIEW", "progress": 90}, run_id=run_id)
+                return
         else:
-            await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"}, run_id=run_id)
-            await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90}, run_id=run_id)
+            if start_from != "critic":
+                await publish_event(task_id, "progress_update", {"progress": 90, "stage": "ANALYZING"}, run_id=run_id)
+                await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 90}, run_id=run_id)
 
         if not await is_current_run(task_id, run_id):
             return
@@ -358,6 +368,11 @@ async def process_agent_pipeline(task_id: str, run_id: str, start_from: str = "c
         # ── CRITIC PHASE ──
         if start_from in ("collector", "analyzer", "critic"):
             await guard_active(task_id, run_id)
+            async with async_session() as session:
+                await update_task_state(session, task_id, state="CRITIQUING", progress=95)
+                await session.commit()
+            await publish_event(task_id, "progress_update", {"progress": 95, "stage": "CRITIQUING"}, run_id=run_id)
+            await publish_event(task_id, "task_state_changed", {"state": "CRITIQUING", "progress": 95}, run_id=run_id)
             await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Starting critic quality evaluation."}, run_id=run_id)
             state = await critic_node(state)
             state, calibration_outcome = await run_schema_calibration(task_id, run_id, state)
@@ -842,15 +857,87 @@ async def run_critic_retry(
             await publish_event(task_id, "raw_materials_updated", {"data": all_materials, "source_stats": source_stats(all_materials), "retry": True}, run_id=run_id)
             state["raw_materials"] = all_materials
 
+        # ── Generate scopes from critic feedback + schema extensions ──
+        # (lazy import to break circular dependency: analysis_rerun imports publish_event from this module)
+        from services.analysis_rerun import RerunContext, affected_modules_for_scopes, normalize_batch_scopes, run_scoped_rerun_with_ctx  # noqa: F811
+        from services.critic_scope_mapper import feedback_to_rerun_scopes  # noqa: F811
+
+        existing_analysis = dict(db_task.analysis_results or {})
+        analysis_feedback = [
+            item for item in retry_analysis_context
+            if item.get("action") in ("retry_analysis", "extend_schema")
+        ]
+        all_scopes = list(feedback_to_rerun_scopes(
+            analysis_feedback, existing_analysis, current_schema,
+        ))
+        # Add dimension scopes for ALL re-collected fields (not just extensions)
+        for field_id in all_collection_ids:
+            all_scopes.append({
+                "type": "dimension", "module_id": "comparison", "dimension_id": field_id,
+            })
+        normalized_scopes = normalize_batch_scopes(all_scopes, existing_analysis)
+
+        # Fallback: if materials were re-collected but no specific scopes exist,
+        # use comparison scope so the merge doesn't discard analyzer output
+        if not normalized_scopes:
+            normalized_scopes = [{"type": "comparison", "module_id": "comparison"}]
+            await publish_event(task_id, "debug_log", {
+                "agent": "CriticScopeMapper",
+                "event": "info",
+                "message": "No specific scopes derived from feedback — falling back to full comparison rerun.",
+            }, run_id=run_id, allow_inactive=True)
+
+        # Fallback diagnostic: count scopes that fell back to comparison (imprecise)
+        fallback_count = sum(1 for s in normalized_scopes if s.get("type") == "comparison")
+        if fallback_count:
+            await publish_event(task_id, "debug_log", {
+                "agent": "CriticScopeMapper",
+                "event": "warning",
+                "message": (
+                    f"{fallback_count} feedback item(s) fell back to comparison scope "
+                    f"(could not map to a specific dimension/competitor). "
+                    f"Consider adding more precise target_id to feedback records."
+                ),
+                "output_json": {"fallback_count": fallback_count},
+            }, run_id=run_id, allow_inactive=True)
+
         await guard_active(task_id, run_id)
-        await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "start", "message": "Re-analyzing with critic feedback."}, run_id=run_id)
-        state = await analyzer_node(state)
-        await guard_active(task_id, run_id)
-        analysis = state.get("analysis_results") or {}
+        await publish_event(task_id, "debug_log", {
+            "agent": "Analyzer", "event": "start",
+            "message": f"Re-analyzing with {len(normalized_scopes)} scoped rerun(s).",
+            "output_json": {
+                "scope_count": len(normalized_scopes),
+                "fallback_to_comparison": fallback_count,
+                "scopes": normalized_scopes,
+            },
+        }, run_id=run_id)
+
+        # Build in-memory RerunContext and delegate to the shared core
+        ctx = RerunContext(
+            task_id=task_id,
+            domain=db_task.domain or "",
+            competitors=list(db_task.competitors or []),
+            execution_mode=db_task.execution_mode or "step_by_step",
+            analysis_goal=db_task.analysis_goal,
+            analysis_results=existing_analysis,
+            raw_materials=list(state.get("raw_materials", [])),
+            dynamic_schema=current_schema,
+            schema_version=schema_record.version if schema_record else 0,
+            task_state="ANALYSIS_REVIEW",
+        )
+        merged_analysis = await run_scoped_rerun_with_ctx(
+            ctx, run_id, normalized_scopes,
+            instruction="根据 Critic 质量审查反馈修复分析结果",
+        )
+        state["analysis_results"] = merged_analysis
+        analysis = merged_analysis
+
+        # Persist — only save modules actually touched by the scopes
+        affected_modules = affected_modules_for_scopes(normalized_scopes)
         async with async_session() as session:
             task = await update_task_state(session, task_id, state="ANALYZING", progress=97)
             task.analysis_results = analysis
-            for module_id in ("comparison", "swot", "report"):
+            for module_id in affected_modules:
                 content = analysis.get(module_id, {}) if isinstance(analysis, dict) else {}
                 await save_analysis_module(
                     session, task_id, module_id=module_id, module_type=module_id,
@@ -858,9 +945,7 @@ async def run_critic_retry(
                     evidence_refs=analysis.get("evidence_refs", []) if isinstance(analysis, dict) else [],
                 )
             await session.commit()
-        await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": "Analysis completed (retry)."}, run_id=run_id)
-
-        state["analysis_results"] = analysis
+        await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": f"Analysis completed (scoped retry, affected: {affected_modules})."}, run_id=run_id)
         await guard_active(task_id, run_id)
         await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Re-critic after retry analysis."}, run_id=run_id)
         state = await critic_node(state)

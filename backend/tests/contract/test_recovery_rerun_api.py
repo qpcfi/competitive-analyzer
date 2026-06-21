@@ -17,7 +17,21 @@ def test_recovery_and_rerun_routes_are_registered():
 
 
 def test_partial_rerun_payload_contract_defaults():
+    req = PartialRerunRequest(
+        scope={"type": "cell", "module_id": "comparison", "dimension_id": "pricing", "competitor": "竞品A"},
+        instruction="重新分析该竞品在价格维度的表现",
+    )
+
+    assert req.scope == {"type": "cell", "module_id": "comparison", "dimension_id": "pricing", "competitor": "竞品A"}
+    assert req.instruction == "重新分析该竞品在价格维度的表现"
+
+
+def test_partial_rerun_backwards_compat():
+    """Old target_module/new_instruction fields should still be accepted."""
     req = PartialRerunRequest(target_module="swot.threats", new_instruction="focus on pricing")
 
     assert req.target_module == "swot.threats"
-    assert req.rerun_scope == "current_only"
+    assert req.new_instruction == "focus on pricing"
+    # New fields default
+    assert req.scope == {}
+    assert req.instruction == ""

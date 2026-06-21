@@ -2486,3 +2486,94 @@ sources:
     skills: ["company"]
     tags: ["auto-discovered"]
     competitors: ["Gemini"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1969714376228446422"
+    name: "auto: GPT 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from GPT 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://thunderbit.com/zh-Hans/blog/chatgpt-stats-usage-growth-trends"
+    name: "auto: GPT 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from GPT 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://www.moonfox.cn/insight/report/1815"
+    name: "auto: GPT 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from GPT 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://developers.google.cn/ai/discover/gemini-ecosystem/"
+    name: "auto: Gemini 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from Gemini 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://digiexe.com/zh-CN/blog/gemini-users-statistics/"
+    name: "auto: Gemini 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from Gemini 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://gcp.infoq.cn/gemini.html"
+    name: "auto: Gemini 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from Gemini 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://openai.com/zh-Hans-CN/index/new-tools-for-chatgpt-enterprise/"
+    name: "auto: GPT 合规认证与数据安全"
+    description: "Auto-discovered from GPT 合规认证与数据安全 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://openai.com/index/gpt-5-5-with-trusted-access-for-cyber/"
+    name: "auto: GPT 合规认证与数据安全"
+    description: "Auto-discovered from GPT 合规认证与数据安全 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://github.com/Clouditera/secgpt"
+    name: "auto: GPT 合规认证与数据安全"
+    description: "Auto-discovered from GPT 合规认证与数据安全 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["GPT"]
+
+  - url: "https://docs.cloud.google.com/gemini/enterprise/docs/compliance-security-controls?hl=zh-cn"
+    name: "auto: Gemini 合规认证与数据安全"
+    description: "Auto-discovered from Gemini 合规认证与数据安全 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://workspace.google.com/learning/content/gemini-privacy-security-compliance-whitepaper?hl=zh-CN"
+    name: "auto: Gemini 合规认证与数据安全"
+    description: "Auto-discovered from Gemini 合规认证与数据安全 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "https://poloapi.com/poloapi-blog/Gemini-3.1-Enterprise-Security-Compliance-Guidelines"
+    name: "auto: Gemini 合规认证与数据安全"
+    description: "Auto-discovered from Gemini 合规认证与数据安全 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]
+
+  - url: "http://www.mynw.cn/news/1017885.html"
+    name: "auto: Gemini 主要用户群体（开发者/企业/个人）"
+    description: "Auto-discovered from Gemini 主要用户群体（开发者/企业/个人） analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["Gemini"]

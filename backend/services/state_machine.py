@@ -7,6 +7,7 @@ class TaskState(StrEnum):
     SCHEMA_REVIEW = "SCHEMA_REVIEW"
     COLLECTING = "COLLECTING"
     ANALYZING = "ANALYZING"
+    ANALYSIS_REVIEW = "ANALYSIS_REVIEW"
     QUALITY_REVIEW = "QUALITY_REVIEW"
     COMPLETED = "COMPLETED"
     ERROR = "ERROR"
@@ -30,8 +31,11 @@ ALLOWED_TRANSITIONS: dict[TaskState, set[TaskState]] = {
         TaskState.ANALYZING, TaskState.NEEDS_INTERVENTION, TaskState.PAUSED, TaskState.ERROR,
     },
     TaskState.ANALYZING: {
-        TaskState.QUALITY_REVIEW, TaskState.NEEDS_INTERVENTION, TaskState.PAUSED, TaskState.ERROR,
+        TaskState.ANALYSIS_REVIEW, TaskState.QUALITY_REVIEW, TaskState.NEEDS_INTERVENTION, TaskState.PAUSED, TaskState.ERROR,
         TaskState.CRITIQUING, TaskState.SCHEMA_CALIBRATING, TaskState.COMPLETED,
+    },
+    TaskState.ANALYSIS_REVIEW: {
+        TaskState.ANALYZING, TaskState.CRITIQUING, TaskState.PAUSED, TaskState.ERROR,
     },
     TaskState.QUALITY_REVIEW: {
         TaskState.ANALYZING, TaskState.COLLECTING, TaskState.NEEDS_INTERVENTION, TaskState.COMPLETED, TaskState.ERROR,
@@ -44,13 +48,13 @@ ALLOWED_TRANSITIONS: dict[TaskState, set[TaskState]] = {
         TaskState.ANALYZING, TaskState.NEEDS_INTERVENTION, TaskState.ERROR,
     },
     TaskState.PAUSED: {
-        TaskState.SCHEMA_REVIEW, TaskState.COLLECTING, TaskState.ANALYZING, TaskState.QUALITY_REVIEW, TaskState.ERROR,
+        TaskState.SCHEMA_REVIEW, TaskState.COLLECTING, TaskState.ANALYZING, TaskState.ANALYSIS_REVIEW, TaskState.QUALITY_REVIEW, TaskState.ERROR,
     },
     TaskState.NEEDS_INTERVENTION: {
         TaskState.COLLECTING, TaskState.ANALYZING, TaskState.COMPLETED, TaskState.PAUSED, TaskState.ERROR,
     },
     TaskState.COMPLETED: {
-        TaskState.ANALYZING,
+        TaskState.ANALYZING, TaskState.ANALYSIS_REVIEW,
     },
     TaskState.ERROR: {
         TaskState.SCHEMA_REVIEW, TaskState.COLLECTING, TaskState.ANALYZING,

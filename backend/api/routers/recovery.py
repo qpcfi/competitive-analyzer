@@ -5,13 +5,15 @@ from fastapi import APIRouter, HTTPException, Request
 from core import runtime
 from core.runtime import runner
 from models_db import async_session
+from schemas import PartialRerunRequest
+from services.analysis_rerun import run_incremental_analysis_rerun
 from services.pipeline import (
     process_agent_pipeline,
     publish_event,
     calibration_confirm,
     calibration_reject,
 )
-from services.repositories import add_intervention, get_task, invalidate_task_run, new_run_id, resolve_all_pending_feedback, save_analysis_module, set_task_run, update_task_state
+from services.repositories import add_intervention, get_task, invalidate_task_run, new_run_id, resolve_all_pending_feedback, set_task_run, update_task_state
 from services.state_machine import can_transition
 
 router = APIRouter()
@@ -60,38 +62,49 @@ async def force_next(task_id: str, req: Request):
 
 
 @router.post("/api/v1/tasks/{task_id}/partial_rerun")
-async def partial_rerun(task_id: str, req: Request):
-    body = await req.json()
-    config = {"configurable": {"thread_id": task_id}}
-    if runtime.app_step is not None:
-        try:
-            runtime.app_step.update_state(config, {"critic_feedback": [body.get("new_instruction", "Rerun analysis")]})
-        except Exception:
-            pass
-    module_id = body.get("target_module", "analysis")
-    new_content = {"instruction": body.get("new_instruction", ""), "status": "rerun_requested"}
-    async with async_session() as session:
-        db_task = await get_task(session, task_id)
-        if not db_task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        if runner.is_active(task_id):
-            raise HTTPException(status_code=409, detail="Cannot rerun while pipeline is active. Pause the task first.")
-        if not can_transition(db_task.state, "ANALYZING"):
-            raise HTTPException(status_code=409, detail=f"Cannot rerun while task is {db_task.state}")
-        record = await save_analysis_module(
-            session,
-            task_id,
-            module_id=module_id,
-            module_type=module_id.split(".")[0],
-            content=new_content,
-            evidence_refs=[],
-            quality_status="pending",
-        )
-        await add_intervention(session, task_id, "partial_rerun", body)
-        await update_task_state(session, task_id, state="ANALYZING")
-        await session.commit()
-    await publish_event(task_id, "module_updated", {"module_id": module_id, "new_content": new_content, "version": record.version, "updated_at": datetime.utcnow().isoformat()}, allow_inactive=True)
-    return {"status": "rerunning", "module_id": module_id, "state": "ANALYZING"}
+async def partial_rerun(task_id: str, req: PartialRerunRequest):
+    scope = req.scope or {}
+
+    if not scope.get("type"):
+        raise HTTPException(status_code=400, detail="scope.type is required")
+
+    instruction = req.instruction or ""
+
+    run_id = new_run_id()
+    if not runner.claim(task_id, run_id):
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+
+    try:
+        async with async_session() as session:
+            db_task = await get_task(session, task_id)
+            if not db_task:
+                raise HTTPException(status_code=404, detail="Task not found")
+
+            if db_task.state not in ("ANALYSIS_REVIEW", "PAUSED", "COMPLETED"):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Cannot rerun while task is {db_task.state}. "
+                           f"Allowed: ANALYSIS_REVIEW, PAUSED, COMPLETED",
+                )
+            if not db_task.analysis_results:
+                raise HTTPException(status_code=409, detail="No analysis results to rerun")
+            if not db_task.raw_materials:
+                raise HTTPException(status_code=409, detail="No collected materials available")
+
+            await set_task_run(session, task_id, run_id)
+            await session.commit()
+    except HTTPException:
+        runner.release(task_id, run_id)
+        raise
+    except Exception:
+        runner.release(task_id, run_id)
+        raise
+
+    if not runner.start_claimed(task_id, run_id, lambda: run_incremental_analysis_rerun(task_id, run_id, scope, instruction)):
+        runner.release(task_id, run_id)
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+
+    return {"status": "rerunning", "scope": scope, "state": "ANALYSIS_REVIEW", "run_id": run_id}
 
 
 @router.post("/api/v1/tasks/{task_id}/terminate")
@@ -147,6 +160,38 @@ async def continue_analysis(task_id: str):
     await publish_event(task_id, "debug_log", {"agent": "System", "event": "continue", "message": "Continuing analysis from post-collection state."}, run_id=run_id)
     await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60}, run_id=run_id)
     return {"status": "continuing", "state": "ANALYZING", "run_id": run_id}
+
+
+@router.post("/api/v1/tasks/{task_id}/continue-critic")
+async def continue_critic(task_id: str):
+    run_id = new_run_id()
+    if not runner.claim(task_id, run_id):
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+
+    try:
+        async with async_session() as session:
+            db_task = await get_task(session, task_id)
+            if not db_task:
+                raise HTTPException(status_code=404, detail="Task not found")
+            if db_task.state != "ANALYSIS_REVIEW":
+                raise HTTPException(status_code=409, detail=f"Cannot continue critic while task is {db_task.state}")
+            if not db_task.analysis_results:
+                raise HTTPException(status_code=409, detail="No analysis results to review. Run analysis first.")
+            await add_intervention(session, task_id, "continue_critic", {"previous_state": db_task.state})
+            await update_task_state(session, task_id, state="CRITIQUING", progress=95)
+            await set_task_run(session, task_id, run_id)
+            await session.commit()
+    except Exception:
+        runner.release(task_id, run_id)
+        raise
+
+    if not runner.start_claimed(task_id, run_id, lambda: process_agent_pipeline(task_id, run_id, start_from="critic")):
+        runner.release(task_id, run_id)
+        raise HTTPException(status_code=409, detail="Pipeline already running for this task")
+
+    await publish_event(task_id, "debug_log", {"agent": "System", "event": "continue", "message": "Continuing Critic from reviewed analysis."}, run_id=run_id)
+    await publish_event(task_id, "task_state_changed", {"state": "CRITIQUING", "progress": 95}, run_id=run_id)
+    return {"status": "continuing", "state": "CRITIQUING", "run_id": run_id}
 
 
 @router.post("/api/v1/tasks/{task_id}/calibration")

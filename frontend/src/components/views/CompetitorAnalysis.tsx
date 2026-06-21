@@ -55,6 +55,9 @@ interface CompetitorAnalysisProps {
     comparison_rows?: ComparisonRow[];
   } | null;
   mainProduct?: string | null;
+  taskState?: string;
+  continuingCritic?: boolean;
+  onContinueCritic?: () => void;
   onOpenDrawer: (type: string, data?: any) => void;
   onNavigateToSwot?: (competitor: string) => void;
 }
@@ -129,7 +132,7 @@ function AngleBar({ angles }: { angles: AngleSelection[] }) {
   );
 }
 
-export default function CompetitorAnalysis({ taskId, analysisResults, mainProduct, onOpenDrawer, onNavigateToSwot }: CompetitorAnalysisProps) {
+export default function CompetitorAnalysis({ taskId, analysisResults, mainProduct, taskState, continuingCritic, onContinueCritic, onOpenDrawer, onNavigateToSwot }: CompetitorAnalysisProps) {
   const [viewMode, setViewMode] = useState<'tile' | 'focus'>('tile');
   const competitors = useMemo(() => analysisResults?.discovered_competitors || [], [analysisResults]);
   const rows = useMemo(() => analysisResults?.comparison_rows || [], [analysisResults]);
@@ -245,6 +248,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
   }
 
   const focusRows = rows.filter(row => row.values?.[focusItem]);
+  const waitingForCritic = taskState === 'ANALYSIS_REVIEW';
 
   return (
     <div style={{ padding: 4 }}>
@@ -253,10 +257,17 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <Title level={4} style={{ margin: 0 }}>竞品深度对比</Title>
-        <Radio.Group value={viewMode} onChange={e => setViewMode(e.target.value)} buttonStyle="solid" size="small">
+        <Space>
+          {waitingForCritic && (
+            <Button type="primary" loading={continuingCritic} onClick={onContinueCritic}>
+              确认分析并进入 Critic
+            </Button>
+          )}
+          <Radio.Group value={viewMode} onChange={e => setViewMode(e.target.value)} buttonStyle="solid" size="small">
           <Radio.Button value="tile">平铺对比</Radio.Button>
           <Radio.Button value="focus">单品聚焦</Radio.Button>
-        </Radio.Group>
+          </Radio.Group>
+        </Space>
       </div>
 
       {viewMode === 'tile' ? (
