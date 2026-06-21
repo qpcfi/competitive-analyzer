@@ -947,18 +947,11 @@ async def run_critic_retry(
             await session.commit()
         await publish_event(task_id, "debug_log", {"agent": "Analyzer", "event": "end", "message": f"Analysis completed (scoped retry, affected: {affected_modules})."}, run_id=run_id)
         await guard_active(task_id, run_id)
-        await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "start", "message": "Re-critic after retry analysis."}, run_id=run_id)
-        state = await critic_node(state)
-        await guard_active(task_id, run_id)
-        new_feedback = state.get("critic_feedback") or []
-        async with async_session() as session:
-            task = await update_task_state(session, task_id, state="CRITIQUING", progress=98)
-            task.critic_feedback = new_feedback
-            await save_quality_feedback(session, task_id, new_feedback)
-            await session.commit()
-        await publish_event(task_id, "debug_log", {"agent": "Critic", "event": "end", "message": "Critic done (retry)."}, run_id=run_id)
-
-        state["critic_feedback"] = new_feedback
+        await publish_event(task_id, "debug_log", {
+            "agent": "CriticRetry",
+            "event": "info",
+            "message": "Skipping second Critic pass after confirmed feedback; proceeding to Reporter.",
+        }, run_id=run_id)
         await guard_active(task_id, run_id)
         await publish_event(task_id, "debug_log", {"agent": "Reporter", "event": "start", "message": "Generating final report (retry)."}, run_id=run_id)
         state = await reporter_node(state)

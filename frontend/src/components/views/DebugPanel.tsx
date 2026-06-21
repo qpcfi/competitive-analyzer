@@ -28,9 +28,11 @@ interface DebugPanelProps {
   tokenUsage: TokenUsage | null;
   height: number;
   taskId?: string | null;
+  taskState?: string | null;
+  rawMaterials?: any[];
 }
 
-export default function DebugPanel({ logs, tokenUsage, height, taskId }: DebugPanelProps) {
+export default function DebugPanel({ logs, tokenUsage, height, taskId, taskState, rawMaterials = [] }: DebugPanelProps) {
   const percent = tokenUsage ? Math.round((tokenUsage.total_used / tokenUsage.budget) * 100) : 0;
   
   // Find current running agent node and latency
@@ -107,7 +109,7 @@ export default function DebugPanel({ logs, tokenUsage, height, taskId }: DebugPa
 
       <Title level={5} style={{ marginTop: 16 }}>Agent 协作拓扑图与实时状态</Title>
       <div style={{ marginBottom: '16px' }}>
-        <AgentGraph logs={logs} />
+        <AgentGraph logs={logs} taskState={taskState} rawMaterials={rawMaterials} />
       </div>
 
       <Title level={5} style={{ marginTop: 16 }}>执行日志与 Raw Data</Title>

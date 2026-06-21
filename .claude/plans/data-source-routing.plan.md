@@ -11,7 +11,6 @@
 | API | 价格/千次 | 免费额度 | 中文支持 | AI 友好 | 现状 |
 |---|---|---|---|---|---|
 | **Tavily** | ~$8 | 1000次/月 | ✅ 中英文兼顾 | ★★★★★ | AI Agent 生态最成熟，推荐首选 |
-| **七牛云百度搜索** | 按 Token 计费 | 300万 Token | ★★★★★ 中文最强 | ★★★★ | 百度索引，国内内容不可替代 |
 | Brave Search | ~$5 | $5/月 | ⚠️ 英文为主 | ★★★★ | 独立索引，中文偏弱 |
 | Exa | ~$7 | 1000次/月 | ⚠️ 英文为主 | ★★★★★ | 语义搜索准确率最高 |
 | Serper | ~$1 | 2500次一次性 | ⚠️ 依赖Google | ★★★★ | 最便宜，但仅摘要，需额外爬虫 |
@@ -20,8 +19,7 @@
 
 **选用策略（你的场景 → 中文竞品分析）**：
 1. **Tavily** — 主力搜索引擎，AI Agent 原生，中英文兼顾
-2. **七牛云百度搜索** — 可选项，百度对国内网站（CSDN、知乎、企查查等）收录深度不可替代
-3. **DuckDuckGo** — 兜底，不依赖 API key
+2. **DuckDuckGo** — 兜底，不依赖 API key
 
 ## SourceMaterialRecord 评估
 
@@ -60,7 +58,7 @@
 | `agents/shared/router.py` | UPDATE | `route_sources` 加 `skill_filter` 参数 |
 | `models_db.py` | UPDATE | `SourceMaterialRecord` 加 `skill` 列 + ALTER TABLE |
 | `services/repositories.py` | UPDATE | `save_source_materials` 写入 `skill` 字段 |
-| `services/web_search.py` | UPDATE | 加 `search_tavily()` + 可选 `search_qiniu_baidu()`，合并为 `search_all()` |
+| `services/web_search.py` | UPDATE | 加 `search_tavily()`，合并为 `search_multi_engine()` |
 | `agents/collector/node.py` | UPDATE | 路由传 skill；多引擎搜索 |
 | `tests/unit/test_router_skill.py` | CREATE | 路由 skill 过滤测试 |
 | `tests/unit/test_search_multi_engine.py` | CREATE | 多引擎搜索 + fallback 测试 |
@@ -93,7 +91,7 @@
   2. 新增 `search_multi_engine()` — 并行运行 Tavily + DuckDuckGo，URL 去重，Tavily 优先
   3. Tavily 客户端模块级懒初始化，无 Key 或无包时安全降级 DDG-only
 - **Files**: `services/web_search.py`, `.env`/`.env.example`, `requirements.txt`
-- **Note**: 七牛云 + Brave 等搜索引擎扩展已移至 `crawler-search-enhance.plan.md`
+- **Note**: Brave 等搜索引擎扩展已移至 `crawler-search-enhance.plan.md`
 
 ### Task B2: collector/discoverer 集成 ✅
 
@@ -142,9 +140,8 @@ cd backend && source venv/Scripts/activate && uvicorn main:app --host 0.0.0.0 --
 | Risk | Likelihood | Mitigation |
 |---|---|---|
 | Tavily API key 未配置 | Medium | `search_tavily` 异常静默降 DuckDuckGo，零中断 |
-| 七牛云百度 key 未配置 | Medium | 编译时注掉/运行时 skip，不影响主流程 |
 | `save_source_materials` 新 `skill` 字段旧数据为 NULL | Low | 字段可空，现有查询兼容 NULL |
-| 搜索结果质量在中国区仍不佳 | Medium | 后续可加七牛云百度搜索补国内内容 |
+| 搜索结果质量在中国区仍不佳 | Medium | 后续可加 Brave 或其他引擎补国内内容 |
 
 ## Acceptance
 

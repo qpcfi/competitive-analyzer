@@ -8,18 +8,45 @@ import {
   Edge,
   Node,
   Position,
-  Handle
+  Handle,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { LoadingOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 
-const AgentNode = ({ data }: { data: any }) => {
+type AgentStatus = 'pending' | 'running' | 'completed' | 'error';
+type AgentNodeState = { status: AgentStatus; latency?: number };
+
+const COLLECTOR_NODE_IDS = [
+  'collector_company',
+  'collector_product',
+  'collector_business',
+  'collector_technical',
+] as const;
+
+const COLLECTION_DONE_STATES = new Set([
+  'ANALYZING',
+  'ANALYSIS_REVIEW',
+  'CRITIQUING',
+  'NEEDS_INTERVENTION',
+  'SCHEMA_CALIBRATING',
+  'COMPLETED',
+]);
+
+const ANALYZER_DONE_STATES = new Set([
+  'ANALYSIS_REVIEW',
+  'CRITIQUING',
+  'NEEDS_INTERVENTION',
+  'SCHEMA_CALIBRATING',
+  'COMPLETED',
+]);
+
+const AgentNode = ({ data }: { data: { label: string } & AgentNodeState }) => {
   const { label, status, latency } = data;
-  
+
   let bgColor = '#fff';
   let borderColor = '#d9d9d9';
   let icon = <ClockCircleOutlined style={{ color: '#bfbfbf' }} />;
-  
+
   if (status === 'running') {
     bgColor = '#e6f4ff';
     borderColor = '#1677ff';
@@ -42,7 +69,7 @@ const AgentNode = ({ data }: { data: any }) => {
       background: bgColor,
       minWidth: '140px',
       textAlign: 'center',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+      boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
     }}>
       <Handle type="target" position={Position.Top} id="top" style={{ background: '#555' }} />
       <Handle type="target" position={Position.Left} id="left" style={{ background: '#555' }} />
@@ -72,11 +99,13 @@ const nodeTypes = {
 
 interface AgentGraphProps {
   logs: any[];
+  taskState?: string | null;
+  rawMaterials?: any[];
 }
 
-export default function AgentGraph({ logs }: AgentGraphProps) {
+export default function AgentGraph({ logs, taskState, rawMaterials = [] }: AgentGraphProps) {
   const nodeStates = useMemo(() => {
-    const states: Record<string, { status: string; latency?: number }> = {
+    const states: Record<string, AgentNodeState> = {
       discoverer: { status: 'pending' },
       orchestrator: { status: 'pending' },
       collector_company: { status: 'pending' },
@@ -85,23 +114,47 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
       collector_technical: { status: 'pending' },
       analyzer: { status: 'pending' },
       critic: { status: 'pending' },
-      reporter: { status: 'pending' }
+      reporter: { status: 'pending' },
     };
+
+    const markCompleted = (agentId: string) => {
+      if (states[agentId]?.status !== 'error') {
+        states[agentId].status = 'completed';
+      }
+    };
+
+    if (rawMaterials.length > 0 || (taskState && COLLECTION_DONE_STATES.has(taskState))) {
+      markCompleted('discoverer');
+      markCompleted('orchestrator');
+      COLLECTOR_NODE_IDS.forEach(markCompleted);
+    }
+    if (taskState === 'ANALYZING') {
+      states.analyzer.status = 'running';
+    } else if (taskState && ANALYZER_DONE_STATES.has(taskState)) {
+      markCompleted('analyzer');
+    }
+    if (taskState === 'CRITIQUING' || taskState === 'NEEDS_INTERVENTION' || taskState === 'SCHEMA_CALIBRATING') {
+      states.critic.status = taskState === 'CRITIQUING' ? 'running' : 'completed';
+    }
+    if (taskState === 'COMPLETED') {
+      markCompleted('critic');
+      markCompleted('reporter');
+    }
 
     logs.forEach(log => {
       if (!log.agent) return;
-      let agentId = log.agent.toLowerCase();
+      let agentId = String(log.agent).toLowerCase();
 
-      // Map "Collector (xxx)" → "collector_xxx" (matches backend skill_filter values)
       const colMatch = agentId.match(/collector \((.*?)\)/);
       if (colMatch) {
         agentId = `collector_${colMatch[1]}`;
       } else if (agentId === 'collector') {
-        agentId = 'collector_company';
+        COLLECTOR_NODE_IDS.forEach(markCompleted);
+        return;
       }
 
       if (!states[agentId]) return;
-      
+
       if (log.event === 'start') {
         states[agentId].status = 'running';
       } else if (log.event === 'end') {
@@ -112,17 +165,16 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
       }
     });
     return states;
-  }, [logs]);
+  }, [logs, taskState, rawMaterials]);
 
   const nodes: Node[] = [
     { id: 'discoverer', type: 'agentNode', position: { x: 50, y: 300 }, data: { label: 'Discoverer', ...nodeStates.discoverer } },
     { id: 'orchestrator', type: 'agentNode', position: { x: 250, y: 300 }, data: { label: 'Orchestrator', ...nodeStates.orchestrator } },
-    
-    // Parallel Collectors: skill_filter values from backend = company, product, business, technical
-    { id: 'collector_company', type: 'agentNode', position: { x: 550, y: 80 }, data: { label: 'Collector (公司概况)', ...nodeStates.collector_company } },
-    { id: 'collector_product', type: 'agentNode', position: { x: 550, y: 210 }, data: { label: 'Collector (产品特性)', ...nodeStates.collector_product } },
-    { id: 'collector_business', type: 'agentNode', position: { x: 550, y: 340 }, data: { label: 'Collector (商业定价)', ...nodeStates.collector_business } },
-    { id: 'collector_technical', type: 'agentNode', position: { x: 550, y: 470 }, data: { label: 'Collector (技术参数)', ...nodeStates.collector_technical } },
+
+    { id: 'collector_company', type: 'agentNode', position: { x: 550, y: 80 }, data: { label: 'Collector (company)', ...nodeStates.collector_company } },
+    { id: 'collector_product', type: 'agentNode', position: { x: 550, y: 210 }, data: { label: 'Collector (product)', ...nodeStates.collector_product } },
+    { id: 'collector_business', type: 'agentNode', position: { x: 550, y: 340 }, data: { label: 'Collector (business)', ...nodeStates.collector_business } },
+    { id: 'collector_technical', type: 'agentNode', position: { x: 550, y: 470 }, data: { label: 'Collector (technical)', ...nodeStates.collector_technical } },
 
     { id: 'analyzer', type: 'agentNode', position: { x: 850, y: 300 }, data: { label: 'Analyzer', ...nodeStates.analyzer } },
     { id: 'critic', type: 'agentNode', position: { x: 1050, y: 300 }, data: { label: 'Critic', ...nodeStates.critic } },
@@ -131,74 +183,90 @@ export default function AgentGraph({ logs }: AgentGraphProps) {
 
   const edges: Edge[] = [
     { id: 'e-disc-orch', source: 'discoverer', target: 'orchestrator', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.orchestrator.status === 'running' },
-    
-    // Orchestrator to Collectors
-    { id: 'e-orch-coll-pf', source: 'orchestrator', target: 'collector_product', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_product.status === 'running' },
-    { id: 'e-orch-coll-ts', source: 'orchestrator', target: 'collector_technical', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_technical.status === 'running' },
-    { id: 'e-orch-coll-bp', source: 'orchestrator', target: 'collector_business', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_business.status === 'running' },
-    { id: 'e-orch-coll-ge', source: 'orchestrator', target: 'collector_company', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_company.status === 'running' },
-    
-    // Collectors to Analyzer
-    { id: 'e-coll-pf-analy', source: 'collector_product', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
-    { id: 'e-coll-ts-analy', source: 'collector_technical', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
-    { id: 'e-coll-bp-analy', source: 'collector_business', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
-    { id: 'e-coll-ge-analy', source: 'collector_company', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
 
-    { id: 'e-analy-crit', source: 'analyzer', target: 'critic', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.critic.status === 'running' },
-    { id: 'e-crit-repo', source: 'critic', target: 'reporter', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.reporter.status === 'running' },
-    { 
-      id: 'e-crit-orch', source: 'critic', target: 'orchestrator', 
-      sourceHandle: 'bottom', targetHandle: 'bottom-target',
-      type: 'smoothstep', 
-      animated: true, 
-      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }, 
-      label: '打回重定',
-      labelStyle: { fill: '#fa8c16', fontWeight: 'bold' }
+    { id: 'e-orch-coll-product', source: 'orchestrator', target: 'collector_product', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_product.status === 'running' },
+    { id: 'e-orch-coll-technical', source: 'orchestrator', target: 'collector_technical', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_technical.status === 'running' },
+    { id: 'e-orch-coll-business', source: 'orchestrator', target: 'collector_business', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_business.status === 'running' },
+    { id: 'e-orch-coll-company', source: 'orchestrator', target: 'collector_company', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_company.status === 'running' },
+
+    { id: 'e-coll-product-analyzer', source: 'collector_product', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
+    { id: 'e-coll-technical-analyzer', source: 'collector_technical', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
+    { id: 'e-coll-business-analyzer', source: 'collector_business', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
+    { id: 'e-coll-company-analyzer', source: 'collector_company', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
+
+    { id: 'e-analyzer-critic', source: 'analyzer', target: 'critic', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.critic.status === 'running' },
+    { id: 'e-critic-reporter', source: 'critic', target: 'reporter', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.reporter.status === 'running' },
+    {
+      id: 'e-critic-orchestrator',
+      source: 'critic',
+      target: 'orchestrator',
+      sourceHandle: 'bottom',
+      targetHandle: 'bottom-target',
+      type: 'smoothstep',
+      animated: true,
+      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' },
+      label: 'Schema 扩展',
+      labelStyle: { fill: '#fa8c16', fontWeight: 'bold' },
     },
-    { 
-      id: 'e-crit-coll-pf', source: 'critic', target: 'collector_product', 
-      sourceHandle: 'bottom', targetHandle: 'bottom-target',
-      type: 'smoothstep', 
-      animated: true, 
-      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }, 
-      label: '重新采集(特)',
-      labelStyle: { fill: '#fa8c16', fontWeight: 'bold' }
+    {
+      id: 'e-critic-collector-product',
+      source: 'critic',
+      target: 'collector_product',
+      sourceHandle: 'bottom',
+      targetHandle: 'bottom-target',
+      type: 'smoothstep',
+      animated: true,
+      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' },
+      label: '重采集',
+      labelStyle: { fill: '#fa8c16', fontWeight: 'bold' },
     },
-    { 
-      id: 'e-crit-coll-ts', source: 'critic', target: 'collector_technical', 
-      sourceHandle: 'bottom', targetHandle: 'bottom-target',
-      type: 'smoothstep', 
-      animated: true, 
-      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }
+    {
+      id: 'e-critic-collector-technical',
+      source: 'critic',
+      target: 'collector_technical',
+      sourceHandle: 'bottom',
+      targetHandle: 'bottom-target',
+      type: 'smoothstep',
+      animated: true,
+      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' },
     },
-    { 
-      id: 'e-crit-coll-bp', source: 'critic', target: 'collector_business', 
-      sourceHandle: 'bottom', targetHandle: 'bottom-target',
-      type: 'smoothstep', 
-      animated: true, 
-      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }
+    {
+      id: 'e-critic-collector-business',
+      source: 'critic',
+      target: 'collector_business',
+      sourceHandle: 'bottom',
+      targetHandle: 'bottom-target',
+      type: 'smoothstep',
+      animated: true,
+      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' },
     },
-    { 
-      id: 'e-crit-coll-ge', source: 'critic', target: 'collector_company', 
-      sourceHandle: 'bottom', targetHandle: 'bottom-target',
-      type: 'smoothstep', 
-      animated: true, 
-      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }
+    {
+      id: 'e-critic-collector-company',
+      source: 'critic',
+      target: 'collector_company',
+      sourceHandle: 'bottom',
+      targetHandle: 'bottom-target',
+      type: 'smoothstep',
+      animated: true,
+      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' },
     },
-    { 
-      id: 'e-crit-analy', source: 'critic', target: 'analyzer', 
-      sourceHandle: 'bottom', targetHandle: 'bottom-target',
-      type: 'smoothstep', 
-      animated: true, 
-      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' }, 
-      label: '重新分析',
-      labelStyle: { fill: '#fa8c16', fontWeight: 'bold' }
-    }
+    {
+      id: 'e-critic-analyzer',
+      source: 'critic',
+      target: 'analyzer',
+      sourceHandle: 'bottom',
+      targetHandle: 'bottom-target',
+      type: 'smoothstep',
+      animated: true,
+      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' },
+      label: '增量重分析',
+      labelStyle: { fill: '#fa8c16', fontWeight: 'bold' },
+    },
   ];
 
   return (
     <div style={{ width: '100%', height: '350px', border: '1px solid #e8e8e8', borderRadius: '8px', background: '#fdfdfd' }}>
-      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView minZoom={0.5} maxZoom={1.5}>
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView minZoom={0.5} maxZoom={1.5} zoomOnScroll={false}>
         <Controls />
         <Background gap={12} size={1} />
       </ReactFlow>

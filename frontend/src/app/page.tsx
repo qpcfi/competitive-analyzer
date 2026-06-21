@@ -706,7 +706,7 @@ export default function Home() {
           <StructuredReport taskId={taskId} analysisResults={analysisResults} />
         </div>
         <div style={{ display: currentView === 'debug' && showDebug ? 'block' : 'none', height: '100%' }}>
-          <DebugPanel logs={debugLogs} tokenUsage={tokenUsage} height={800} taskId={taskId} />
+          <DebugPanel logs={debugLogs} tokenUsage={tokenUsage} height={800} taskId={taskId} taskState={taskState} rawMaterials={rawMaterials} />
         </div>
       </>
     );
@@ -759,7 +759,7 @@ export default function Home() {
                 zIndex: 10
               }}
             />
-            <DebugPanel logs={debugLogs} tokenUsage={tokenUsage} height={debugHeight} taskId={taskId} />
+            <DebugPanel logs={debugLogs} tokenUsage={tokenUsage} height={debugHeight} taskId={taskId} taskState={taskState} rawMaterials={rawMaterials} />
           </div>
         )}
       </div>
