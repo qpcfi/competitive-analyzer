@@ -8,13 +8,59 @@ from sqlalchemy import func, select
 
 from agents.analyzer import swot_generator_node
 from core.runtime import runner
-from models_db import TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
+from models_db import SourceMaterialRecord, TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
 from schemas import TaskCreateRequest, TaskCreateResponse
 from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
 from services.repositories import add_intervention, create_task_record, get_task, latest_schema, new_run_id, resolve_all_pending_feedback, save_schema, set_task_run, update_task_state
-from services.serialization import serialize_task
+from services.serialization import serialize_task, serialize_source
 
 router = APIRouter()
+
+
+def _schema_field_names(schema: dict) -> dict[str, str]:
+    names: dict[str, str] = {}
+    if not isinstance(schema, dict):
+        return names
+    for group_name, fields in schema.items():
+        if not isinstance(fields, list):
+            continue
+        for index, field in enumerate(fields):
+            if not isinstance(field, dict):
+                continue
+            field_id = field.get("id") or f"{group_name}.{field.get('name', index)}"
+            names[str(field_id)] = str(field.get("name") or field_id)
+    return names
+
+
+async def _load_snapshot_materials(session, task_id: str, snap_data: dict, schema: dict | None) -> list[dict]:
+    raw_materials = snap_data.get("raw_materials")
+    if isinstance(raw_materials, list) and raw_materials:
+        return raw_materials
+
+    raw_ids = snap_data.get("raw_material_ids") or []
+    material_ids = [str(item) for item in raw_ids if str(item).strip()]
+    if not material_ids:
+        return []
+
+    result = await session.execute(
+        select(SourceMaterialRecord).where(
+            SourceMaterialRecord.task_id == task_id,
+            SourceMaterialRecord.id.in_(material_ids),
+        )
+    )
+    records_by_id = {record.id: record for record in result.scalars()}
+    field_names = _schema_field_names(schema or {})
+    materials: list[dict] = []
+    for material_id in material_ids:
+        record = records_by_id.get(material_id)
+        if not record:
+            continue
+        item = serialize_source(record)
+        item["schema_field_name"] = field_names.get(record.schema_field_id or "", record.schema_field_id)
+        item["source_stage"] = record.source_stage
+        item["skill"] = record.skill
+        materials.append(item)
+    return materials
 
 
 @router.post("/api/v1/tasks", response_model=TaskCreateResponse)
@@ -210,7 +256,8 @@ async def restore_snapshot(task_id: str, req: Request):
             task.task_intent = snap_data.get("task_intent", task.task_intent or {})
             if isinstance(restored_schema, dict):
                 restored_schema_record = await save_schema(session, task_id, restored_schema, created_by="snapshot", status="active")
-            task.raw_materials = snap_data.get("raw_materials", []) or list(task.raw_materials or [])
+            restored_materials = await _load_snapshot_materials(session, task_id, snap_data, restored_schema if isinstance(restored_schema, dict) else task.dynamic_schema or {})
+            task.raw_materials = restored_materials or list(task.raw_materials or [])
             task.analysis_results = {}
             task.critic_feedback = []
             task.error = None

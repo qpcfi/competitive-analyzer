@@ -275,16 +275,18 @@ async def save_source_materials(
 ) -> list[SourceMaterialRecord]:
     if not materials:
         return []
+    chunk_size = 200
     material_ids = [m.get("id") or new_id("src") for m in materials]
     existing_ids: set[str] = set()
-    if material_ids:
+    for offset in range(0, len(material_ids), chunk_size):
+        id_chunk = material_ids[offset:offset + chunk_size]
         result = await session.execute(
             select(SourceMaterialRecord.id).where(
                 SourceMaterialRecord.task_id == task_id,
-                SourceMaterialRecord.id.in_(material_ids),
+                SourceMaterialRecord.id.in_(id_chunk),
             )
         )
-        existing_ids = {str(item) for item in result.scalars()}
+        existing_ids.update(str(item) for item in result.scalars())
 
     seen_ids: set[str] = set()
     records_data = [
@@ -314,7 +316,8 @@ async def save_source_materials(
     if not records_data:
         return []
     stmt = insert(SourceMaterialRecord)
-    await session.execute(stmt, records_data)
+    for offset in range(0, len(records_data), chunk_size):
+        await session.execute(stmt, records_data[offset:offset + chunk_size])
     return []
 
 

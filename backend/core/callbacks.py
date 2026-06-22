@@ -13,8 +13,9 @@ class RealtimeDebugCallbackHandler(AsyncCallbackHandler):
     _task_totals: Dict[str, int] = {}
     _task_budgets: Dict[str, int] = {}
 
-    def __init__(self, task_id: str):
+    def __init__(self, task_id: str, run_id: str | None = None):
         self.task_id = task_id
+        self.task_run_id = run_id
         if task_id not in self._task_totals:
             self._task_totals[task_id] = 0
         if task_id not in self._task_budgets:
@@ -77,7 +78,8 @@ class RealtimeDebugCallbackHandler(AsyncCallbackHandler):
                 "prompt": system_prompt,
                 "input_json": input_data,
                 "llm_run_id": str(run_id)
-            }
+            },
+            run_id=self.task_run_id,
         )
 
     # LangChain calls on_chat_model_start reliably but NOT on_chat_model_end.
@@ -119,7 +121,8 @@ class RealtimeDebugCallbackHandler(AsyncCallbackHandler):
                 "tokens": used,
                 "output_json": llm_output_text,
                 "llm_run_id": str(run_id)
-            }
+            },
+            run_id=self.task_run_id,
         )
         await event_broker.publish(
             self.task_id,
@@ -128,7 +131,8 @@ class RealtimeDebugCallbackHandler(AsyncCallbackHandler):
                 "total_used": self.total_tokens,
                 "budget": self.budget,
                 "estimated_remaining": max(0, self.budget - self.total_tokens)
-            }
+            },
+            run_id=self.task_run_id,
         )
 
     async def on_tool_start(
@@ -152,7 +156,8 @@ class RealtimeDebugCallbackHandler(AsyncCallbackHandler):
                 "event": "start",
                 "message": f"Tool '{serialized.get('name', 'unknown')}' started",
                 "input_json": inputs or input_str
-            }
+            },
+            run_id=self.task_run_id,
         )
 
     async def on_tool_end(
@@ -173,5 +178,6 @@ class RealtimeDebugCallbackHandler(AsyncCallbackHandler):
                 "message": f"Tool execution finished",
                 "latency": latency,
                 "output_json": str(output)
-            }
+            },
+            run_id=self.task_run_id,
         )

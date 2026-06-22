@@ -149,7 +149,9 @@ def _task_intent_end_payload(task_intent: dict[str, Any] | None) -> dict[str, An
             "target_object": task_intent.get("target_object"),
             "primary_axes": task_intent.get("primary_axes") or [],
             "deferred_outputs": task_intent.get("deferred_outputs") or [],
-            "_meta": meta,
+            "source": meta.get("source"),
+            "fallback": str(meta.get("source") or "").startswith("fallback"),
+            "error_type": meta.get("error_type"),
             "raw_output": meta.get("llm_raw_output") or meta.get("content_preview") or "",
         },
     }
@@ -177,10 +179,6 @@ async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dic
                 "agent": "Discoverer.TaskIntent",
                 "event": "start",
                 "message": "Parsing task intent from domain and analysis goal.",
-                "input_json": {
-                    "domain": context.get("domain") or "",
-                    "analysis_goal": context.get("analysis_goal") or "",
-                },
             },
             run_id=run_id,
         )
@@ -264,7 +262,7 @@ async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dic
             await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "previous_state": "SCHEMA_REVIEW", "progress": 40}, run_id=run_id)
             if runner.is_cancelled(task_id):
                 return
-            await process_agent_pipeline(task_id, run_id)
+            await process_agent_pipeline(task_id, run_id, emit_prerequisite_logs=False)
     except (StaleRunError, asyncio.CancelledError):
         return
     except Exception as exc:
@@ -290,7 +288,14 @@ async def _with_timeout(task_id: str, run_id: str, label: str, coro):
         raise
 
 
-async def process_agent_pipeline(task_id: str, run_id: str, start_from: str = "collector", snapshot_data: dict[str, Any] | None = None):
+async def process_agent_pipeline(
+    task_id: str,
+    run_id: str,
+    start_from: str = "collector",
+    snapshot_data: dict[str, Any] | None = None,
+    *,
+    emit_prerequisite_logs: bool = True,
+):
     async with async_session() as session:
         db_task = await get_task(session, task_id)
         if not db_task:
@@ -333,20 +338,20 @@ async def process_agent_pipeline(task_id: str, run_id: str, start_from: str = "c
             await publish_event(task_id, "collector_log", payload, run_id=run_id)
 
         # ── Emit synthetic end events for skipped earlier phases ──
-        if start_from in ("collector",):
-            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Skipped (restored from snapshot)."}, run_id=run_id)
-            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Completed (restored from snapshot)."}, run_id=run_id)
-            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (restored from snapshot)."}, run_id=run_id)
-            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Completed (restored from snapshot)."}, run_id=run_id)
+        if emit_prerequisite_logs and start_from in ("collector",):
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Skipped (completed before collection)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Completed before collection."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (schema already prepared)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Schema already prepared."}, run_id=run_id)
             await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"}, run_id=run_id)
-        elif start_from in ("analyzer",):
-            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Skipped (restored from post-collection snapshot)."}, run_id=run_id)
-            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Completed (restored from post-collection snapshot)."}, run_id=run_id)
-            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (restored from post-collection snapshot)."}, run_id=run_id)
-            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Completed (restored from post-collection snapshot)."}, run_id=run_id)
-            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Skipped (data already collected, using snapshot materials)."}, run_id=run_id)
-            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Completed (materials restored from snapshot)."}, run_id=run_id)
-            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"}, run_id=run_id)
+        elif emit_prerequisite_logs and start_from in ("analyzer",):
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Skipped (already completed for current task)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Completed before analysis resume."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "start", "message": "Skipped (schema already prepared)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Schema already prepared."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "start", "message": "Skipped (using collected materials from current task state)."}, run_id=run_id)
+            await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Collected materials loaded from current task state."}, run_id=run_id)
+            await publish_event(task_id, "progress_update", {"progress": 65, "stage": "ANALYZING"}, run_id=run_id)
 
         # ── COLLECTOR PHASE ──
         if start_from in ("collector",):
@@ -372,6 +377,7 @@ async def process_agent_pipeline(task_id: str, run_id: str, start_from: str = "c
                 "degraded_reason": m.get("degraded_reason"),
             } for m in materials[:6]]
             await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": f"Collector returned {len(materials)} materials: {competitor_counts}, status: {status_counts}, saving to DB...", "output_json": {"total": len(materials), "per_competitor": competitor_counts, "per_status": status_counts, "sample": material_sample}}, run_id=run_id)
+            material_ids = [m.get("id") for m in materials if m.get("id")]
             async with async_session() as session:
                 await guard_active(task_id, run_id)
                 task = await _with_timeout(task_id, run_id, "update_task_state", update_task_state(session, task_id, state="COLLECTING", progress=60))
@@ -379,7 +385,7 @@ async def process_agent_pipeline(task_id: str, run_id: str, start_from: str = "c
                 await _with_timeout(task_id, run_id, "save_source_materials", save_source_materials(session, task_id, materials))
 
                 # ── Post-collection snapshot ──
-                await write_checkpoint(
+                await _with_timeout(task_id, run_id, "write_checkpoint(post_collection)", write_checkpoint(
                     session, task_id, "post_collection", "COLLECTING",
                     f"Collection complete: {len(materials)} materials across {len(competitor_counts)} competitors",
                     {
@@ -387,20 +393,33 @@ async def process_agent_pipeline(task_id: str, run_id: str, start_from: str = "c
                         "progress": 60,
                         "dynamic_schema": state.get("dynamic_schema", {}),
                         "state": "COLLECTING",
-                        "raw_materials": materials,
+                        "raw_material_ids": material_ids,
+                        "material_count": len(materials),
+                        "source_stats": source_stats(materials),
+                        "sample_materials": material_sample,
                         "task_intent": (state.get("task_context") or {}).get("task_intent", {}),
                     },
-                )
+                ))
 
-                await session.commit()
+                await _with_timeout(task_id, run_id, "commit(collection)", session.commit())
             await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": "DB save complete."}, run_id=run_id)
             await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Data collection completed."}, run_id=run_id)
             await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"}, run_id=run_id)
             await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60}, run_id=run_id)
             await publish_event(task_id, "raw_materials_updated", {"data": materials, "source_stats": source_stats(materials)}, run_id=run_id)
+            async with async_session() as session:
+                await guard_active(task_id, run_id)
+                await update_task_state(session, task_id, state="ANALYZING", progress=65)
+                await session.commit()
+            await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 65}, run_id=run_id)
+            await publish_event(task_id, "progress_update", {"progress": 65, "stage": "ANALYZING"}, run_id=run_id)
         else:
-            await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"}, run_id=run_id)
-            await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60}, run_id=run_id)
+            if start_from == "analyzer":
+                await publish_event(task_id, "progress_update", {"progress": 65, "stage": "ANALYZING"}, run_id=run_id)
+                await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 65}, run_id=run_id)
+            else:
+                await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"}, run_id=run_id)
+                await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60}, run_id=run_id)
 
         if not await is_current_run(task_id, run_id):
             return

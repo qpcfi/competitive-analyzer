@@ -34,8 +34,24 @@ def test_analyzer_matrix_uses_schema_dimensions_and_collected_competitors():
 
     assert analysis["discovered_competitors"] == ["Alpha", "Beta"]
     assert analysis["schema_dimensions"] == [
-        {"id": "Core.Pricing", "name": "Pricing", "group": "Core"},
-        {"id": "Core.SLA", "name": "SLA", "group": "Core"},
+        {
+            "id": "Core.Pricing",
+            "name": "Pricing",
+            "group": "Core",
+            "axis": "Core",
+            "description": "Pricing",
+            "source": "",
+            "skill_category": "",
+        },
+        {
+            "id": "Core.SLA",
+            "name": "SLA",
+            "group": "Core",
+            "axis": "Core",
+            "description": "SLA",
+            "source": "",
+            "skill_category": "",
+        },
     ]
     assert [row["dimension_id"] for row in analysis["comparison_rows"]] == ["Core.Pricing", "Core.SLA"]
     pricing_row = analysis["comparison_rows"][0]

@@ -145,7 +145,6 @@ async def build_task_intent(domain: str, analysis_goal: str) -> dict:
     if _INTENT_LLM is None or ChatPromptTemplate is None:
         return fallback_task_intent(domain, analysis_goal, source="fallback_no_runtime")
 
-    # Capture LLM input messages
     prompt_template = ChatPromptTemplate.from_messages([
         ("system", SYSTEM_PROMPT),
         ("human", HUMAN_TEMPLATE),
@@ -224,7 +223,6 @@ def fallback_task_intent(
         meta["content_preview"] = _compact_text(content_preview, 220)
     if llm_input is not None:
         meta["llm_input"] = llm_input
-
     return {
         "target_object": _clean_target_object(clean_domain),
         "primary_axes": [

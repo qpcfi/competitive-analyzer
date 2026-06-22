@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -21,7 +22,25 @@ llm = create_chat_llm(timeout=90)
 async def analyzer_node(state: AgentState):
     schema = state.get("dynamic_schema", {})
     materials = state.get("raw_materials", [])
+    task_id = state.get("task_id")
+    run_id = state.get("run_id")
+
+    async def publish_analyzer_log(event: str, message: str, output_json: dict | None = None):
+        if not task_id:
+            return
+        payload = {"agent": "Analyzer", "event": event, "message": message}
+        if output_json is not None:
+            payload["output_json"] = output_json
+        try:
+            await asyncio.wait_for(
+                event_broker.publish(task_id, "debug_log", payload, run_id=run_id),
+                timeout=5,
+            )
+        except Exception as exc:
+            logging.warning("Analyzer debug log publish failed (%s): %s", event, exc)
+
     if llm is None or ChatPromptTemplate is None:
+        await publish_analyzer_log("fallback", "Analyzer using deterministic fallback: LLM or prompt runtime unavailable.")
         state["analysis_results"] = build_deterministic_analysis(state)
         return state
 
@@ -30,21 +49,22 @@ async def analyzer_node(state: AgentState):
         with open(prompt_path, "r", encoding="utf-8") as f:
             PROMPT_CONFIG = yaml.safe_load(f)
     except Exception:
+        await publish_analyzer_log("fallback", "Analyzer using deterministic fallback: failed to load prompts.yaml.")
         state["analysis_results"] = build_deterministic_analysis(state)
         return state
 
     # ── Pre-analysis: angle selection ──
-    task_id = state.get("task_id")
     analysis_goal = (state.get("task_context") or {}).get("analysis_goal") or ""
     selected_angles = []
     if analysis_goal:
         try:
+            await publish_analyzer_log("angle_start", "Selecting analysis angles.")
             angle_prompt = ChatPromptTemplate.from_messages([
                 ("system", PROMPT_CONFIG["analyzer_agent"]["angle_selector"]["system_prompt"]),
                 ("human", PROMPT_CONFIG["analyzer_agent"]["angle_selector"]["human_template"])
             ])
             angle_chain = angle_prompt | llm
-            callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
+            callbacks = [RealtimeDebugCallbackHandler(task_id, run_id=run_id)] if task_id else None
             angle_response = await angle_chain.ainvoke({
                 "analysis_goal": analysis_goal,
                 "angles": json.dumps(ANALYSIS_ANGLES, ensure_ascii=False),
@@ -56,12 +76,19 @@ async def analyzer_node(state: AgentState):
                 if isinstance(item, dict) and str(item.get("angle", "")).lower() in VALID_ANGLE_KEYS:
                     item["angle"] = str(item["angle"]).lower()
                     selected_angles.append(item)
+            await publish_analyzer_log(
+                "angle_end",
+                "Analysis angle selection completed.",
+                {"selected_angles": selected_angles},
+            )
         except Exception:
             logging.warning("Angle selection pre-call failed, using fallback")
+            await publish_analyzer_log("angle_fallback", "Angle selection failed; using default angles.")
     if not selected_angles:
         selected_angles = [{"angle": a["key"], "relevance": "medium", "rationale": "默认角度"} for a in ANALYSIS_ANGLES]
 
     # ── Main analysis ──
+    await publish_analyzer_log("main_prepare", "Preparing main comparative analysis prompt.")
     prompt_template = ChatPromptTemplate.from_messages([
         ("system", PROMPT_CONFIG["analyzer_agent"]["system_prompt"]),
         ("human", PROMPT_CONFIG["analyzer_agent"]["human_template"])
@@ -70,9 +97,18 @@ async def analyzer_node(state: AgentState):
     chain = prompt_template | llm
 
     try:
-        callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
+        callbacks = [RealtimeDebugCallbackHandler(task_id, run_id=run_id)] if task_id else None
         config = {"callbacks": callbacks} if callbacks else None
         materials_input = json.dumps(materials, ensure_ascii=False)
+        await publish_analyzer_log(
+            "main_materials_ready",
+            "Main analysis materials serialized.",
+            {
+                "material_count": len(materials) if isinstance(materials, list) else 0,
+                "materials_chars": len(materials_input),
+                "schema_group_count": len(schema) if isinstance(schema, dict) else 0,
+            },
+        )
         critic_feedback = state.get("critic_feedback", []) or []
         # ── Rerun scope context (injected before critic feedback) ──
         rerun_scope = (state.get("task_context") or {}).get("analysis_rerun_scope")
@@ -98,15 +134,17 @@ async def analyzer_node(state: AgentState):
                 else:
                     feedback_text += f"- {item}\n"
             materials_input = feedback_text + "\n" + materials_input
+        await publish_analyzer_log("main_llm_starting", "Calling main comparative analysis LLM.")
         response = await chain.ainvoke({
             "analysis_goal": analysis_goal,
+            "task_intent_json": json.dumps((state.get("task_context") or {}).get("task_intent") or {}, ensure_ascii=False),
             "selected_angles_json": json.dumps(selected_angles, ensure_ascii=False),
             "schema": json.dumps(schema, ensure_ascii=False),
             "materials": materials_input
         }, config=config)
+        await publish_analyzer_log("main_llm_returned", "Main comparative analysis LLM returned.")
         
         content = str(response.content)
-        import re
         content = re.sub(r'```json\s*', '', content)
         content = re.sub(r'```\s*', '', content)
         match = re.search(r"\{.*\}", content, re.DOTALL)
@@ -142,8 +180,12 @@ async def analyzer_node(state: AgentState):
                 result["report"] = {}
             result["report"]["summary"] = parsed["executive_summary"]
     except Exception as e:
-        import logging
         logging.error(f"Error in analyzer_node: {e}")
+        await publish_analyzer_log(
+            "main_error",
+            "Main comparative analysis failed; using deterministic fallback.",
+            {"error_type": e.__class__.__name__, "error_message": str(e)[:500]},
+        )
         result = build_deterministic_analysis(state)
 
     if not isinstance(result, dict) or "comparison_rows" not in result:
@@ -189,6 +231,10 @@ async def generate_goal_analysis(
     A dict with ``direct_answer`` and ``key_findings``, or ``None`` on failure.
     """
     task_id = state.get("task_id")
+    run_id = state.get("run_id")
+    task_context = state.get("task_context") or {}
+    analysis_goal = task_context.get("analysis_goal") or ""
+    task_intent = task_context.get("task_intent") or {}
 
     async def publish_goal_log(
         event: str,
@@ -203,7 +249,7 @@ async def generate_goal_analysis(
             payload["input_json"] = input_json
         if output_json is not None:
             payload["output_json"] = output_json
-        await event_broker.publish(task_id, "debug_log", payload)
+        await event_broker.publish(task_id, "debug_log", payload, run_id=run_id)
 
     if llm is None or ChatPromptTemplate is None:
         await publish_goal_log("skip", "Goal analysis skipped: LLM or prompt runtime is unavailable.")
@@ -240,11 +286,14 @@ async def generate_goal_analysis(
         chain = prompt_template | llm
 
         task_id = state.get("task_id")
-        callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
+        callbacks = [RealtimeDebugCallbackHandler(task_id, run_id=run_id)] if task_id else None
         config = {"callbacks": callbacks} if callbacks else None
 
         response = await chain.ainvoke({
             "analysis_goal": (state.get("task_context") or {}).get("analysis_goal") or "",
+            "task_intent_json": json.dumps(
+                (state.get("task_context") or {}).get("task_intent") or {}, ensure_ascii=False,
+            ),
             "selected_angles_json": json.dumps(
                 analysis_results.get("selected_angles") or [], ensure_ascii=False,
             ),
@@ -271,8 +320,9 @@ async def generate_goal_analysis(
                 },
             )
             return build_goal_analysis_fallback(
-                (state.get("task_context") or {}).get("analysis_goal") or "",
+                analysis_goal,
                 analysis_results,
+                task_intent,
             )
 
         content = re.sub(r'```json\s*', '', content)
@@ -296,13 +346,18 @@ async def generate_goal_analysis(
                     },
                 )
                 return build_goal_analysis_fallback(
-                    (state.get("task_context") or {}).get("analysis_goal") or "",
+                    analysis_goal,
                     analysis_results,
+                    task_intent,
                 )
 
         if isinstance(parsed, dict) and parsed.get("direct_answer"):
             goal = {
                 "direct_answer": parsed["direct_answer"],
+                "axis_findings": parsed.get("axis_findings", []),
+                "mode_classification": parsed.get("mode_classification", []),
+                "deferred_output_answers": parsed.get("deferred_output_answers", []),
+                "product_planning_implications": parsed.get("product_planning_implications", []),
                 "key_findings": parsed.get("key_findings", []),
             }
             await publish_goal_log(
@@ -316,26 +371,43 @@ async def generate_goal_analysis(
             output_json={"parsed_keys": list(parsed.keys()) if isinstance(parsed, dict) else []},
         )
         return build_goal_analysis_fallback(
-            (state.get("task_context") or {}).get("analysis_goal") or "",
+            analysis_goal,
             analysis_results,
+            task_intent,
         )
     except Exception as e:
         logging.warning("generate_goal_analysis (%s) failed: %s", reason, e)
         await publish_goal_log("error", f"Goal analysis failed: {e}")
         return build_goal_analysis_fallback(
-            (state.get("task_context") or {}).get("analysis_goal") or "",
+            analysis_goal,
             analysis_results,
+            task_intent,
         )
 
     return None
 
 
-def build_goal_analysis_fallback(analysis_goal: str, analysis_results: dict) -> dict | None:
+def build_goal_analysis_fallback(
+    analysis_goal: str,
+    analysis_results: dict,
+    task_intent: dict | None = None,
+) -> dict | None:
     rows = analysis_results.get("comparison_rows") or []
     if not rows:
         return None
 
     competitors = analysis_results.get("discovered_competitors") or []
+    task_intent = task_intent if isinstance(task_intent, dict) else {}
+    primary_axes = task_intent.get("primary_axes") or []
+    deferred_outputs = task_intent.get("deferred_outputs") or []
+    axis_names = []
+    for axis in primary_axes if isinstance(primary_axes, list) else []:
+        if isinstance(axis, dict):
+            axis_name = str(axis.get("name") or axis.get("source_phrase") or "").strip()
+        else:
+            axis_name = str(axis).strip()
+        if axis_name:
+            axis_names.append(axis_name)
     dimension_names = [
         row.get("dimension") or row.get("dimension_id")
         for row in rows[:3]
@@ -357,6 +429,26 @@ def build_goal_analysis_fallback(analysis_goal: str, analysis_results: dict) -> 
                 "related_angle": "product",
             }
         ],
+        "axis_findings": [
+            {
+                "axis": axis_name,
+                "summary": "已有对比结果可作为该分析轴的事实基础，但保底逻辑未进行深度模式归纳。",
+                "evidence_refs": [],
+            }
+            for axis_name in axis_names
+        ],
+        "mode_classification": [],
+        "deferred_output_answers": [
+            {
+                "question": str(question),
+                "answer": "已有字段对比结果可用于回答该问题，但保底逻辑未生成证据充分的细分结论。",
+                "basis": "GoalAnalysis LLM 未返回可解析 JSON，需查看 comparison_rows 中的证据。",
+                "evidence_refs": [],
+            }
+            for question in (deferred_outputs if isinstance(deferred_outputs, list) else [])
+            if str(question).strip()
+        ],
+        "product_planning_implications": [],
     }
 
 
@@ -412,7 +504,16 @@ def flatten_schema_dimensions(schema: dict) -> list[dict]:
             if not isinstance(field, dict):
                 continue
             field_id = field.get("id") or f"{group_name}.{field.get('name', index)}"
-            dimensions.append({"id": field_id, "name": field.get("name") or field_id, "group": group_name})
+            field_name = field.get("name") or field_id
+            dimensions.append({
+                "id": field_id,
+                "name": field_name,
+                "group": group_name,
+                "axis": field.get("axis") or group_name,
+                "description": field.get("description") or field_name,
+                "source": field.get("source") or "",
+                "skill_category": field.get("skill_category") or "",
+            })
     return dimensions
 
 

@@ -142,11 +142,13 @@ async def continue_analysis(task_id: str):
                 raise HTTPException(status_code=404, detail="Task not found")
             if db_task.state not in ("COLLECTING", "PAUSED", "ERROR"):
                 raise HTTPException(status_code=409, detail=f"Cannot continue analysis while task is {db_task.state}")
+            if db_task.state == "COLLECTING" and db_task.active_run_id:
+                raise HTTPException(status_code=409, detail="Collection pipeline is still active; analysis will start automatically.")
             raw_materials = list(db_task.raw_materials or [])
             if not raw_materials:
                 raise HTTPException(status_code=409, detail="No collected materials to analyze. Collect data first.")
             await add_intervention(session, task_id, "continue_analysis", {"previous_state": db_task.state})
-            await update_task_state(session, task_id, state="COLLECTING", progress=60)
+            await update_task_state(session, task_id, state="ANALYZING", progress=65)
             await set_task_run(session, task_id, run_id)
             await session.commit()
     except Exception:
@@ -157,8 +159,8 @@ async def continue_analysis(task_id: str):
         runner.release(task_id, run_id)
         raise HTTPException(status_code=409, detail="Pipeline already running for this task")
 
-    await publish_event(task_id, "debug_log", {"agent": "System", "event": "continue", "message": "Continuing analysis from post-collection state."}, run_id=run_id)
-    await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60}, run_id=run_id)
+    await publish_event(task_id, "debug_log", {"agent": "System", "event": "continue", "message": "Continuing analysis from collected materials."}, run_id=run_id)
+    await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 65}, run_id=run_id)
     return {"status": "continuing", "state": "ANALYZING", "run_id": run_id}
 
 

@@ -172,7 +172,7 @@ def build_excerpt(ranked_chunks: list[Chunk], max_chars: int = 12000) -> str:
 # ── Convenience pipeline ────────────────────────────────────────────────────
 
 
-def process_page(text: str, query: str, max_chars: int = 12000) -> str:
+def process_page(text: str, query: str, max_chars: int = 4000) -> str:
     """Full pipeline: clean → chunk → retrieve → build excerpt.
 
     Short pages bypass retrieval and return the full text directly.

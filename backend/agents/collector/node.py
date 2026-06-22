@@ -310,7 +310,7 @@ async def build_material_from_pages(
         text = (p.text or p.snippet or "").strip()
         if not text:
             continue
-        excerpt = process_page(text, query, max_chars=12000)
+        excerpt = process_page(text, query, max_chars=4000)
         if excerpt:
             excerpt_parts.append((p, excerpt))
 
