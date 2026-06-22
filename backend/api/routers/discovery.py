@@ -8,6 +8,7 @@ router = APIRouter()
 @router.get("/api/v1/competitor-recommendations")
 async def get_competitor_recommendations(
     domain: str = Query(..., min_length=1),
+    analysis_goal: str = Query(default=""),
     existing: list[str] = Query(default=[]),
 ):
     normalized_domain = domain.strip()
@@ -17,7 +18,11 @@ async def get_competitor_recommendations(
     existing_names = {item.strip().lower() for item in existing if item.strip()}
     items = []
     seen = set(existing_names)
-    candidates, _ = await recommend_competitors(normalized_domain, existing)
+    candidates, _, _ = await recommend_competitors(
+        normalized_domain,
+        existing,
+        analysis_goal=analysis_goal.strip(),
+    )
     for candidate in candidates:
         normalized_name = str(candidate.name).strip()
         lowered = normalized_name.lower()

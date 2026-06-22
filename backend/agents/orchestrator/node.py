@@ -89,7 +89,7 @@ async def generate_complete_plan(context: dict, task_id: str = None) -> tuple[li
             logging.error(f"Error in generate_complete_plan: {e}")
             generated_schema = {}
 
-    competitors = seed_competitors[:5]
+    competitors = merge_competitors(seed_competitors, generated_competitors)[:5]
 
     schema = merge_schema_preserving_user(user_schema, generated_schema or build_schema_from_context({**context, "competitors": competitors}))
     return competitors, schema
