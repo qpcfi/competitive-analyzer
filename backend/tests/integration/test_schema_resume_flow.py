@@ -16,8 +16,8 @@ def test_schema_edit_can_feed_collection_analysis_and_quality_flow():
         )
     )
 
-    assert "Core Profile" in schema
-    assert any(field["origin"] == "user" for field in schema["Core Profile"])
+    assert "对象识别" in schema
+    assert any(field["origin"] == "user" for field in schema.get("User Defined", []))
 
     state = {
         "task_context": {"competitors": ["Alpha", "Beta"]},

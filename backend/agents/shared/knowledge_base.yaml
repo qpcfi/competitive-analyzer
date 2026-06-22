@@ -2605,3 +2605,269 @@ sources:
     skills: ["product"]
     tags: ["auto-discovered"]
     competitors: ["Gemini"]
+
+  - url: "https://www.xcmg.com/"
+    name: "auto: 徐工机械 企业官方名称"
+    description: "Auto-discovered from 徐工机械 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://bices2025.xcmg.com/"
+    name: "auto: 徐工机械 企业官方名称"
+    description: "Auto-discovered from 徐工机械 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://www.xcmgglobal.com/"
+    name: "auto: 徐工机械 企业官方名称"
+    description: "Auto-discovered from 徐工机械 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://www.10100.com/encyclopedia/6/67533243"
+    name: "auto: 徐工机械 核心海外市场区域"
+    description: "Auto-discovered from 徐工机械 核心海外市场区域 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://www.baogaobox.com/insights/250829000019607.html"
+    name: "auto: 徐工机械 核心海外市场区域"
+    description: "Auto-discovered from 徐工机械 核心海外市场区域 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://xueqiu.com/8917228258/337426607"
+    name: "auto: 徐工机械 核心海外市场区域"
+    description: "Auto-discovered from 徐工机械 核心海外市场区域 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://www.sany.com.cn/"
+    name: "auto: 三一重工 企业官方名称"
+    description: "Auto-discovered from 三一重工 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "https://www.sanygroup.com/"
+    name: "auto: 三一重工 企业官方名称"
+    description: "Auto-discovered from 三一重工 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "https://www.sanyglobal.com/cn/"
+    name: "auto: 三一重工 企业官方名称"
+    description: "Auto-discovered from 三一重工 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "https://iam.xcmg.com/portal/login.html"
+    name: "auto: 徐工机械 独立站下单支持情况"
+    description: "Auto-discovered from 徐工机械 独立站下单支持情况 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "http://www.zoomlion.com/about/"
+    name: "auto: 中联重科 企业官方名称"
+    description: "Auto-discovered from 中联重科 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["中联重科"]
+
+  - url: "https://zh.wikipedia.org/wiki/中联重科"
+    name: "auto: 中联重科 企业官方名称"
+    description: "Auto-discovered from 中联重科 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["中联重科"]
+
+  - url: "https://baike.baidu.com/item/中联重科股份有限公司/2774799"
+    name: "auto: 中联重科 企业官方名称"
+    description: "Auto-discovered from 中联重科 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["中联重科"]
+
+  - url: "https://www.sanygroup.com/news/15529.html"
+    name: "auto: 三一重工 出海独立站域名"
+    description: "Auto-discovered from 三一重工 出海独立站域名 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "http://www.crchi.com/"
+    name: "auto: 铁建重工 企业官方名称"
+    description: "Auto-discovered from 铁建重工 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["铁建重工"]
+
+  - url: "https://baike.baidu.com/item/中国铁建重工集团股份有限公司/24184225"
+    name: "auto: 铁建重工 企业官方名称"
+    description: "Auto-discovered from 铁建重工 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["铁建重工"]
+
+  - url: "https://zh.wikipedia.org/wiki/中国铁建重工集团"
+    name: "auto: 铁建重工 企业官方名称"
+    description: "Auto-discovered from 铁建重工 企业官方名称 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["铁建重工"]
+
+  - url: "http://scm.xcmg.com:1889/"
+    name: "auto: 徐工机械 询盘流程说明"
+    description: "Auto-discovered from 徐工机械 询盘流程说明 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://zhuanlan.zhihu.com/p/494217509"
+    name: "auto: 徐工机械 整机与配件交付区分"
+    description: "Auto-discovered from 徐工机械 整机与配件交付区分 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://www.xingongye.cn/index.php/cms/Digitaltransformation/1612.html"
+    name: "auto: 徐工机械 定制需求响应方式"
+    description: "Auto-discovered from 徐工机械 定制需求响应方式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "http://xdsc.xcmg.com:8985/"
+    name: "auto: 徐工机械 合作物流商信息"
+    description: "Auto-discovered from 徐工机械 合作物流商信息 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://www.zoomlion.com/product/"
+    name: "auto: 中联重科 主要产品类别"
+    description: "Auto-discovered from 中联重科 主要产品类别 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["中联重科"]
+
+  - url: "https://www.xcmg.com/solution/logistics-transportation.htm"
+    name: "auto: 徐工机械 运输追踪能力"
+    description: "Auto-discovered from 徐工机械 运输追踪能力 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://www.fxbaogao.com/detail/4571396"
+    name: "auto: 铁建重工 出海独立站域名"
+    description: "Auto-discovered from 铁建重工 出海独立站域名 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["铁建重工"]
+
+  - url: "https://www.powershow.cn/details_3964.html"
+    name: "auto: 铁建重工 主要产品类别"
+    description: "Auto-discovered from 铁建重工 主要产品类别 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["铁建重工"]
+
+  - url: "http://tiejian.ccmn.net/product.html"
+    name: "auto: 铁建重工 主要产品类别"
+    description: "Auto-discovered from 铁建重工 主要产品类别 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["铁建重工"]
+
+  - url: "https://www.xcmgglobal.com/about/global-layout.htm"
+    name: "auto: 徐工机械 海外仓地理位置明细"
+    description: "Auto-discovered from 徐工机械 海外仓地理位置明细 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://itms.xcmg.com/login?redirect=/index"
+    name: "auto: 徐工机械 海外仓服务功能"
+    description: "Auto-discovered from 徐工机械 海外仓服务功能 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://dakwp.com/other/4275/"
+    name: "auto: 科茂机械设备 出海独立站域名"
+    description: "Auto-discovered from 科茂机械设备 出海独立站域名 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["科茂机械设备"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1899058418754524784"
+    name: "auto: 科茂机械设备 出海独立站域名"
+    description: "Auto-discovered from 科茂机械设备 出海独立站域名 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["科茂机械设备"]
+
+  - url: "https://www.sohu.com/a/979454496_122586758"
+    name: "auto: 科茂机械设备 出海独立站域名"
+    description: "Auto-discovered from 科茂机械设备 出海独立站域名 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["科茂机械设备"]
+
+  - url: "https://xdsc.xcmg.com/"
+    name: "auto: 徐工机械 库存状态可见性"
+    description: "Auto-discovered from 徐工机械 库存状态可见性 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://quote.eastmoney.com/sz000425.html"
+    name: "auto: 徐工机械 库存状态可见性"
+    description: "Auto-discovered from 徐工机械 库存状态可见性 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "https://www.kemao.net/products.aspx"
+    name: "auto: 科茂机械设备 主要产品类别"
+    description: "Auto-discovered from 科茂机械设备 主要产品类别 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["科茂机械设备"]
+
+  - url: "https://kemao.net/"
+    name: "auto: 科茂机械设备 主要产品类别"
+    description: "Auto-discovered from 科茂机械设备 主要产品类别 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["科茂机械设备"]
+
+  - url: "https://www.sh-comer.cn/"
+    name: "auto: 科茂机械设备 主要产品类别"
+    description: "Auto-discovered from 科茂机械设备 主要产品类别 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["科茂机械设备"]
+
+  - url: "https://product.21-sun.com/agent/0_0_209_0.shtm"
+    name: "auto: 徐工机械 经销商/代理商入口"
+    description: "Auto-discovered from 徐工机械 经销商/代理商入口 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]
+
+  - url: "http://www.shatian.org/global-network.html"
+    name: "auto: 徐工机械 区域分销网络信息"
+    description: "Auto-discovered from 徐工机械 区域分销网络信息 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械"]

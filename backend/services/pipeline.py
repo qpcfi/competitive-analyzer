@@ -26,6 +26,7 @@ from services.repositories import (
     write_checkpoint,
 )
 from services.stats import count_schema_stats, source_stats
+from services.task_intent import build_task_intent
 from sqlalchemy import select, desc
 
 
@@ -133,41 +134,86 @@ def make_initial_state(
     }
 
 
-def _task_intent_debug_payload(task_intent: dict[str, Any] | None, *, event: str) -> dict[str, Any] | None:
+def _task_intent_end_payload(task_intent: dict[str, Any] | None) -> dict[str, Any] | None:
     if not isinstance(task_intent, dict) or not task_intent:
         return None
 
     meta = task_intent.get("_meta") if isinstance(task_intent, dict) else {}
     meta = meta if isinstance(meta, dict) else {}
     return {
-        "agent": "TaskIntent",
-        "event": event,
-        "message": "Task intent parsed." if event == "created" else "Task intent restored from task record.",
+        "agent": "Discoverer.TaskIntent",
+        "event": "end",
+        "message": "Task intent parsed.",
         "input_json": meta.get("llm_input") or [],
-        "output_json": meta.get("llm_raw_output") or "",
+        "output_json": {
+            "target_object": task_intent.get("target_object"),
+            "primary_axes": task_intent.get("primary_axes") or [],
+            "deferred_outputs": task_intent.get("deferred_outputs") or [],
+            "_meta": meta,
+            "raw_output": meta.get("llm_raw_output") or meta.get("content_preview") or "",
+        },
     }
 
 
-async def publish_task_intent_debug(task_id: str, run_id: str, task_intent: dict[str, Any] | None, *, event: str = "created") -> None:
-    payload = _task_intent_debug_payload(task_intent, event=event)
+async def publish_task_intent_debug(task_id: str, run_id: str, task_intent: dict[str, Any] | None) -> None:
+    payload = _task_intent_end_payload(task_intent)
     if payload:
         await publish_event(task_id, "debug_log", payload, run_id=run_id)
 
 
 async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dict[str, Any], *, continue_after_schema: bool = False):
     try:
-        task_intent = (initial_state.get("task_context") or {}).get("task_intent", {})
-        await publish_task_intent_debug(task_id, run_id, task_intent, event="created")
-
+        context = initial_state.get("task_context") or {}
         from agents.discoverer.node import discoverer_node
         if not await is_current_run(task_id, run_id):
             return
 
         await guard_active(task_id, run_id)
         await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "start", "message": "Starting competitor discovery and market context gathering."}, run_id=run_id)
+        await publish_event(
+            task_id,
+            "debug_log",
+            {
+                "agent": "Discoverer.TaskIntent",
+                "event": "start",
+                "message": "Parsing task intent from domain and analysis goal.",
+                "input_json": {
+                    "domain": context.get("domain") or "",
+                    "analysis_goal": context.get("analysis_goal") or "",
+                },
+            },
+            run_id=run_id,
+        )
+        task_intent = await build_task_intent(str(context.get("domain") or ""), str(context.get("analysis_goal") or ""))
+        context["task_intent"] = task_intent
+        initial_state["task_context"] = context
+        async with async_session() as session:
+            task = await get_task(session, task_id)
+            if task:
+                task.task_intent = task_intent
+            await session.commit()
+        await guard_active(task_id, run_id)
+        await publish_task_intent_debug(task_id, run_id, task_intent)
+
+        had_seed_competitors = bool((initial_state.get("task_context") or {}).get("competitors"))
         state = await discoverer_node(initial_state)
         await guard_active(task_id, run_id)
-        await publish_event(task_id, "debug_log", {"agent": "Discoverer", "event": "end", "message": "Competitors discovered and market context loaded."}, run_id=run_id)
+        discoverer_context = state.get("task_context") or {}
+        await publish_event(
+            task_id,
+            "debug_log",
+            {
+                "agent": "Discoverer",
+                "event": "end",
+                "message": "Competitors discovered and market context loaded.",
+                "output_json": {
+                    "competitors": discoverer_context.get("competitors") or [],
+                    "market_context": discoverer_context.get("market_context") or "",
+                    "skipped_recommendation": had_seed_competitors,
+                },
+            },
+            run_id=run_id,
+        )
         await publish_event(task_id, "progress_update", {"progress": 15, "stage": "DISCOVERING"}, run_id=run_id)
 
         await guard_active(task_id, run_id)
@@ -705,7 +751,7 @@ async def regenerate_schema(task_id: str, run_id: str):
             "retry_counts": {},
         }
     await guard_active(task_id, run_id)
-    await publish_task_intent_debug(task_id, run_id, state.get("task_context", {}).get("task_intent"), event="restored")
+    await publish_task_intent_debug(task_id, run_id, state.get("task_context", {}).get("task_intent"))
     updated_state = await orchestrator_node(state)
     await guard_active(task_id, run_id)
     schema_json = updated_state.get("dynamic_schema") or {}

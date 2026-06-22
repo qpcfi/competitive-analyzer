@@ -70,12 +70,15 @@ async def generate_complete_plan(context: dict, task_id: str = None) -> tuple[li
             
             callbacks = [RealtimeDebugCallbackHandler(task_id)] if task_id else None
             config = {"callbacks": callbacks} if callbacks else None
+            task_intent = context.get("task_intent") or {}
+
             response = await chain.ainvoke({
                 "domain": domain,
                 "competitors": json.dumps(seed_competitors, ensure_ascii=False),
                 "user_schema": json.dumps(user_schema, ensure_ascii=False),
                 "market_context": context.get("market_context") or "No additional context.",
                 "analysis_goal": context.get("analysis_goal") or "通用竞品分析",
+                "task_intent": json.dumps(task_intent, ensure_ascii=False),
             }, config=config)
             
             content = str(response.content)
@@ -84,6 +87,7 @@ async def generate_complete_plan(context: dict, task_id: str = None) -> tuple[li
             
             generated_competitors = normalize_competitor_names(result.get("competitors", []))
             generated_schema = normalize_schema_input(result.get("schema_def", result.get("schema", {})))
+            generated_schema = align_schema_with_task_intent(generated_schema, task_intent)
         except Exception as e:
             import logging
             logging.error(f"Error in generate_complete_plan: {e}")
@@ -154,18 +158,88 @@ def merge_schema_preserving_user(user_schema: dict, generated_schema: dict) -> d
             key = field_key(field)
             if key in existing_names:
                 target[:] = [
-                    {**item, **field, "origin": "user", "skill_category": field.get("skill_category") or item.get("skill_category")}
+                    {
+                        **item,
+                        **field,
+                        "origin": "user",
+                        "skill_category": field.get("skill_category") or item.get("skill_category"),
+                        "axis_role": field.get("axis_role") or item.get("axis_role") or "primary",
+                        "field_role": field.get("field_role") or item.get("field_role") or "factual",
+                        "source_phrase": field.get("source_phrase") or item.get("source_phrase") or "",
+                        "field_intent": field.get("field_intent") or item.get("field_intent") or field.get("name", ""),
+                    }
                     if field_key(item) == key else item
                     for item in target
                 ]
             else:
-                target.append({**field, "origin": "user"})
+                user_field_name = field.get("name", "")
+                target.append({
+                    **field,
+                    "origin": "user",
+                    "axis_role": field.get("axis_role") or "primary",
+                    "field_role": field.get("field_role") or "factual",
+                    "source_phrase": field.get("source_phrase") or "",
+                    "field_intent": field.get("field_intent") or user_field_name,
+                })
                 existing_names.add(key)
     return merged
 
 
+def align_schema_with_task_intent(schema: dict, task_intent: dict | None) -> dict:
+    """Fill primary-field axis mapping from task_intent without duplicating axis explanations."""
+    normalized = normalize_schema_input(schema)
+    axes = _normalize_task_axes(task_intent)
+    if not normalized or not axes:
+        return normalized
+
+    phrase_by_key = {field_key({"name": axis["name"]}): axis["source_phrase"] for axis in axes}
+    phrase_keys = {field_key({"name": axis["source_phrase"]}): axis["source_phrase"] for axis in axes}
+    aligned: dict[str, list[dict]] = {}
+    for group_name, fields in normalized.items():
+        group_key = field_key({"name": group_name})
+        group_phrase = phrase_by_key.get(group_key) or phrase_keys.get(group_key)
+        aligned[group_name] = []
+        for field in fields:
+            item = dict(field)
+            is_primary = item.get("axis_role") == "primary" or bool(group_phrase)
+            if is_primary:
+                item["axis_role"] = "primary"
+                if not item.get("source_phrase"):
+                    item["source_phrase"] = group_phrase or _match_axis_phrase_from_field(item, axes)
+                item.pop("axis_intent", None)
+            aligned[group_name].append(item)
+    return aligned
+
+
 def field_key(field: dict) -> str:
     return str(field.get("name") or field.get("id") or "").strip().lower()
+
+
+def _normalize_task_axes(task_intent: dict | None) -> list[dict[str, str]]:
+    if not isinstance(task_intent, dict):
+        return []
+    axes = task_intent.get("primary_axes") or []
+    normalized: list[dict[str, str]] = []
+    for axis in axes if isinstance(axes, list) else []:
+        if isinstance(axis, dict):
+            name = str(axis.get("name") or axis.get("source_phrase") or "").strip()
+            phrase = str(axis.get("source_phrase") or name).strip()
+        else:
+            name = str(axis or "").strip()
+            phrase = name
+        if name:
+            normalized.append({"name": name, "source_phrase": phrase})
+    return normalized
+
+
+def _match_axis_phrase_from_field(field: dict, axes: list[dict[str, str]]) -> str:
+    field_text = f"{field.get('name') or ''} {field.get('field_intent') or ''} {field.get('reason') or ''}".lower()
+    for axis in axes:
+        name = axis["name"].lower()
+        phrase = axis["source_phrase"].lower()
+        if (name and name in field_text) or (phrase and phrase in field_text):
+            return axis["source_phrase"]
+    return ""
 
 
 def normalize_competitor_names(values: Iterable[object]) -> list[str]:
@@ -185,18 +259,79 @@ def normalize_competitor_names(values: Iterable[object]) -> list[str]:
 
 def build_schema_from_context(context: dict) -> dict:
     predefined = context.get("predefined_schema") or []
-    base_fields = [
-        {"name": "Product Name", "type": "text", "required": True, "source": "official"},
-        {"name": "Company", "type": "text", "required": True, "source": "official"},
-        {"name": "Pricing", "type": "text", "required": False, "source": "public_web"},
-        {"name": "Key Capabilities", "type": "list", "required": False, "source": "public_web"},
+    task_intent = context.get("task_intent") or {}
+    target = (task_intent or {}).get("target_object", "")
+
+    identity_group = _identity_fallback_fields(target)
+    primary_groups = _primary_fallback_groups(_normalize_task_axes(task_intent), target)
+    auxiliary_group = _auxiliary_fallback_fields()
+
+    schema: dict[str, list[dict]] = {}
+    for group_name, fields in identity_group:
+        schema[group_name] = fields
+    for group_name, fields in primary_groups:
+        # avoid duplicate group names
+        suffix = 1
+        base = group_name
+        while group_name in schema:
+            suffix += 1
+            group_name = f"{base}{suffix}"
+        schema[group_name] = fields
+    for group_name, fields in auxiliary_group:
+        if group_name not in schema:
+            schema[group_name] = fields
+
+    # Merge predefined user fields
+    if predefined:
+        for item in predefined:
+            if isinstance(item, dict) and item.get("name"):
+                schema.setdefault("User Defined", []).append({**item, "origin": "user"})
+
+    return schema
+
+
+def _identity_fallback_fields(target: str) -> list[tuple[str, list[dict]]]:
+    fields = [
+        {"name": "企业/品牌名称", "type": "text", "required": True, "source": "official", "axis_role": "identity", "field_role": "identity", "source_phrase": "", "field_intent": "企业或品牌名称", "skill_category": "company"},
+        {"name": "官方网站", "type": "text", "required": True, "source": "official", "axis_role": "identity", "field_role": "identity", "source_phrase": "", "field_intent": "官方网站地址", "skill_category": "company"},
+        {"name": "所属细分领域", "type": "text", "required": False, "source": "public_web", "axis_role": "identity", "field_role": "factual", "source_phrase": target or "", "field_intent": "企业所属的具体细分领域", "skill_category": "company"},
     ]
-    fields = []
-    for item in predefined:
-        if isinstance(item, dict) and item.get("name"):
-            fields.append({**item, "origin": "user"})
-    fields.extend({**field, "origin": "agent"} for field in base_fields)
-    return {"Core Profile": fields}
+    return [("对象识别", fields)]
+
+
+def _primary_fallback_groups(axes: list[dict[str, str]], target: str) -> list[tuple[str, list[dict]]]:
+    if not axes:
+        default_name = target or "核心分析维度"
+        return [
+            (default_name, [
+                {"name": "运作机制", "type": "text", "required": False, "source": "public_web", "axis_role": "primary", "field_role": "mechanism", "source_phrase": default_name, "field_intent": f"{default_name}的主要运作机制", "reason": "用于采集核心分析维度下的可观察运作事实", "skill_category": "business"},
+                {"name": "能力/入口", "type": "text", "required": False, "source": "public_web", "axis_role": "primary", "field_role": "capability", "source_phrase": default_name, "field_intent": f"{default_name}相关的能力或入口", "reason": "用于判断该维度是否在公开入口或功能上可被验证", "skill_category": "product"},
+                {"name": "覆盖范围", "type": "text", "required": False, "source": "public_web", "axis_role": "primary", "field_role": "coverage", "source_phrase": default_name, "field_intent": f"{default_name}的覆盖范围", "reason": "用于比较不同竞品在该维度上的覆盖差异", "skill_category": "business"},
+                {"name": "公开证据", "type": "text", "required": False, "source": "public_web", "axis_role": "primary", "field_role": "evidence", "source_phrase": default_name, "field_intent": f"关于{default_name}的公开信息", "reason": "用于定位支持该维度判断的公开证据入口", "skill_category": "technical"},
+            ]),
+        ]
+
+    groups = []
+    for axis in axes:
+        name = str(axis.get("name") or axis.get("source_phrase") or "").strip()
+        if not name:
+            continue
+        phrase = str(axis.get("source_phrase") or name).strip()
+        groups.append((name, [
+            {"name": f"{name}运作机制", "type": "text", "required": False, "source": "public_web", "axis_role": "primary", "field_role": "mechanism", "source_phrase": phrase, "field_intent": f"{name}的具体运作机制和实现方式", "reason": "用于采集该主轴下可观察的运作事实", "skill_category": "business"},
+            {"name": f"{name}能力/入口", "type": "text", "required": False, "source": "public_web", "axis_role": "primary", "field_role": "capability", "source_phrase": phrase, "field_intent": f"{name}相关的能力、功能或服务入口", "reason": "用于判断该主轴是否通过公开功能、入口或服务能力体现", "skill_category": "product"},
+            {"name": f"{name}覆盖范围", "type": "text", "required": False, "source": "public_web", "axis_role": "primary", "field_role": "coverage", "source_phrase": phrase, "field_intent": f"{name}的覆盖范围和规模", "reason": "用于比较竞品在该主轴上的覆盖差异", "skill_category": "business"},
+            {"name": f"{name}公开证据", "type": "text", "required": False, "source": "public_web", "axis_role": "primary", "field_role": "evidence", "source_phrase": phrase, "field_intent": f"关于{name}的公开可查信息", "reason": "用于为该主轴的后续分析提供证据入口", "skill_category": "technical"},
+        ]))
+    return groups
+
+
+def _auxiliary_fallback_fields() -> list[tuple[str, list[dict]]]:
+    fields = [
+        {"name": "主要市场", "type": "text", "required": False, "source": "public_web", "axis_role": "auxiliary", "field_role": "coverage", "source_phrase": "", "field_intent": "主要目标市场和客户群体", "skill_category": "business"},
+        {"name": "主要产品类型", "type": "text", "required": False, "source": "public_web", "axis_role": "auxiliary", "field_role": "factual", "source_phrase": "", "field_intent": "主要产品线或服务类型", "skill_category": "product"},
+    ]
+    return [("辅助背景", fields)]
 
 
 def ensure_schema_metadata(schema: dict) -> dict:
@@ -215,13 +350,18 @@ def ensure_schema_metadata(schema: dict) -> dict:
             normalized_field = {
                 "id": field.get("id") or f"{stable_group}.{stable_name}",
                 "name": field_name,
-                "type": field.get("type") or "text",
+                "type": "text",
                 "required": bool(field.get("required", True)),
                 "source": field.get("source") or "public_web",
                 "origin": field.get("origin") or "agent",
                 "feasibility": field.get("feasibility") or "medium",
                 "skill_category": field.get("skill_category") or "company",
+                "axis_role": field.get("axis_role") or "primary",
+                "field_role": field.get("field_role") or "factual",
+                "source_phrase": field.get("source_phrase") or "",
+                "field_intent": field.get("field_intent") or field_name,
             }
+            normalized_field.pop("axis_intent", None)
             for metadata_key in ("confidence", "reason", "evidence", "affected_competitors"):
                 if metadata_key in field:
                     normalized_field[metadata_key] = field[metadata_key]
@@ -231,16 +371,20 @@ def ensure_schema_metadata(schema: dict) -> dict:
             normalized.pop(group_name, None)
     if not normalized:
         return {
-            "Core Profile": [
+            "对象识别": [
                 {
-                    "id": "Core_Profile.Product_Name",
-                    "name": "Product Name",
+                    "id": "对象识别.企业品牌名称",
+                    "name": "企业/品牌名称",
                     "type": "text",
                     "required": True,
                     "source": "official",
                     "origin": "system",
                     "feasibility": "high",
                     "skill_category": "company",
+                    "axis_role": "identity",
+                    "field_role": "identity",
+                    "source_phrase": "",
+                    "field_intent": "企业或品牌名称",
                 }
             ]
         }

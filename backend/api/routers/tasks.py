@@ -13,7 +13,6 @@ from schemas import TaskCreateRequest, TaskCreateResponse
 from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
 from services.repositories import add_intervention, create_task_record, get_task, latest_schema, new_run_id, resolve_all_pending_feedback, save_schema, set_task_run, update_task_state
 from services.serialization import serialize_task
-from services.task_intent import build_task_intent
 
 router = APIRouter()
 
@@ -28,8 +27,6 @@ async def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks)
     if not runner.claim(task_id, run_id):
         raise HTTPException(status_code=409, detail="A pipeline is already running. Wait for it to complete or pause it first.")
 
-    task_intent = await build_task_intent(req.domain, req.analysis_goal or "")
-
     try:
         async with async_session() as session:
             await create_task_record(
@@ -41,7 +38,7 @@ async def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks)
                 competitors=req.competitors,
                 execution_mode=req.execution_mode,
                 analysis_goal=req.analysis_goal,
-                task_intent=task_intent,
+                task_intent={},
             )
             if req.predefined_schema:
                 await save_schema(session, task_id, {"User Defined": req.predefined_schema}, created_by="user", status="draft")
@@ -51,7 +48,7 @@ async def create_task(req: TaskCreateRequest, background_tasks: BackgroundTasks)
         runner.release(task_id, run_id)
         raise
 
-    if not runner.start_claimed(task_id, run_id, lambda: process_initial_pipeline(task_id, run_id, make_initial_state(req, task_id, run_id, task_intent=task_intent), continue_after_schema=req.execution_mode == "auto")):
+    if not runner.start_claimed(task_id, run_id, lambda: process_initial_pipeline(task_id, run_id, make_initial_state(req, task_id, run_id), continue_after_schema=req.execution_mode == "auto")):
         runner.release(task_id, run_id)
         raise HTTPException(status_code=409, detail="Pipeline already running for this task")
 

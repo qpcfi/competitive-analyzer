@@ -40,49 +40,62 @@ const ANALYZER_DONE_STATES = new Set([
   'COMPLETED',
 ]);
 
+function statusLabel(status: AgentStatus) {
+  if (status === 'running') return '执行中';
+  if (status === 'completed') return '已完成';
+  if (status === 'error') return '错误';
+  return '等待中';
+}
+
+function statusColor(status: AgentStatus) {
+  if (status === 'running') return '#1677ff';
+  if (status === 'completed') return '#52c41a';
+  if (status === 'error') return '#ff4d4f';
+  return '#8c8c8c';
+}
+
+function statusIcon(status: AgentStatus) {
+  if (status === 'running') return <LoadingOutlined style={{ color: '#1677ff' }} />;
+  if (status === 'completed') return <CheckCircleOutlined style={{ color: '#52c41a' }} />;
+  if (status === 'error') return <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
+  return <ClockCircleOutlined style={{ color: '#bfbfbf' }} />;
+}
+
 const AgentNode = ({ data }: { data: { label: string } & AgentNodeState }) => {
   const { label, status, latency } = data;
 
   let bgColor = '#fff';
   let borderColor = '#d9d9d9';
-  let icon = <ClockCircleOutlined style={{ color: '#bfbfbf' }} />;
-
   if (status === 'running') {
     bgColor = '#e6f4ff';
     borderColor = '#1677ff';
-    icon = <LoadingOutlined style={{ color: '#1677ff' }} />;
   } else if (status === 'completed') {
     bgColor = '#f6ffed';
     borderColor = '#52c41a';
-    icon = <CheckCircleOutlined style={{ color: '#52c41a' }} />;
   } else if (status === 'error') {
     bgColor = '#fff2f0';
     borderColor = '#ff4d4f';
-    icon = <CloseCircleOutlined style={{ color: '#ff4d4f' }} />;
   }
 
   return (
     <div style={{
-      padding: '10px',
-      borderRadius: '8px',
+      padding: 10,
+      borderRadius: 8,
       border: `2px solid ${borderColor}`,
       background: bgColor,
-      minWidth: '140px',
+      minWidth: 150,
       textAlign: 'center',
       boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
     }}>
       <Handle type="target" position={Position.Top} id="top" style={{ background: '#555' }} />
       <Handle type="target" position={Position.Left} id="left" style={{ background: '#555' }} />
-      <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>{label}</div>
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-        {icon}
-        {status === 'pending' && <span style={{ color: '#bfbfbf', fontSize: '12px' }}>等待中</span>}
-        {status === 'running' && <span style={{ color: '#1677ff', fontSize: '12px' }}>执行中</span>}
-        {status === 'completed' && <span style={{ color: '#52c41a', fontSize: '12px' }}>已完成</span>}
-        {status === 'error' && <span style={{ color: '#ff4d4f', fontSize: '12px' }}>错误</span>}
+      <div style={{ fontWeight: 'bold', marginBottom: 8 }}>{label}</div>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 8 }}>
+        {statusIcon(status)}
+        <span style={{ color: statusColor(status), fontSize: 12 }}>{statusLabel(status)}</span>
       </div>
       {latency !== undefined && status === 'completed' && (
-        <div style={{ fontSize: '11px', color: '#888', marginTop: '4px' }}>
+        <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>
           耗时: {latency.toFixed(2)}s
         </div>
       )}
@@ -144,6 +157,9 @@ export default function AgentGraph({ logs, taskState, rawMaterials = [] }: Agent
     logs.forEach(log => {
       if (!log.agent) return;
       let agentId = String(log.agent).toLowerCase();
+      if (agentId === 'taskintent' || agentId === 'task intent' || agentId === 'discoverer.taskintent') {
+        return;
+      }
 
       const colMatch = agentId.match(/collector \((.*?)\)/);
       if (colMatch) {
@@ -164,6 +180,7 @@ export default function AgentGraph({ logs, taskState, rawMaterials = [] }: Agent
         states[agentId].status = 'error';
       }
     });
+
     if (states.reporter.status === 'completed') {
       markCompleted('critic');
     }
@@ -172,31 +189,26 @@ export default function AgentGraph({ logs, taskState, rawMaterials = [] }: Agent
 
   const nodes: Node[] = [
     { id: 'discoverer', type: 'agentNode', position: { x: 50, y: 300 }, data: { label: 'Discoverer', ...nodeStates.discoverer } },
-    { id: 'orchestrator', type: 'agentNode', position: { x: 250, y: 300 }, data: { label: 'Orchestrator', ...nodeStates.orchestrator } },
-
-    { id: 'collector_company', type: 'agentNode', position: { x: 550, y: 80 }, data: { label: 'Collector (company)', ...nodeStates.collector_company } },
-    { id: 'collector_product', type: 'agentNode', position: { x: 550, y: 210 }, data: { label: 'Collector (product)', ...nodeStates.collector_product } },
-    { id: 'collector_business', type: 'agentNode', position: { x: 550, y: 340 }, data: { label: 'Collector (business)', ...nodeStates.collector_business } },
-    { id: 'collector_technical', type: 'agentNode', position: { x: 550, y: 470 }, data: { label: 'Collector (technical)', ...nodeStates.collector_technical } },
-
-    { id: 'analyzer', type: 'agentNode', position: { x: 850, y: 300 }, data: { label: 'Analyzer', ...nodeStates.analyzer } },
-    { id: 'critic', type: 'agentNode', position: { x: 1050, y: 300 }, data: { label: 'Critic', ...nodeStates.critic } },
-    { id: 'reporter', type: 'agentNode', position: { x: 1250, y: 300 }, data: { label: 'Reporter', ...nodeStates.reporter } },
+    { id: 'orchestrator', type: 'agentNode', position: { x: 280, y: 300 }, data: { label: 'Orchestrator', ...nodeStates.orchestrator } },
+    { id: 'collector_company', type: 'agentNode', position: { x: 580, y: 80 }, data: { label: 'Collector (company)', ...nodeStates.collector_company } },
+    { id: 'collector_product', type: 'agentNode', position: { x: 580, y: 210 }, data: { label: 'Collector (product)', ...nodeStates.collector_product } },
+    { id: 'collector_business', type: 'agentNode', position: { x: 580, y: 340 }, data: { label: 'Collector (business)', ...nodeStates.collector_business } },
+    { id: 'collector_technical', type: 'agentNode', position: { x: 580, y: 470 }, data: { label: 'Collector (technical)', ...nodeStates.collector_technical } },
+    { id: 'analyzer', type: 'agentNode', position: { x: 880, y: 300 }, data: { label: 'Analyzer', ...nodeStates.analyzer } },
+    { id: 'critic', type: 'agentNode', position: { x: 1080, y: 300 }, data: { label: 'Critic', ...nodeStates.critic } },
+    { id: 'reporter', type: 'agentNode', position: { x: 1280, y: 300 }, data: { label: 'Reporter', ...nodeStates.reporter } },
   ];
 
   const edges: Edge[] = [
     { id: 'e-disc-orch', source: 'discoverer', target: 'orchestrator', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.orchestrator.status === 'running' },
-
     { id: 'e-orch-coll-product', source: 'orchestrator', target: 'collector_product', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_product.status === 'running' },
     { id: 'e-orch-coll-technical', source: 'orchestrator', target: 'collector_technical', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_technical.status === 'running' },
     { id: 'e-orch-coll-business', source: 'orchestrator', target: 'collector_business', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_business.status === 'running' },
     { id: 'e-orch-coll-company', source: 'orchestrator', target: 'collector_company', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.collector_company.status === 'running' },
-
     { id: 'e-coll-product-analyzer', source: 'collector_product', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
     { id: 'e-coll-technical-analyzer', source: 'collector_technical', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
     { id: 'e-coll-business-analyzer', source: 'collector_business', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
     { id: 'e-coll-company-analyzer', source: 'collector_company', target: 'analyzer', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.analyzer.status === 'running' },
-
     { id: 'e-analyzer-critic', source: 'analyzer', target: 'critic', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.critic.status === 'running' },
     { id: 'e-critic-reporter', source: 'critic', target: 'reporter', sourceHandle: 'right', targetHandle: 'left', animated: nodeStates.reporter.status === 'running' },
     {
@@ -223,36 +235,16 @@ export default function AgentGraph({ logs, taskState, rawMaterials = [] }: Agent
       label: '重采集',
       labelStyle: { fill: '#fa8c16', fontWeight: 'bold' },
     },
-    {
-      id: 'e-critic-collector-technical',
+    ...(['technical', 'business', 'company'] as const).map(skill => ({
+      id: `e-critic-collector-${skill}`,
       source: 'critic',
-      target: 'collector_technical',
+      target: `collector_${skill}`,
       sourceHandle: 'bottom',
       targetHandle: 'bottom-target',
       type: 'smoothstep',
       animated: true,
       style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' },
-    },
-    {
-      id: 'e-critic-collector-business',
-      source: 'critic',
-      target: 'collector_business',
-      sourceHandle: 'bottom',
-      targetHandle: 'bottom-target',
-      type: 'smoothstep',
-      animated: true,
-      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' },
-    },
-    {
-      id: 'e-critic-collector-company',
-      source: 'critic',
-      target: 'collector_company',
-      sourceHandle: 'bottom',
-      targetHandle: 'bottom-target',
-      type: 'smoothstep',
-      animated: true,
-      style: { stroke: '#fa8c16', strokeWidth: 2, strokeDasharray: '5,5' },
-    },
+    })),
     {
       id: 'e-critic-analyzer',
       source: 'critic',
@@ -268,7 +260,7 @@ export default function AgentGraph({ logs, taskState, rawMaterials = [] }: Agent
   ];
 
   return (
-    <div style={{ width: '100%', height: '350px', border: '1px solid #e8e8e8', borderRadius: '8px', background: '#fdfdfd' }}>
+    <div style={{ width: '100%', height: 350, border: '1px solid #e8e8e8', borderRadius: 8, background: '#fdfdfd' }}>
       <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView minZoom={0.5} maxZoom={1.5} zoomOnScroll={false}>
         <Controls />
         <Background gap={12} size={1} />

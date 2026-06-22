@@ -92,6 +92,9 @@ class CriticResult(BaseModel):
 
 CollectorSkillType = Literal["product", "business", "technical", "company"]
 
+AxisRoleType = Literal["identity", "primary", "auxiliary"]
+FieldRoleType = Literal["identity", "factual", "mechanism", "capability", "coverage", "commitment", "evidence", "metric_context"]
+
 class SchemaFieldInfo(BaseModel):
     name: str
     type: str = "text"
@@ -100,6 +103,26 @@ class SchemaFieldInfo(BaseModel):
     skill_category: CollectorSkillType = Field(
         default="company",
         description="Choose the most appropriate extraction skill for this field."
+    )
+    axis_role: AxisRoleType = Field(
+        default="primary",
+        description="Semantic layer: identity/primary/auxiliary",
+    )
+    field_role: FieldRoleType = Field(
+        default="factual",
+        description="Factual role of this field",
+    )
+    source_phrase: str = Field(
+        default="",
+        description="Original phrase from task_intent.primary_axes",
+    )
+    field_intent: Optional[str] = Field(
+        default=None,
+        description="What observable question this field answers",
+    )
+    source: Optional[str] = Field(
+        default=None,
+        description="Source of data: official, public_web, etc.",
     )
 
 class PlanCompletionResult(BaseModel):
