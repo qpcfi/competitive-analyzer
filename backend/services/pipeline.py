@@ -204,11 +204,11 @@ async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dic
                 "agent": "Discoverer",
                 "event": "end",
                 "message": "Competitors discovered and market context loaded.",
-                "output_json": {
-                    "competitors": discoverer_context.get("competitors") or [],
-                    "market_context": discoverer_context.get("market_context") or "",
-                    "skipped_recommendation": had_seed_competitors,
-                },
+                # "output_json": {
+                #     "competitors": discoverer_context.get("competitors") or [],
+                #     "market_context": discoverer_context.get("market_context") or "",
+                #     "skipped_recommendation": had_seed_competitors,
+                # },
             },
             run_id=run_id,
         )

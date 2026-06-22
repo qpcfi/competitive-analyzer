@@ -34,8 +34,13 @@ FIELD RESPONSIBILITIES:
 - Only extract stable task intent that downstream agents can reuse.
 
 STEP 1: Identify target_object
-Determine what kind of entity should be analyzed based on the main domain.
-The target_object should describe the analyzed object type, not the research perspective.
+Determine what object should be analyzed based on the main domain.
+The target_object should preserve the user's explicit object boundary.
+If the main domain contains a channel, website, store, platform, product,
+or service carrier such as "独立站", "官网", "网站", "店铺", "平台", "SaaS 产品",
+keep that carrier in target_object. Do not reduce it to only the company type.
+Only remove words that are purely about research activity, such as "调研",
+"分析", "研究", "参考".
 
 Good:
 - "工程机械与重型设备制造企业或设备品牌"
@@ -100,18 +105,11 @@ HUMAN_TEMPLATE = (
 )
 
 _TARGET_NOISE_TERMS = (
-    "独立站",
-    "官网",
-    "网站",
-    "模式",
-    "策略",
-    "方案",
     "规划",
     "参考",
     "分析",
     "研究",
     "调研",
-    "出海",
 )
 
 _AXIS_PREFIXES = (
@@ -328,6 +326,7 @@ def _extract_axes(analysis_goal: str) -> list[str]:
     seen = set()
     for part in parts:
         axis = part.strip(" ，。；;、")
+        axis = re.sub(r"(来|进行|用于|以便)$", "", axis).strip(" ，。；;、")
         if not axis or len(axis) > 40:
             continue
         if axis in seen:
