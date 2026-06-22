@@ -24,11 +24,22 @@ async def schema_advice(task_id: str, field_id: str):
     if not field:
         raise HTTPException(status_code=404, detail="Field not found")
     name = field.get("name", field_id)
+    source = field.get("source") or "public_web"
+    reason = (
+        field.get("reason")
+        or field.get("description")
+        or f"{name} 是用于横向比较竞品的关键维度，可帮助判断不同竞品在该能力或业务特征上的差异。"
+    )
+    source_types = list(dict.fromkeys([source, "official" if source != "official" else "public_web"]))
     return {
         "field_id": field_id,
-        "reason": f"{name} helps compare competitors on a user-visible dimension.",
-        "recommended_queries": [f"<competitor> {name}", f"<competitor> {name} official"],
-        "source_types": [field.get("source", "public_web"), "official"],
+        "reason": reason,
+        "recommended_queries": [
+            f"<competitor> {name}",
+            f"<competitor> {name} 官方",
+            f"<competitor> {name} 公开资料",
+        ],
+        "source_types": source_types,
         "examples": [name],
     }
 
