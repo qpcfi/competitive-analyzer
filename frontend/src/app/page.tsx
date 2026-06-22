@@ -404,6 +404,9 @@ export default function Home() {
             setExtensionRequest({ visible: true, suggestions: data.suggested_schema_extensions });
           }
           setCurrentView('critic-review');
+        } else if (data.state === 'ANALYZING') {
+          setCurrentView('analysis');
+          setExtensionRequest({ visible: false, suggestions: [] });
         } else if (data.state === 'ANALYSIS_REVIEW') {
           setCurrentView('analysis');
           setExtensionRequest({ visible: false, suggestions: [] });

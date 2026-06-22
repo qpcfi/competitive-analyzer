@@ -99,6 +99,8 @@ async def create_task_record(
     main_product: str | None = None,
     competitors: list[str],
     execution_mode: str,
+    analysis_goal: str | None = None,
+    task_intent: dict | None = None,
 ) -> TaskRecord:
     now = datetime.utcnow()
     task = TaskRecord(
@@ -108,6 +110,8 @@ async def create_task_record(
         main_product=main_product,
         competitors=competitors,
         execution_mode=execution_mode,
+        analysis_goal=analysis_goal,
+        task_intent=task_intent or {},
         state="INITIALIZING",
         progress=0,
         created_at=now,

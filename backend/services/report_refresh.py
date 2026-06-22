@@ -126,6 +126,8 @@ async def refresh_report_with_survey(
                 "domain": task.domain,
                 "competitors": task.competitors or [],
                 "execution_mode": task.execution_mode,
+                "analysis_goal": task.analysis_goal or "",
+                "task_intent": task.task_intent or {},
                 "predefined_schema": [],
                 "previous_report": (base_analysis.get("report") if isinstance(base_analysis, dict) else {}) or {},
                 "refresh_reason": "survey_enrichment",

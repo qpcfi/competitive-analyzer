@@ -31,6 +31,7 @@ class RerunContext:
     dynamic_schema: dict[str, Any]
     schema_version: int
     task_state: str
+    task_intent: dict | None = None
 
 
 SCOPE_TYPES = frozenset({"cell", "dimension", "competitor", "comparison", "swot", "report", "batch"})
@@ -131,6 +132,7 @@ async def load_rerun_context(task_id: str) -> RerunContext:
             dynamic_schema=dynamic_schema,
             schema_version=schema_record.version if schema_record else 0,
             task_state=task.state,
+            task_intent=task.task_intent or {},
         )
 
 
@@ -148,6 +150,7 @@ def build_scoped_analyzer_state(
             "competitors": ctx.competitors,
             "execution_mode": ctx.execution_mode,
             "analysis_goal": ctx.analysis_goal or "",
+            "task_intent": ctx.task_intent or {},
             "analysis_rerun_scope": scope,
             "analysis_rerun_instruction": instruction,
         },

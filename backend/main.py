@@ -130,7 +130,7 @@ async def get_competitor_recommendations(
     existing_names = {item.strip().lower() for item in existing if item.strip()}
     items = []
     seen = set(existing_names)
-    candidates, _ = await recommend_competitors(normalized_domain, existing)
+    candidates, _, _ = await recommend_competitors(normalized_domain, existing)
     for candidate in candidates:
         normalized_name = str(candidate.name).strip()
         lowered = normalized_name.lower()

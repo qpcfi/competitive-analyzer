@@ -101,7 +101,13 @@ def _material_urls(materials: list[dict[str, Any]]) -> list[str]:
     return list(dict.fromkeys(urls))
 
 
-def make_initial_state(req: TaskCreateRequest, task_id: str, run_id: str, schema_version: int = 1) -> dict[str, Any]:
+def make_initial_state(
+    req: TaskCreateRequest,
+    task_id: str,
+    run_id: str,
+    schema_version: int = 1,
+    task_intent: dict | None = None,
+) -> dict[str, Any]:
     return {
         "task_id": task_id,
         "run_id": run_id,
@@ -111,6 +117,7 @@ def make_initial_state(req: TaskCreateRequest, task_id: str, run_id: str, schema
             "execution_mode": req.execution_mode,
             "predefined_schema": req.predefined_schema or [],
             "analysis_goal": req.analysis_goal or "",
+            "task_intent": task_intent or {},
         },
         "schema_version": schema_version,
         "dynamic_schema": {},
@@ -126,8 +133,45 @@ def make_initial_state(req: TaskCreateRequest, task_id: str, run_id: str, schema
     }
 
 
+def _task_intent_debug_payload(task_intent: dict[str, Any] | None, *, event: str) -> dict[str, Any] | None:
+    if not isinstance(task_intent, dict) or not task_intent:
+        return None
+
+    primary_axes = task_intent.get("primary_axes") if isinstance(task_intent, dict) else []
+    meta = task_intent.get("_meta") if isinstance(task_intent, dict) else {}
+    meta = meta if isinstance(meta, dict) else {}
+    axis_names = [
+        str(axis.get("name") or "").strip()
+        for axis in primary_axes
+        if isinstance(axis, dict) and str(axis.get("name") or "").strip()
+    ]
+    return {
+        "agent": "TaskIntent",
+        "event": event,
+        "message": "Task intent parsed." if event == "created" else "Task intent restored from task record.",
+        "output_json": {
+            "source": meta.get("source") or "unknown",
+            "error_stage": meta.get("error_stage") or "",
+            "error_type": meta.get("error_type") or "",
+            "error_message": meta.get("error_message") or "",
+            "target_object": task_intent.get("target_object") or "",
+            "primary_axes": axis_names,
+            "deferred_output_count": len(task_intent.get("deferred_outputs") or []),
+        },
+    }
+
+
+async def publish_task_intent_debug(task_id: str, run_id: str, task_intent: dict[str, Any] | None, *, event: str = "created") -> None:
+    payload = _task_intent_debug_payload(task_intent, event=event)
+    if payload:
+        await publish_event(task_id, "debug_log", payload, run_id=run_id)
+
+
 async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dict[str, Any], *, continue_after_schema: bool = False):
     try:
+        task_intent = (initial_state.get("task_context") or {}).get("task_intent", {})
+        await publish_task_intent_debug(task_id, run_id, task_intent, event="created")
+
         from agents.discoverer.node import discoverer_node
         if not await is_current_run(task_id, run_id):
             return
@@ -161,6 +205,7 @@ async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dic
                     "dynamic_schema": schema_json,
                     "state": "SCHEMA_REVIEW",
                     "raw_materials": [],
+                    "task_intent": (state.get("task_context") or {}).get("task_intent", {}),
                 },
             )
             await session.commit()
@@ -235,6 +280,7 @@ async def process_agent_pipeline(task_id: str, run_id: str, start_from: str = "c
                 "execution_mode": db_task.execution_mode,
                 "predefined_schema": [],
                 "analysis_goal": db_task.analysis_goal or "",
+                "task_intent": db_task.task_intent or {},
             },
             "schema_version": schema_record.version if schema_record else 1,
             "dynamic_schema": schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
@@ -309,6 +355,7 @@ async def process_agent_pipeline(task_id: str, run_id: str, start_from: str = "c
                         "dynamic_schema": state.get("dynamic_schema", {}),
                         "state": "COLLECTING",
                         "raw_materials": materials,
+                        "task_intent": (state.get("task_context") or {}).get("task_intent", {}),
                     },
                 )
 
@@ -593,6 +640,7 @@ async def calibration_reject(task_id: str, run_id: str):
                 "competitors": db_task.competitors or [],
                 "execution_mode": db_task.execution_mode,
                 "analysis_goal": db_task.analysis_goal or "",
+                "task_intent": db_task.task_intent or {},
             },
             "dynamic_schema": db_task.dynamic_schema or {},
             "raw_materials": db_task.raw_materials or [],
@@ -655,6 +703,7 @@ async def regenerate_schema(task_id: str, run_id: str):
                 "execution_mode": db_task.execution_mode,
                 "predefined_schema": predefined_schema,
                 "analysis_goal": db_task.analysis_goal or "",
+                "task_intent": db_task.task_intent or {},
             },
             "schema_version": latest.version if latest else 1,
             "dynamic_schema": {},
@@ -669,6 +718,7 @@ async def regenerate_schema(task_id: str, run_id: str):
             "retry_counts": {},
         }
     await guard_active(task_id, run_id)
+    await publish_task_intent_debug(task_id, run_id, state.get("task_context", {}).get("task_intent"), event="restored")
     updated_state = await orchestrator_node(state)
     await guard_active(task_id, run_id)
     schema_json = updated_state.get("dynamic_schema") or {}
@@ -811,6 +861,7 @@ async def run_critic_retry(
             "competitors": db_task.competitors or [],
             "execution_mode": db_task.execution_mode,
             "analysis_goal": db_task.analysis_goal or "",
+            "task_intent": db_task.task_intent or {},
         }
         if needs_collection:
             task_context["collection_scope_field_ids"] = all_collection_ids
@@ -932,6 +983,7 @@ async def run_critic_retry(
             dynamic_schema=current_schema,
             schema_version=schema_record.version if schema_record else 0,
             task_state="ANALYSIS_REVIEW",
+            task_intent=db_task.task_intent or {},
         )
         merged_analysis = await run_scoped_rerun_with_ctx(
             ctx, run_id, normalized_scopes,

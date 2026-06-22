@@ -11,6 +11,8 @@ def serialize_task(db_task: TaskRecord) -> dict[str, Any]:
         "main_product": db_task.main_product,
         "competitors": db_task.competitors or [],
         "execution_mode": db_task.execution_mode,
+        "analysis_goal": db_task.analysis_goal or "",
+        "task_intent": db_task.task_intent or {},
         "state": db_task.state,
         "progress": db_task.progress or 0,
         "run_id": db_task.active_run_id,
