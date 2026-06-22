@@ -137,27 +137,14 @@ def _task_intent_debug_payload(task_intent: dict[str, Any] | None, *, event: str
     if not isinstance(task_intent, dict) or not task_intent:
         return None
 
-    primary_axes = task_intent.get("primary_axes") if isinstance(task_intent, dict) else []
     meta = task_intent.get("_meta") if isinstance(task_intent, dict) else {}
     meta = meta if isinstance(meta, dict) else {}
-    axis_names = [
-        str(axis.get("name") or "").strip()
-        for axis in primary_axes
-        if isinstance(axis, dict) and str(axis.get("name") or "").strip()
-    ]
     return {
         "agent": "TaskIntent",
         "event": event,
         "message": "Task intent parsed." if event == "created" else "Task intent restored from task record.",
-        "output_json": {
-            "source": meta.get("source") or "unknown",
-            "error_stage": meta.get("error_stage") or "",
-            "error_type": meta.get("error_type") or "",
-            "error_message": meta.get("error_message") or "",
-            "target_object": task_intent.get("target_object") or "",
-            "primary_axes": axis_names,
-            "deferred_output_count": len(task_intent.get("deferred_outputs") or []),
-        },
+        "input_json": meta.get("llm_input") or [],
+        "output_json": meta.get("llm_raw_output") or "",
     }
 
 

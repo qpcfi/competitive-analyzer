@@ -145,11 +145,18 @@ async def build_task_intent(domain: str, analysis_goal: str) -> dict:
     if _INTENT_LLM is None or ChatPromptTemplate is None:
         return fallback_task_intent(domain, analysis_goal, source="fallback_no_runtime")
 
+    # Capture LLM input messages
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", SYSTEM_PROMPT),
+        ("human", HUMAN_TEMPLATE),
+    ])
+    input_messages = prompt_template.format_messages(
+        domain=domain,
+        analysis_goal=analysis_goal,
+    )
+    llm_input = [{"role": m.type, "content": m.content} for m in input_messages]
+
     try:
-        prompt_template = ChatPromptTemplate.from_messages([
-            ("system", SYSTEM_PROMPT),
-            ("human", HUMAN_TEMPLATE),
-        ])
         chain = prompt_template | _INTENT_LLM
         res = await chain.ainvoke({
             "domain": domain,
@@ -157,12 +164,12 @@ async def build_task_intent(domain: str, analysis_goal: str) -> dict:
         })
     except Exception as exc:
         return fallback_task_intent(
-            domain,
-            analysis_goal,
+            domain, analysis_goal,
             source="fallback_error",
             error_stage="invoke",
             error_type=exc.__class__.__name__,
             error_message=str(exc),
+            llm_input=llm_input,
         )
 
     raw_content = str(getattr(res, "content", res))
@@ -170,16 +177,21 @@ async def build_task_intent(domain: str, analysis_goal: str) -> dict:
         parsed = json.loads(_extract_json_object(raw_content))
     except Exception as exc:
         return fallback_task_intent(
-            domain,
-            analysis_goal,
+            domain, analysis_goal,
             source="fallback_error",
             error_stage="parse",
             error_type=exc.__class__.__name__,
             error_message=str(exc),
             content_preview=raw_content,
+            llm_input=llm_input,
         )
 
-    return normalize_task_intent(parsed, domain, analysis_goal, source="llm")
+    return normalize_task_intent(
+        parsed, domain, analysis_goal,
+        source="llm",
+        llm_input=llm_input,
+        llm_raw_output=raw_content,
+    )
 
 
 def fallback_task_intent(
@@ -191,6 +203,7 @@ def fallback_task_intent(
     error_type: str | None = None,
     error_message: str | None = None,
     content_preview: str | None = None,
+    llm_input: list[dict] | None = None,
 ) -> dict:
     """Return a safe fallback with light, generic parsing of common goal wording."""
     clean_domain = domain.strip()
@@ -209,6 +222,8 @@ def fallback_task_intent(
         meta["error_message"] = _compact_text(error_message, 220)
     if content_preview:
         meta["content_preview"] = _compact_text(content_preview, 220)
+    if llm_input is not None:
+        meta["llm_input"] = llm_input
 
     return {
         "target_object": _clean_target_object(clean_domain),
@@ -232,6 +247,8 @@ def normalize_task_intent(
     analysis_goal: str,
     *,
     source: str = "llm",
+    llm_input: list[dict] | None = None,
+    llm_raw_output: str | None = None,
 ) -> dict:
     """Normalize LLM output to the stable task_intent shape."""
     if not isinstance(value, dict):
@@ -257,6 +274,12 @@ def normalize_task_intent(
     if not axes and (analysis_goal.strip() or domain.strip()):
         return fallback_task_intent(domain, analysis_goal, source="fallback_empty_axes")
 
+    meta = {"source": source}
+    if llm_input is not None:
+        meta["llm_input"] = llm_input
+    if llm_raw_output is not None:
+        meta["llm_raw_output"] = llm_raw_output
+
     return {
         "target_object": target,
         "primary_axes": axes,
@@ -265,7 +288,7 @@ def normalize_task_intent(
             for item in (deferred if isinstance(deferred, list) else [])
             if str(item).strip()
         ],
-        "_meta": {"source": source},
+        "_meta": meta,
     }
 
 
