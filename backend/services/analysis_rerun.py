@@ -12,6 +12,7 @@ from services.repositories import (
     add_intervention,
     get_task,
     latest_schema,
+    load_source_materials,
     save_analysis_module,
     update_task_state,
 )
@@ -120,6 +121,14 @@ async def load_rerun_context(task_id: str) -> RerunContext:
 
         schema_record = await latest_schema(session, task_id)
         dynamic_schema = schema_record.schema_json if schema_record else {}
+        raw_materials = await load_source_materials(
+            session,
+            task_id,
+            collection_run_id=task.current_collection_run_id,
+            schema=dynamic_schema,
+        )
+        if not raw_materials:
+            raw_materials = list(task.raw_materials or [])
 
         return RerunContext(
             task_id=task.id,
@@ -128,7 +137,7 @@ async def load_rerun_context(task_id: str) -> RerunContext:
             execution_mode=task.execution_mode or "step_by_step",
             analysis_goal=task.analysis_goal,
             analysis_results=dict(task.analysis_results or {}),
-            raw_materials=list(task.raw_materials or []),
+            raw_materials=raw_materials,
             dynamic_schema=dynamic_schema,
             schema_version=schema_record.version if schema_record else 0,
             task_state=task.state,

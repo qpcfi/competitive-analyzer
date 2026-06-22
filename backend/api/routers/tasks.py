@@ -8,59 +8,13 @@ from sqlalchemy import func, select
 
 from agents.analyzer import swot_generator_node
 from core.runtime import runner
-from models_db import SourceMaterialRecord, TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
+from models_db import TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
 from schemas import TaskCreateRequest, TaskCreateResponse
 from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
-from services.repositories import add_intervention, create_task_record, get_task, latest_schema, new_run_id, resolve_all_pending_feedback, save_schema, set_task_run, update_task_state
-from services.serialization import serialize_task, serialize_source
+from services.repositories import add_intervention, create_task_record, get_task, latest_schema, load_source_materials, new_run_id, resolve_all_pending_feedback, save_schema, set_task_run, update_task_state
+from services.serialization import serialize_task
 
 router = APIRouter()
-
-
-def _schema_field_names(schema: dict) -> dict[str, str]:
-    names: dict[str, str] = {}
-    if not isinstance(schema, dict):
-        return names
-    for group_name, fields in schema.items():
-        if not isinstance(fields, list):
-            continue
-        for index, field in enumerate(fields):
-            if not isinstance(field, dict):
-                continue
-            field_id = field.get("id") or f"{group_name}.{field.get('name', index)}"
-            names[str(field_id)] = str(field.get("name") or field_id)
-    return names
-
-
-async def _load_snapshot_materials(session, task_id: str, snap_data: dict, schema: dict | None) -> list[dict]:
-    raw_materials = snap_data.get("raw_materials")
-    if isinstance(raw_materials, list) and raw_materials:
-        return raw_materials
-
-    raw_ids = snap_data.get("raw_material_ids") or []
-    material_ids = [str(item) for item in raw_ids if str(item).strip()]
-    if not material_ids:
-        return []
-
-    result = await session.execute(
-        select(SourceMaterialRecord).where(
-            SourceMaterialRecord.task_id == task_id,
-            SourceMaterialRecord.id.in_(material_ids),
-        )
-    )
-    records_by_id = {record.id: record for record in result.scalars()}
-    field_names = _schema_field_names(schema or {})
-    materials: list[dict] = []
-    for material_id in material_ids:
-        record = records_by_id.get(material_id)
-        if not record:
-            continue
-        item = serialize_source(record)
-        item["schema_field_name"] = field_names.get(record.schema_field_id or "", record.schema_field_id)
-        item["source_stage"] = record.source_stage
-        item["skill"] = record.skill
-        materials.append(item)
-    return materials
 
 
 @router.post("/api/v1/tasks", response_model=TaskCreateResponse)
@@ -157,7 +111,19 @@ async def get_task_status(task_id: str):
         db_task = await get_task(session, task_id)
         if not db_task:
             raise HTTPException(status_code=404, detail="Task not found")
-        return serialize_task(db_task)
+        schema_record = await latest_schema(session, task_id)
+        should_include_materials = db_task.state not in ("INITIALIZING", "SCHEMA_GENERATING", "SCHEMA_REVIEW")
+        raw_materials = []
+        if should_include_materials:
+            raw_materials = await load_source_materials(
+                session,
+                task_id,
+                collection_run_id=db_task.current_collection_run_id,
+                schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
+            )
+        data = serialize_task(db_task)
+        data["raw_materials"] = raw_materials or (list(db_task.raw_materials or []) if should_include_materials else [])
+        return data
 
 
 @router.get("/api/v1/tasks/{task_id}/events")
@@ -254,10 +220,9 @@ async def restore_snapshot(task_id: str, req: Request):
             task.progress = snap_data.get("progress", 60)
             task.competitors = snap_data.get("competitors", task.competitors or [])
             task.task_intent = snap_data.get("task_intent", task.task_intent or {})
+            task.current_collection_run_id = snap_data.get("collection_run_id", task.current_collection_run_id)
             if isinstance(restored_schema, dict):
                 restored_schema_record = await save_schema(session, task_id, restored_schema, created_by="snapshot", status="active")
-            restored_materials = await _load_snapshot_materials(session, task_id, snap_data, restored_schema if isinstance(restored_schema, dict) else task.dynamic_schema or {})
-            task.raw_materials = restored_materials or list(task.raw_materials or [])
             task.analysis_results = {}
             task.critic_feedback = []
             task.error = None
@@ -276,7 +241,8 @@ async def restore_snapshot(task_id: str, req: Request):
             task.task_intent = snap_data.get("task_intent", task.task_intent or {})
             if isinstance(restored_schema, dict):
                 restored_schema_record = await save_schema(session, task_id, restored_schema, created_by="snapshot", status="active")
-            task.raw_materials = snap_data.get("raw_materials", [])
+            task.raw_materials = []
+            task.current_collection_run_id = None
             task.analysis_results = {}
             task.critic_feedback = []
             task.error = None
@@ -341,7 +307,12 @@ async def generate_swot(task_id: str):
             "task_id": task_id,
             "task_context": task_context,
             "dynamic_schema": schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
-            "raw_materials": db_task.raw_materials or [],
+            "raw_materials": await load_source_materials(
+                session,
+                task_id,
+                collection_run_id=db_task.current_collection_run_id,
+                schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
+            ) or list(db_task.raw_materials or []),
             "analysis_results": dict(db_task.analysis_results or {}),
             "critic_feedback": list(db_task.critic_feedback or []),
             "suggested_schema_extensions": [],

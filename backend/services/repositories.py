@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import func, insert, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models_db import (
@@ -272,11 +273,21 @@ async def save_source_materials(
     session: AsyncSession,
     task_id: str,
     materials: list[dict[str, Any]],
+    collection_run_id: str | None = None,
 ) -> list[SourceMaterialRecord]:
     if not materials:
         return []
     chunk_size = 200
-    material_ids = [m.get("id") or new_id("src") for m in materials]
+    material_ids = []
+    for material in materials:
+        material_id = str(material.get("id") or new_id("src"))
+        if collection_run_id and not material_id.startswith(f"{collection_run_id}_"):
+            material_id = f"{collection_run_id}_{material_id}"
+        material["id"] = material_id
+        if collection_run_id:
+            material["collection_run_id"] = collection_run_id
+        material_ids.append(material_id)
+
     existing_ids: set[str] = set()
     for offset in range(0, len(material_ids), chunk_size):
         id_chunk = material_ids[offset:offset + chunk_size]
@@ -293,6 +304,7 @@ async def save_source_materials(
         {
             "id": material_id,
             "task_id": task_id,
+            "collection_run_id": collection_run_id or m.get("collection_run_id"),
             "schema_field_id": m.get("schema_field_id"),
             "competitor": m.get("competitor") or "",
             "source_url": m.get("source_url"),
@@ -315,10 +327,84 @@ async def save_source_materials(
     ]
     if not records_data:
         return []
-    stmt = insert(SourceMaterialRecord)
+    bind = session.get_bind()
+    if bind and bind.dialect.name == "postgresql":
+        stmt = pg_insert(SourceMaterialRecord).on_conflict_do_nothing(index_elements=["id"])
+    else:
+        stmt = insert(SourceMaterialRecord)
     for offset in range(0, len(records_data), chunk_size):
         await session.execute(stmt, records_data[offset:offset + chunk_size])
     return []
+
+
+def _schema_field_names(schema: dict | None) -> dict[str, str]:
+    names: dict[str, str] = {}
+    if not isinstance(schema, dict):
+        return names
+    for group_name, fields in schema.items():
+        if not isinstance(fields, list):
+            continue
+        for index, field in enumerate(fields):
+            if not isinstance(field, dict):
+                continue
+            field_id = field.get("id") or f"{group_name}.{field.get('name', index)}"
+            names[str(field_id)] = str(field.get("name") or field_id)
+    return names
+
+
+def source_material_to_dict(record: SourceMaterialRecord, schema_field_names: dict[str, str] | None = None) -> dict[str, Any]:
+    schema_field_id = record.schema_field_id or ""
+    field_names = schema_field_names or {}
+    return {
+        "id": record.id,
+        "collection_run_id": record.collection_run_id,
+        "competitor": record.competitor,
+        "schema_field_id": record.schema_field_id,
+        "schema_field_name": field_names.get(schema_field_id, schema_field_id),
+        "source_url": record.source_url,
+        "source_type": record.source_type,
+        "quote_text": record.quote_text,
+        "extracted_value": record.extracted_value,
+        "fetch_timestamp": record.fetch_timestamp.isoformat() if record.fetch_timestamp else None,
+        "agent_node": record.agent_node,
+        "access_status": record.access_status,
+        "validation_status": record.validation_status,
+        "trust_status": record.trust_status,
+        "retry_count": record.retry_count,
+        "degraded_reason": record.degraded_reason,
+        "pii_redacted": record.pii_redacted,
+        "is_noise": record.is_noise,
+        "source_stage": record.source_stage,
+        "skill": record.skill,
+        "metadata": {},
+    }
+
+
+async def load_source_materials(
+    session: AsyncSession,
+    task_id: str,
+    *,
+    material_ids: list[str] | None = None,
+    collection_run_id: str | None = None,
+    schema: dict | None = None,
+) -> list[dict[str, Any]]:
+    stmt = select(SourceMaterialRecord).where(SourceMaterialRecord.task_id == task_id)
+    ordered_ids = [str(item) for item in material_ids or [] if str(item).strip()]
+    if ordered_ids:
+        stmt = stmt.where(SourceMaterialRecord.id.in_(ordered_ids))
+    elif collection_run_id:
+        stmt = stmt.where(SourceMaterialRecord.collection_run_id == collection_run_id)
+    if not ordered_ids:
+        stmt = stmt.order_by(SourceMaterialRecord.fetch_timestamp, SourceMaterialRecord.id)
+
+    result = await session.execute(stmt)
+    records = list(result.scalars())
+    if ordered_ids:
+        records_by_id = {record.id: record for record in records}
+        records = [records_by_id[item] for item in ordered_ids if item in records_by_id]
+
+    field_names = _schema_field_names(schema)
+    return [source_material_to_dict(record, field_names) for record in records]
 
 
 async def create_survey_campaign(
@@ -613,6 +699,7 @@ __all__ = [
     "invalidate_task_run",
     "is_task_run_active",
     "latest_schema",
+    "load_source_materials",
     "latest_survey_campaign",
     "list_survey_campaigns",
     "list_events",

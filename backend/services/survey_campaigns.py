@@ -14,6 +14,7 @@ from services.repositories import (
     list_survey_artifacts,
     list_survey_campaigns,
     list_survey_responses,
+    load_source_materials,
     save_survey_artifact,
     save_survey_responses,
     update_survey_campaign,
@@ -34,6 +35,14 @@ async def generate_survey_for_task(
         if not task:
             raise KeyError(task_id)
         schema_record = await latest_schema(session, task_id)
+        raw_materials = await load_source_materials(
+            session,
+            task_id,
+            collection_run_id=task.current_collection_run_id,
+            schema=schema_record.schema_json if schema_record else (task.dynamic_schema or {}),
+        )
+        if not raw_materials:
+            raw_materials = task.raw_materials or []
         state = {
             "task_id": task_id,
             "task_context": {
@@ -45,7 +54,7 @@ async def generate_survey_for_task(
             },
             "schema_version": schema_record.version if schema_record else 1,
             "dynamic_schema": schema_record.schema_json if schema_record else (task.dynamic_schema or {}),
-            "raw_materials": task.raw_materials or [],
+            "raw_materials": raw_materials,
             "source_ids": [],
             "analysis_results": task.analysis_results or {},
             "critic_feedback": [],
