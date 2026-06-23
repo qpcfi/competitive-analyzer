@@ -228,7 +228,7 @@ async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dic
             record = await save_schema(session, task_id, schema_json, created_by="agent", status="active")
             await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
             print(f"[SNAPSHOT] writing pre_collection checkpoint for {task_id}...", flush=True)
-            await write_checkpoint(
+            await _checkpoint_timeout(task_id, run_id, "write_checkpoint(pre_collection)", write_checkpoint(
                 session, task_id, "pre_collection", "SCHEMA_READY",
                 f"Schema ready: {len(discovered_competitors)} competitors, {sum(len(v) if isinstance(v, list) else 0 for v in schema_json.values())} fields",
                 {
@@ -239,7 +239,7 @@ async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dic
                     "raw_materials": [],
                     "task_intent": (state.get("task_context") or {}).get("task_intent", {}),
                 },
-            )
+            ))
             await session.commit()
             print(f"[SNAPSHOT] checkpoint committed for {task_id}", flush=True)
         await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Competitor list and schema completed."}, run_id=run_id)
@@ -287,6 +287,18 @@ async def _with_timeout(task_id: str, run_id: str, label: str, coro):
     except asyncio.TimeoutError:
         await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "error", "message": f"[TIMEOUT] {label} timed out after 30s"}, run_id=run_id)
         raise
+
+
+async def _checkpoint_timeout(task_id: str, run_id: str, label: str, coro):
+    """Soft timeout for checkpoint writes — warn and continue on failure."""
+    try:
+        return await asyncio.wait_for(coro, timeout=30)
+    except asyncio.TimeoutError:
+        await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "warn", "message": f"[WARN] {label} timed out after 30s, checkpoint skipped"}, run_id=run_id)
+        return None
+    except Exception as exc:
+        await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "warn", "message": f"[WARN] {label} failed: {exc}, checkpoint skipped"}, run_id=run_id)
+        return None
 
 
 async def process_agent_pipeline(
@@ -422,7 +434,7 @@ async def process_agent_pipeline(
                 task.current_material_ids = material_ids
 
                 # ── Post-collection snapshot ──
-                await _with_timeout(task_id, run_id, "write_checkpoint(post_collection)", write_checkpoint(
+                await _checkpoint_timeout(task_id, run_id, "write_checkpoint(post_collection)", write_checkpoint(
                     session, task_id, "post_collection", "COLLECTING",
                     f"Collection complete: {len(materials)} materials across {len(competitor_counts)} competitors",
                     {
