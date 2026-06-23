@@ -227,9 +227,13 @@ async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dic
                 task.competitors = discovered_competitors
             record = await save_schema(session, task_id, schema_json, created_by="agent", status="active")
             await update_task_state(session, task_id, state="SCHEMA_REVIEW", progress=30)
-            print(f"[SNAPSHOT] writing pre_collection checkpoint for {task_id}...", flush=True)
+            await session.commit()
+
+        # ── Pre-collection snapshot (separate session, non-fatal) ──
+        print(f"[SNAPSHOT] writing pre_collection checkpoint for {task_id}...", flush=True)
+        async with async_session() as ckpt_session:
             await _checkpoint_timeout(task_id, run_id, "write_checkpoint(pre_collection)", write_checkpoint(
-                session, task_id, "pre_collection", "SCHEMA_READY",
+                ckpt_session, task_id, "pre_collection", "SCHEMA_READY",
                 f"Schema ready: {len(discovered_competitors)} competitors, {sum(len(v) if isinstance(v, list) else 0 for v in schema_json.values())} fields",
                 {
                     "competitors": discovered_competitors,
@@ -240,8 +244,8 @@ async def process_initial_pipeline(task_id: str, run_id: str, initial_state: dic
                     "task_intent": (state.get("task_context") or {}).get("task_intent", {}),
                 },
             ))
-            await session.commit()
-            print(f"[SNAPSHOT] checkpoint committed for {task_id}", flush=True)
+            await _checkpoint_timeout(task_id, run_id, "commit(pre_collection_checkpoint)", ckpt_session.commit())
+        print(f"[SNAPSHOT] checkpoint done for {task_id}", flush=True)
         await publish_event(task_id, "debug_log", {"agent": "Orchestrator", "event": "end", "message": "Competitor list and schema completed."}, run_id=run_id)
         await publish_event(task_id, "progress_update", {"progress": 30, "stage": "SCHEMA_REVIEW"}, run_id=run_id)
         await publish_event(
@@ -425,17 +429,21 @@ async def process_agent_pipeline(
                 "degraded_reason": m.get("degraded_reason"),
             } for m in materials[:6]]
             await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": f"Collector returned {len(materials)} materials: {competitor_counts}, status: {status_counts}, saving to DB...", "output_json": {"total": len(materials), "per_competitor": competitor_counts, "per_status": status_counts, "sample": material_sample}}, run_id=run_id)
+
+            # ── Save collection results (separate from checkpoint to minimize tasks row lock) ──
+            await guard_active(task_id, run_id)
             async with async_session() as session:
-                await guard_active(task_id, run_id)
                 task = await _with_timeout(task_id, run_id, "update_task_state", update_task_state(session, task_id, state="COLLECTING", progress=60))
                 task.current_collection_run_id = run_id
                 await _with_timeout(task_id, run_id, "save_source_materials", save_source_materials(session, task_id, materials, collection_run_id=run_id))
                 material_ids = [m.get("id") for m in materials if m.get("id")]
                 task.current_material_ids = material_ids
+                await _with_timeout(task_id, run_id, "commit(collection)", session.commit())
 
-                # ── Post-collection snapshot ──
+            # ── Post-collection snapshot (separate session, non-fatal on failure) ──
+            async with async_session() as ckpt_session:
                 await _checkpoint_timeout(task_id, run_id, "write_checkpoint(post_collection)", write_checkpoint(
-                    session, task_id, "post_collection", "COLLECTING",
+                    ckpt_session, task_id, "post_collection", "COLLECTING",
                     f"Collection complete: {len(materials)} materials across {len(competitor_counts)} competitors",
                     {
                         "competitors": (state.get("task_context") or {}).get("competitors", []),
@@ -450,17 +458,19 @@ async def process_agent_pipeline(
                         "task_intent": (state.get("task_context") or {}).get("task_intent", {}),
                     },
                 ))
+                await _checkpoint_timeout(task_id, run_id, "commit(post_collection_checkpoint)", ckpt_session.commit())
 
-                await _with_timeout(task_id, run_id, "commit(collection)", session.commit())
             await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "debug", "message": "DB save complete."}, run_id=run_id)
             await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": "Data collection completed."}, run_id=run_id)
             await publish_event(task_id, "progress_update", {"progress": 60, "stage": "COLLECTING"}, run_id=run_id)
             await publish_event(task_id, "task_state_changed", {"state": "COLLECTING", "progress": 60}, run_id=run_id)
             await publish_event(task_id, "raw_materials_updated", {"data": materials, "source_stats": source_stats(materials)}, run_id=run_id)
+
+            # ── Advance to ANALYZING (timeout-protected, won't hang) ──
+            await guard_active(task_id, run_id)
             async with async_session() as session:
-                await guard_active(task_id, run_id)
-                await update_task_state(session, task_id, state="ANALYZING", progress=65)
-                await session.commit()
+                await _with_timeout(task_id, run_id, "update_task_state(analyzing)", update_task_state(session, task_id, state="ANALYZING", progress=65))
+                await _with_timeout(task_id, run_id, "commit(analyzing)", session.commit())
             await publish_event(task_id, "task_state_changed", {"state": "ANALYZING", "progress": 65}, run_id=run_id)
             await publish_event(task_id, "progress_update", {"progress": 65, "stage": "ANALYZING"}, run_id=run_id)
         else:
@@ -499,10 +509,10 @@ async def process_agent_pipeline(
             await publish_event(task_id, "analysis_progress", {"module_id": "analysis", "data": analysis}, run_id=run_id)
             execution_mode = (state.get("task_context") or {}).get("execution_mode")
             if execution_mode != "auto":
+                await guard_active(task_id, run_id)
                 async with async_session() as session:
-                    await guard_active(task_id, run_id)
-                    await update_task_state(session, task_id, state="ANALYSIS_REVIEW", progress=90)
-                    await session.commit()
+                    await _with_timeout(task_id, run_id, "update_task_state(analysis_review)", update_task_state(session, task_id, state="ANALYSIS_REVIEW", progress=90))
+                    await _with_timeout(task_id, run_id, "commit(analysis_review)", session.commit())
                 await publish_event(task_id, "debug_log", {"agent": "Pipeline", "event": "wait", "message": "Analysis is ready. Waiting for manual confirmation before Critic."}, run_id=run_id)
                 await publish_event(task_id, "task_state_changed", {"state": "ANALYSIS_REVIEW", "progress": 90}, run_id=run_id)
                 return
@@ -540,8 +550,8 @@ async def process_agent_pipeline(
             await publish_event(task_id, "analysis_progress", {"module_id": "report", "data": state.get("analysis_results") or {}}, run_id=run_id)
 
             feedback = state.get("critic_feedback") or []
+            await guard_active(task_id, run_id)
             async with async_session() as session:
-                await guard_active(task_id, run_id)
                 task = await _with_timeout(task_id, run_id, "update_task_state(COMPLETED)", update_task_state(session, task_id, state="COMPLETED", progress=100))
                 task.analysis_results = state.get("analysis_results") or {}
                 task.critic_feedback = feedback
