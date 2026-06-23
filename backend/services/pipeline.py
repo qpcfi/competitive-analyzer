@@ -1129,12 +1129,14 @@ async def run_critic_retry(
             task_state="ANALYSIS_REVIEW",
             task_intent=db_task.task_intent or {},
         )
+        await publish_event(task_id, "progress_update", {"progress": 85, "stage": "ANALYZING", "retry": True}, run_id=run_id)
         merged_analysis = await run_scoped_rerun_with_ctx(
             ctx, run_id, normalized_scopes,
             instruction="根据 Critic 质量审查反馈修复分析结果",
         )
         state["analysis_results"] = merged_analysis
         analysis = merged_analysis
+        await publish_event(task_id, "progress_update", {"progress": 95, "stage": "ANALYZING", "retry": True}, run_id=run_id)
 
         # Persist — only save modules actually touched by the scopes
         affected_modules = affected_modules_for_scopes(normalized_scopes)
