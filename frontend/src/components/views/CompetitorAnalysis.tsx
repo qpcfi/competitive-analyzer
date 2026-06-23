@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Empty, Table, Radio, Card, Button, Space, Typography, Tag, Divider } from 'antd';
+import { Collapse, Col, Empty, Row, Table, Radio, Card, Button, Space, Typography, Tag, Divider } from 'antd';
 import { LinkOutlined, RetweetOutlined, CheckCircleOutlined, ExclamationCircleOutlined, AimOutlined, SettingOutlined } from '@ant-design/icons';
 import ReactMarkdown from 'react-markdown';
 
@@ -30,8 +30,41 @@ interface SchemaDimension {
   group?: string;
 }
 
+interface AxisFinding {
+  axis: string;
+  summary: string;
+  evidence_refs?: string[];
+}
+
+interface ModeClassification {
+  mode: string;
+  competitors?: string[];
+  basis: string;
+  related_axes?: string[];
+  evidence_refs?: string[];
+}
+
+interface DeferredOutputAnswer {
+  question: string;
+  answer: string;
+  basis: string;
+  evidence_refs?: string[];
+}
+
+interface ProductPlanningImplication {
+  recommendation: string;
+  basis: string;
+  priority: 'high' | 'medium' | 'low';
+  related_axes?: string[];
+  evidence_refs?: string[];
+}
+
 interface GoalAnalysis {
   direct_answer?: string;
+  axis_findings?: AxisFinding[];
+  mode_classification?: ModeClassification[];
+  deferred_output_answers?: DeferredOutputAnswer[];
+  product_planning_implications?: ProductPlanningImplication[];
   key_findings?: Array<{
     finding: string;
     severity: 'high' | 'medium' | 'low';
@@ -73,34 +106,151 @@ const SEVERITY_CONFIG: Record<string, { color: string; label: string }> = {
   low: { color: '#52c41a', label: '低优先级' },
 };
 
-function GoalAnalysisHeader({ data }: { data: GoalAnalysis }) {
+function GoalAnalysisHeader({ data, onOpenDrawer }: { data: GoalAnalysis; onOpenDrawer?: (type: string, data?: any) => void }) {
+  const hasExtraContent = !!(
+    data.axis_findings?.length || data.mode_classification?.length ||
+    data.deferred_output_answers?.length || data.product_planning_implications?.length ||
+    data.key_findings?.length
+  );
   return (
-    <Card styles={{ body: { padding: 20 } }} style={{ marginBottom: 24, borderLeft: '4px solid #1677ff', background: '#f0f5ff' }}>
+    <Card styles={{ body: { padding: 20 } }} style={{ marginBottom: 24 }}>
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         <AimOutlined style={{ fontSize: 24, color: '#1677ff', marginTop: 4 }} />
         <div style={{ flex: 1 }}>
           <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>
             分析结论
           </Text>
-          <div style={{ fontSize: 16, lineHeight: 1.7, marginTop: 8, marginBottom: data.key_findings?.length ? 16 : 0, color: '#1a1a1a' }}>
+          <div style={{ fontSize: 16, lineHeight: 1.7, marginTop: 8, marginBottom: hasExtraContent ? 16 : 0, color: '#1a1a1a' }}>
             <ReactMarkdown>{data.direct_answer || ''}</ReactMarkdown>
           </div>
+
+          {data.axis_findings && data.axis_findings.length > 0 && (
+            <>
+              <Divider style={{ margin: '8px 0' }} />
+              <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8 }}>分析轴发现</Text>
+              <Row gutter={[8, 8]}>
+                {data.axis_findings.map((af, i) => (
+                  <Col key={i} span={12}>
+                    <Card size="small" styles={{ body: { padding: '8px 12px' } }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <Tag color="blue" style={{ margin: 0, fontSize: 11, lineHeight: '20px' }}>{af.axis}</Tag>
+                        {af.evidence_refs && af.evidence_refs.length > 0 && (
+                          <Button type="link" size="small" icon={<LinkOutlined />} style={{ padding: 0, height: 20, fontSize: 12, color: '#1677ff' }} onClick={() => onOpenDrawer?.('source', { sourceId: af.evidence_refs![0] })}>
+                            溯源
+                          </Button>
+                        )}
+                      </div>
+                      <Text style={{ display: 'block', fontSize: 13, lineHeight: 1.5 }}>{af.summary}</Text>
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            </>
+          )}
+
+          {data.mode_classification && data.mode_classification.length > 0 && (
+            <>
+              <Divider style={{ margin: '8px 0' }} />
+              <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8 }}>模式分类</Text>
+              <Space direction="vertical" style={{ width: '100%' }} size={8}>
+                {data.mode_classification.map((mc, i) => (
+                  <Card key={i} size="small" styles={{ body: { padding: '10px 12px' } }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 6 }}>
+                      <Tag color="purple" style={{ margin: 0, fontSize: 11, lineHeight: '20px' }}>{mc.mode}</Tag>
+                      {mc.competitors?.map((c, ci) => (
+                        <Tag key={ci} style={{ margin: 0, fontSize: 11, lineHeight: '20px' }}>{c}</Tag>
+                      ))}
+                      {mc.evidence_refs && mc.evidence_refs.length > 0 && (
+                        <Button type="link" size="small" icon={<LinkOutlined />} style={{ padding: 0, height: 20, fontSize: 12, color: '#1677ff' }} onClick={() => onOpenDrawer?.('source', { sourceId: mc.evidence_refs![0] })}>
+                          溯源
+                        </Button>
+                      )}
+                    </div>
+                    <Text style={{ display: 'block', fontSize: 13, lineHeight: 1.5, color: '#555' }}>{mc.basis}</Text>
+                    {mc.related_axes && mc.related_axes.length > 0 && (
+                      <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 2 }}>相关分析轴：{mc.related_axes.join('、')}</Text>
+                    )}
+                  </Card>
+                ))}
+              </Space>
+            </>
+          )}
+
+          {data.deferred_output_answers && data.deferred_output_answers.length > 0 && (
+            <>
+              <Divider style={{ margin: '8px 0' }} />
+              <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8 }}>衍生问题回答</Text>
+              <Collapse
+                size="small"
+                items={data.deferred_output_answers.map((d, i) => ({
+                  key: String(i),
+                  label: <Text style={{ fontWeight: 500, fontSize: 13 }}>{d.question}</Text>,
+                  children: (
+                    <div style={{ padding: '4px 0' }}>
+                      <Text style={{ display: 'block', marginBottom: 8, fontSize: 14, lineHeight: 1.6 }}>{d.answer}</Text>
+                      <div style={{ background: '#fafafa', padding: '8px 12px', borderRadius: 4, fontSize: 12 }}>
+                        <Text type="secondary">依据：{d.basis}</Text>
+                      </div>
+                      {d.evidence_refs && d.evidence_refs.length > 0 && (
+                        <Button type="link" size="small" icon={<LinkOutlined />} style={{ padding: 0, marginTop: 4, height: 20, fontSize: 12, color: '#1677ff' }} onClick={() => onOpenDrawer?.('source', { sourceId: d.evidence_refs![0] })}>
+                          溯源
+                        </Button>
+                      )}
+                    </div>
+                  ),
+                }))}
+              />
+            </>
+          )}
+
+          {data.product_planning_implications && data.product_planning_implications.length > 0 && (
+            <>
+              <Divider style={{ margin: '8px 0' }} />
+              <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8 }}>产品规划启示</Text>
+              <Space direction="vertical" style={{ width: '100%' }} size={8}>
+                {data.product_planning_implications.map((ppi, i) => {
+                  const sev = SEVERITY_CONFIG[ppi.priority] || SEVERITY_CONFIG.medium;
+                  return (
+                    <Card key={i} size="small" styles={{ body: { padding: '10px 12px' } }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        <Tag color={sev.color} style={{ flexShrink: 0, margin: 0, fontSize: 11, lineHeight: '20px' }}>{sev.label}</Tag>
+                        <div style={{ flex: 1 }}>
+                          <Text style={{ display: 'block', fontSize: 14, lineHeight: 1.6, marginBottom: 4 }}>{ppi.recommendation}</Text>
+                          <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>依据：{ppi.basis}</Text>
+                          {ppi.related_axes && ppi.related_axes.length > 0 && (
+                            <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>相关分析轴：{ppi.related_axes.join('、')}</Text>
+                          )}
+                          {ppi.evidence_refs && ppi.evidence_refs.length > 0 && (
+                            <Button type="link" size="small" icon={<LinkOutlined />} style={{ padding: 0, marginTop: 4, height: 20, fontSize: 12, color: '#1677ff' }} onClick={() => onOpenDrawer?.('source', { sourceId: ppi.evidence_refs![0] })}>
+                              溯源
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  );
+                })}
+              </Space>
+            </>
+          )}
 
           {data.key_findings && data.key_findings.length > 0 && (
             <>
               <Divider style={{ margin: '8px 0' }} />
               <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 8 }}>关键发现</Text>
-              <Space direction="vertical" style={{ width: '100%' }} size={4}>
+              <Space direction="vertical" style={{ width: '100%' }} size={8}>
                 {data.key_findings.map((kf, i) => {
                   const sev = SEVERITY_CONFIG[kf.severity] || SEVERITY_CONFIG.medium;
                   return (
-                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', padding: '4px 8px', background: '#fff', borderRadius: 6 }}>
-                      <Tag color={sev.color} style={{ flexShrink: 0, margin: 0, fontSize: 11, lineHeight: '20px' }}>{sev.label}</Tag>
-                      <Text style={{ flex: 1, fontSize: 14, lineHeight: '22px' }}>{kf.finding}</Text>
-                      {kf.related_angle && (
-                        <Tag style={{ flexShrink: 0, margin: 0, fontSize: 11, lineHeight: '20px' }}>{ANGLE_LABELS[kf.related_angle] || kf.related_angle}</Tag>
-                      )}
-                    </div>
+                    <Card key={i} size="small" styles={{ body: { padding: '6px 12px' } }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <Tag color={sev.color} style={{ flexShrink: 0, margin: 0, fontSize: 11, lineHeight: '20px' }}>{sev.label}</Tag>
+                        <Text style={{ flex: 1, fontSize: 14, lineHeight: '22px' }}>{kf.finding}</Text>
+                        {kf.related_angle && (
+                          <Tag style={{ flexShrink: 0, margin: 0, fontSize: 11, lineHeight: '20px' }}>{ANGLE_LABELS[kf.related_angle] || kf.related_angle}</Tag>
+                        )}
+                      </div>
+                    </Card>
                   );
                 })}
               </Space>
@@ -239,7 +389,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
   if (!analysisResults || competitors.length === 0 || rows.length === 0) {
     return (
       <div style={{ padding: 4 }}>
-        {goalAnalysis?.direct_answer && <GoalAnalysisHeader data={goalAnalysis} />}
+        {goalAnalysis?.direct_answer && <GoalAnalysisHeader data={goalAnalysis} onOpenDrawer={onOpenDrawer} />}
         <Card>
           <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={taskId ? '等待后端完成分析后渲染竞品深度对比' : '请先创建任务'} />
         </Card>
@@ -252,7 +402,7 @@ export default function CompetitorAnalysis({ taskId, analysisResults, mainProduc
 
   return (
     <div style={{ padding: 4 }}>
-      {goalAnalysis?.direct_answer && <GoalAnalysisHeader data={goalAnalysis} />}
+      {goalAnalysis?.direct_answer && <GoalAnalysisHeader data={goalAnalysis} onOpenDrawer={onOpenDrawer} />}
       {selectedAngles && selectedAngles.length > 0 && <AngleBar angles={selectedAngles} />}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <Title level={4} style={{ margin: 0 }}>竞品深度对比</Title>

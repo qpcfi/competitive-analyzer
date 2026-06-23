@@ -4432,3 +4432,227 @@ sources:
     skills: ["business"]
     tags: ["auto-discovered"]
     competitors: ["中联重科 (Zoomlion)"]
+
+  - url: "https://zh.wikipedia.org/wiki/徐工集团"
+    name: "auto: 徐工集团 主要产品类别"
+    description: "Auto-discovered from 徐工集团 主要产品类别 analysis"
+    skills: ["product"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工集团"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1921468192183804108"
+    name: "auto: 徐工集团 订单追踪能力"
+    description: "Auto-discovered from 徐工集团 订单追踪能力 analysis"
+    skills: ["technical"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工集团"]
+
+  - url: "https://zhuanlan.zhihu.com/p/556696556"
+    name: "auto: 徐工集团 全球市场覆盖区域"
+    description: "Auto-discovered from 徐工集团 全球市场覆盖区域 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工集团"]
+
+  - url: "http://www.cncma.org/article/14640"
+    name: "auto: 徐工集团 全球市场覆盖区域"
+    description: "Auto-discovered from 徐工集团 全球市场覆盖区域 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工集团"]
+
+  - url: "https://www.hangyan.co/charts/3473339865075025524"
+    name: "auto: 徐工集团 海外仓数量与分布"
+    description: "Auto-discovered from 徐工集团 海外仓数量与分布 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工集团"]
+
+  - url: "https://zhuanlan.zhihu.com/p/1996876423252689905"
+    name: "auto: 徐工集团 销售渠道结构"
+    description: "Auto-discovered from 徐工集团 销售渠道结构 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工集团"]
+
+  - url: "https://wenku.baidu.com/view/fd187515dc88d0d233d4b14e852458fb760b3825.html"
+    name: "auto: 三一重工 售后服务履约流程"
+    description: "Auto-discovered from 三一重工 售后服务履约流程 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "https://www.sanyglobal.com/cn/service_support/"
+    name: "auto: 三一重工 售后服务履约流程"
+    description: "Auto-discovered from 三一重工 售后服务履约流程 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "https://www.sanygroup.com/service/"
+    name: "auto: 三一重工 到门服务范围"
+    description: "Auto-discovered from 三一重工 到门服务范围 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "https://www.hangyan.co/charts/3455283006493688970"
+    name: "auto: 三一重工 海外仓数量与分布"
+    description: "Auto-discovered from 三一重工 海外仓数量与分布 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "https://cj.sina.com.cn/articles/view/7784440996/1cffd24a4001018wb8"
+    name: "auto: 三一重工 目标客户群体"
+    description: "Auto-discovered from 三一重工 目标客户群体 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "https://max.book118.com/html/2024/1025/7063026062006164.shtm"
+    name: "auto: 三一重工 销售渠道结构"
+    description: "Auto-discovered from 三一重工 销售渠道结构 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "https://www.sanygroup.com/news/15444.html"
+    name: "auto: 三一重工 订单规模特征"
+    description: "Auto-discovered from 三一重工 订单规模特征 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["三一重工"]
+
+  - url: "https://www.toutiao.com/article/7577921110428140066/"
+    name: "auto: 徐工 订单履行模式"
+    description: "Auto-discovered from 徐工 订单履行模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "https://zhuanlan.zhihu.com/p/668679763"
+    name: "auto: 徐工 订单前置时间"
+    description: "Auto-discovered from 徐工 订单前置时间 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "https://www.xcmg.com/solution/logistics-transportation-pro-61.htm"
+    name: "auto: 徐工 主要物流模式"
+    description: "Auto-discovered from 徐工 主要物流模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "http://www.shatian.org/wang-luo-huo-yun.html"
+    name: "auto: 徐工 主要物流模式"
+    description: "Auto-discovered from 徐工 主要物流模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "https://www.caterpillar.com/en/investors/reports/annual-report.html"
+    name: "auto: 卡特彼勒 海外仓数量"
+    description: "Auto-discovered from 卡特彼勒 海外仓数量 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒"]
+
+  - url: "https://www.xcmg.com/aboutus/news-detail-1128656.htm"
+    name: "auto: 徐工 国际物流合作方式"
+    description: "Auto-discovered from 徐工 国际物流合作方式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "https://itms.xcmg.com/login"
+    name: "auto: 徐工 国际物流合作方式"
+    description: "Auto-discovered from 徐工 国际物流合作方式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "https://www.cat.com/zh_CN/support/dealer-network.html"
+    name: "auto: 卡特彼勒 经销商/代理商网络规模"
+    description: "Auto-discovered from 卡特彼勒 经销商/代理商网络规模 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒"]
+
+  - url: "http://39.106.43.96:8090/xugong/web/blob/e82528b50026bbb46c9030209919e6efb0ef4a8d/README.md"
+    name: "auto: 徐工 仓库所有权类型"
+    description: "Auto-discovered from 徐工 仓库所有权类型 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "https://www.sohu.com/a/420692199_806771"
+    name: "auto: 徐工 是否拥有独立站（自有电商平台）"
+    description: "Auto-discovered from 徐工 是否拥有独立站（自有电商平台） analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "https://sos.cat.com/"
+    name: "auto: 卡特彼勒 订单履行模式"
+    description: "Auto-discovered from 卡特彼勒 订单履行模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒"]
+
+  - url: "https://www.caterpillar.com/zh/company/about-caterpillar/global-footprint.html"
+    name: "auto: 卡特彼勒 主要海外仓分布区域"
+    description: "Auto-discovered from 卡特彼勒 主要海外仓分布区域 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒"]
+
+  - url: "https://wenku.baidu.com/view/a84b2eacbfeb19e8b8f67c1cfad6195f312be896.html"
+    name: "auto: 卡特彼勒 主要分销渠道类型"
+    description: "Auto-discovered from 卡特彼勒 主要分销渠道类型 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒"]
+
+  - url: "http://shatian.org/jing-xiao-shang-cha-xun.html"
+    name: "auto: 徐工 经销商/代理商网络规模"
+    description: "Auto-discovered from 徐工 经销商/代理商网络规模 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "https://m.d1cm.com/dealer/wajuejixie/xcmg/all/"
+    name: "auto: 徐工 经销商/代理商网络规模"
+    description: "Auto-discovered from 徐工 经销商/代理商网络规模 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "https://www.kuajingyan.com/article/29630"
+    name: "auto: 卡特彼勒 海外仓数量"
+    description: "Auto-discovered from 卡特彼勒 海外仓数量 analysis"
+    skills: ["company"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒"]
+
+  - url: "https://www.fadada.com/customer-stories/CASE-000065"
+    name: "auto: 徐工 订单履行模式"
+    description: "Auto-discovered from 徐工 订单履行模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工"]
+
+  - url: "https://www.ccgateway.cn/"
+    name: "auto: 卡特彼勒 订单履行模式"
+    description: "Auto-discovered from 卡特彼勒 订单履行模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒"]
+
+  - url: "https://www.zhihu.com/market/pub/119951064/manuscript/1283954376903196672"
+    name: "auto: 卡特彼勒 订单履行模式"
+    description: "Auto-discovered from 卡特彼勒 订单履行模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒"]
