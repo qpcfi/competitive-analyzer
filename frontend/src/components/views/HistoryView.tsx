@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { App, Button, Card, Empty, Space, Spin, Tag, Typography } from 'antd';
-import { HistoryOutlined, ReloadOutlined, RollbackOutlined } from '@ant-design/icons';
+import { DeleteOutlined, HistoryOutlined, ReloadOutlined, RollbackOutlined } from '@ant-design/icons';
 
 const { Text, Title } = Typography;
 
@@ -44,6 +44,7 @@ export default function HistoryView({ currentTaskId, onRestoreTask, onSnapshotRe
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [loadingSnapshots, setLoadingSnapshots] = useState(false);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const loadTasks = useCallback(async () => {
     if (locked) {
@@ -121,6 +122,30 @@ export default function HistoryView({ currentTaskId, onRestoreTask, onSnapshotRe
       message.error('Failed to restore task');
     } finally {
       setRestoring(null);
+    }
+  };
+
+  const deleteSnapshot = async (snapshot: TaskSnapshot) => {
+    if (locked || !selectedTaskId) {
+      return;
+    }
+    setDeleting(snapshot.checkpoint_id);
+    try {
+      const response = await fetch(`http://localhost:8000/api/v1/tasks/${selectedTaskId}/snapshots`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ checkpoint_id: snapshot.checkpoint_id }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete snapshot');
+      }
+      await loadSnapshots(selectedTaskId);
+      message.success('Snapshot deleted');
+    } catch (error) {
+      console.error(error);
+      message.error('Failed to delete snapshot');
+    } finally {
+      setDeleting(null);
     }
   };
 
@@ -217,14 +242,23 @@ export default function HistoryView({ currentTaskId, onRestoreTask, onSnapshotRe
                   size="small"
                   styles={{ body: { padding: 16 } }}
                   extra={
-                    <Button
-                      icon={<RollbackOutlined />}
-                      loading={restoring === snapshot.checkpoint_id}
-                      disabled={locked}
-                      onClick={() => restoreSnapshot(snapshot)}
-                    >
-                      Restore checkpoint
-                    </Button>
+                    <Space>
+                      <Button
+                        icon={<RollbackOutlined />}
+                        loading={restoring === snapshot.checkpoint_id}
+                        disabled={locked}
+                        onClick={() => restoreSnapshot(snapshot)}
+                      >
+                        Restore
+                      </Button>
+                      <Button
+                        icon={<DeleteOutlined />}
+                        loading={deleting === snapshot.checkpoint_id}
+                        disabled={locked}
+                        danger
+                        onClick={() => deleteSnapshot(snapshot)}
+                      />
+                    </Space>
                   }
                   title={<Space><Text strong>{snapshot.summary || snapshot.checkpoint_id}</Text><Tag>{snapshot.state}</Tag></Space>}
                 >

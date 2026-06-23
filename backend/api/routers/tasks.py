@@ -8,10 +8,10 @@ from sqlalchemy import func, select
 
 from agents.analyzer import swot_generator_node
 from core.runtime import runner
-from models_db import TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
+from models_db import SourceMaterialRecord, TaskEventRecord, TaskRecord, TaskSnapshotRecord, async_session
 from schemas import TaskCreateRequest, TaskCreateResponse
 from services.pipeline import event_generator, make_initial_state, process_initial_pipeline, publish_event
-from services.repositories import add_intervention, create_task_record, get_task, latest_schema, load_source_materials, new_run_id, resolve_all_pending_feedback, save_schema, set_task_run, update_task_state
+from services.repositories import add_intervention, create_task_record, get_task, latest_schema, load_source_materials, new_run_id, resolve_all_pending_feedback, save_schema, save_source_materials, set_task_run, update_task_state
 from services.serialization import serialize_task
 
 router = APIRouter()
@@ -115,12 +115,38 @@ async def get_task_status(task_id: str):
         should_include_materials = db_task.state not in ("INITIALIZING", "SCHEMA_GENERATING", "SCHEMA_REVIEW")
         raw_materials = []
         if should_include_materials:
-            raw_materials = await load_source_materials(
-                session,
-                task_id,
-                collection_run_id=db_task.current_collection_run_id,
-                schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
-            )
+            material_ids = db_task.current_material_ids or []
+            current_run_id = db_task.current_collection_run_id
+            if material_ids:
+                raw_materials = await load_source_materials(
+                    session,
+                    task_id,
+                    material_ids=material_ids,
+                    collection_run_id=current_run_id,
+                    schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
+                )
+                # 快照中的 ID 可能来自旧代码，不在 source_materials 表里 → 降级到全量查
+                if not raw_materials:
+                    raw_materials = await load_source_materials(
+                        session,
+                        task_id,
+                        schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
+                    )
+            elif current_run_id:
+                raw_materials = await load_source_materials(
+                    session,
+                    task_id,
+                    collection_run_id=current_run_id,
+                    schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
+                )
+            else:
+                # Fallback: no material_ids and no collection_run_id (e.g. old snapshots),
+                # load whatever materials exist for this task.
+                raw_materials = await load_source_materials(
+                    session,
+                    task_id,
+                    schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
+                )
         data = serialize_task(db_task)
         data["raw_materials"] = raw_materials or (list(db_task.raw_materials or []) if should_include_materials else [])
         return data
@@ -168,6 +194,25 @@ async def list_snapshots(task_id: str):
             for item in result.scalars()
         ]
     return {"task_id": task_id, "snapshots": snapshots}
+
+
+@router.delete("/api/v1/tasks/{task_id}/snapshots")
+async def delete_snapshot(task_id: str, req: Request):
+    body = await req.json()
+    checkpoint_id = body.get("checkpoint_id")
+    async with async_session() as session:
+        target = await session.execute(
+            select(TaskSnapshotRecord).where(
+                TaskSnapshotRecord.task_id == task_id,
+                TaskSnapshotRecord.checkpoint_id == checkpoint_id,
+            )
+        )
+        record = target.scalar_one_or_none()
+        if not record:
+            raise HTTPException(status_code=404, detail="Snapshot not found")
+        await session.delete(record)
+        await session.commit()
+    return {"status": "deleted", "task_id": task_id, "checkpoint_id": checkpoint_id}
 
 
 @router.post("/api/v1/tasks/{task_id}/restore_snapshot")
@@ -221,6 +266,26 @@ async def restore_snapshot(task_id: str, req: Request):
             task.competitors = snap_data.get("competitors", task.competitors or [])
             task.task_intent = snap_data.get("task_intent", task.task_intent or {})
             task.current_collection_run_id = snap_data.get("collection_run_id", task.current_collection_run_id)
+            task.current_material_ids = snap_data.get("raw_material_ids", [])
+            # 兼容旧快照：source_materials 表可能没有这些 ID，从 task.raw_materials 迁移
+            if task.current_material_ids:
+                existing = await session.execute(
+                    select(SourceMaterialRecord.id).where(
+                        SourceMaterialRecord.task_id == task_id,
+                        SourceMaterialRecord.id.in_([str(i) for i in task.current_material_ids]),
+                    ).limit(1)
+                )
+                if existing.scalar_one_or_none() is None:
+                    old_data = list(task.raw_materials or [])
+                    if old_data:
+                        migration_run_id = f"migrate_{uuid.uuid4().hex[:6]}"
+                        to_save = [{**m} for m in old_data]
+                        await save_source_materials(session, task_id, to_save, collection_run_id=migration_run_id)
+                        new_ids = [m.get("id") for m in to_save if m.get("id")]
+                        task.current_material_ids = new_ids
+                        task.current_collection_run_id = migration_run_id
+                    else:
+                        task.current_material_ids = []
             if isinstance(restored_schema, dict):
                 restored_schema_record = await save_schema(session, task_id, restored_schema, created_by="snapshot", status="active")
             task.analysis_results = {}
@@ -243,6 +308,7 @@ async def restore_snapshot(task_id: str, req: Request):
                 restored_schema_record = await save_schema(session, task_id, restored_schema, created_by="snapshot", status="active")
             task.raw_materials = []
             task.current_collection_run_id = None
+            task.current_material_ids = []
             task.analysis_results = {}
             task.critic_feedback = []
             task.error = None
@@ -303,16 +369,38 @@ async def generate_swot(task_id: str):
             "analysis_goal": db_task.analysis_goal or "",
             "task_intent": db_task.task_intent or {},
         }
+        schema = schema_record.schema_json if schema_record else (db_task.dynamic_schema or {})
+        material_ids = db_task.current_material_ids or []
+        current_run_id = db_task.current_collection_run_id
+        if material_ids:
+            raw_materials = await load_source_materials(
+                session, task_id,
+                material_ids=material_ids,
+                collection_run_id=current_run_id,
+                schema=schema,
+            )
+            if not raw_materials:
+                raw_materials = await load_source_materials(
+                    session, task_id,
+                    schema=schema,
+                )
+        elif current_run_id:
+            raw_materials = await load_source_materials(
+                session, task_id,
+                collection_run_id=current_run_id,
+                schema=schema,
+            )
+        else:
+            raw_materials = await load_source_materials(
+                session, task_id,
+                schema=schema,
+            )
+        raw_materials = raw_materials or list(db_task.raw_materials or [])
         state = {
             "task_id": task_id,
             "task_context": task_context,
-            "dynamic_schema": schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
-            "raw_materials": await load_source_materials(
-                session,
-                task_id,
-                collection_run_id=db_task.current_collection_run_id,
-                schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
-            ) or list(db_task.raw_materials or []),
+            "dynamic_schema": schema,
+            "raw_materials": raw_materials,
             "analysis_results": dict(db_task.analysis_results or {}),
             "critic_feedback": list(db_task.critic_feedback or []),
             "suggested_schema_extensions": [],

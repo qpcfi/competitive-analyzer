@@ -35,13 +35,28 @@ async def generate_survey_for_task(
         if not task:
             raise KeyError(task_id)
         schema_record = await latest_schema(session, task_id)
-        raw_materials = await load_source_materials(
-            session,
-            task_id,
-            collection_run_id=task.current_collection_run_id,
-            schema=schema_record.schema_json if schema_record else (task.dynamic_schema or {}),
-        )
-        if not raw_materials:
+        material_ids = task.current_material_ids or []
+        if material_ids:
+            raw_materials = await load_source_materials(
+                session,
+                task_id,
+                material_ids=material_ids,
+                collection_run_id=task.current_collection_run_id,
+                schema=schema_record.schema_json if schema_record else (task.dynamic_schema or {}),
+            )
+        elif task.current_collection_run_id:
+            raw_materials = await load_source_materials(
+                session,
+                task_id,
+                collection_run_id=task.current_collection_run_id,
+                schema=schema_record.schema_json if schema_record else (task.dynamic_schema or {}),
+            )
+        else:
+            raw_materials = await load_source_materials(
+                session,
+                task_id,
+                schema=schema_record.schema_json if schema_record else (task.dynamic_schema or {}),
+            )
             raw_materials = task.raw_materials or []
         state = {
             "task_id": task_id,

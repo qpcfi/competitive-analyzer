@@ -1,10 +1,11 @@
 from datetime import datetime
 
 from fastapi import APIRouter, HTTPException, Request
+from sqlalchemy import select
 
 from core import runtime
 from core.runtime import runner
-from models_db import async_session
+from models_db import SourceMaterialRecord, async_session
 from schemas import PartialRerunRequest
 from services.analysis_rerun import run_incremental_analysis_rerun
 from services.pipeline import (
@@ -144,9 +145,46 @@ async def continue_analysis(task_id: str):
                 raise HTTPException(status_code=409, detail=f"Cannot continue analysis while task is {db_task.state}")
             if db_task.state == "COLLECTING" and db_task.active_run_id:
                 raise HTTPException(status_code=409, detail="Collection pipeline is still active; analysis will start automatically.")
-            raw_materials = list(db_task.raw_materials or [])
-            if not raw_materials:
+
+            # Verify materials exist via source_materials table (not the raw_materials JSON column,
+            # which is no longer populated after the switch to dedicated table + collection_run_id).
+            material_ids = db_task.current_material_ids or []
+            has_materials = False
+            if material_ids:
+                result = await session.execute(
+                    select(SourceMaterialRecord.id).where(
+                        SourceMaterialRecord.task_id == task_id,
+                        SourceMaterialRecord.id.in_(material_ids),
+                    ).limit(1)
+                )
+                has_materials = result.scalar_one_or_none() is not None
+                if not has_materials:
+                    # 旧快照的 ID 可能不存在于 source_materials 表，降级查全部
+                    result = await session.execute(
+                        select(SourceMaterialRecord.id).where(
+                            SourceMaterialRecord.task_id == task_id,
+                        ).limit(1)
+                    )
+                    has_materials = result.scalar_one_or_none() is not None
+            elif db_task.current_collection_run_id:
+                result = await session.execute(
+                    select(SourceMaterialRecord.id).where(
+                        SourceMaterialRecord.task_id == task_id,
+                        SourceMaterialRecord.collection_run_id == db_task.current_collection_run_id,
+                    ).limit(1)
+                )
+                has_materials = result.scalar_one_or_none() is not None
+            else:
+                # Fallback: check if any source material exists for this task
+                result = await session.execute(
+                    select(SourceMaterialRecord.id).where(
+                        SourceMaterialRecord.task_id == task_id,
+                    ).limit(1)
+                )
+                has_materials = result.scalar_one_or_none() is not None
+            if not has_materials:
                 raise HTTPException(status_code=409, detail="No collected materials to analyze. Collect data first.")
+
             await add_intervention(session, task_id, "continue_analysis", {"previous_state": db_task.state})
             await update_task_state(session, task_id, state="ANALYZING", progress=65)
             await set_task_run(session, task_id, run_id)

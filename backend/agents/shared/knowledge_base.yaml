@@ -4327,3 +4327,108 @@ sources:
     skills: ["business"]
     tags: ["auto-discovered"]
     competitors: ["中联重科 (Zoomlion)"]
+
+  - url: "https://www.cat.com/zh_CN/language-selector.html"
+    name: "auto: 卡特彼勒 (Caterpillar) 配件供应履单方式"
+    description: "Auto-discovered from 卡特彼勒 (Caterpillar) 配件供应履单方式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒 (Caterpillar)"]
+
+  - url: "https://login.cat.com/CwsLogin/cws/login.htm?language=zh"
+    name: "auto: 卡特彼勒 (Caterpillar) 在线订单履约说明"
+    description: "Auto-discovered from 卡特彼勒 (Caterpillar) 在线订单履约说明 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒 (Caterpillar)"]
+
+  - url: "https://www.caterpillar.com/zh/company/working-together/suppliers/potential-suppliers.html"
+    name: "auto: 卡特彼勒 (Caterpillar) 末端配送合作伙伴"
+    description: "Auto-discovered from 卡特彼勒 (Caterpillar) 末端配送合作伙伴 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒 (Caterpillar)"]
+
+  - url: "https://investors.caterpillar.com/financials/sec-filings/default.aspx"
+    name: "auto: 卡特彼勒 (Caterpillar) 报关与清关服务模式"
+    description: "Auto-discovered from 卡特彼勒 (Caterpillar) 报关与清关服务模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒 (Caterpillar)"]
+
+  - url: "https://investors.caterpillar.com/overview/default.aspx"
+    name: "auto: 卡特彼勒 (Caterpillar) 报关与清关服务模式"
+    description: "Auto-discovered from 卡特彼勒 (Caterpillar) 报关与清关服务模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["卡特彼勒 (Caterpillar)"]
+
+  - url: "https://www.xcmgglobal.com/about/company-profile.htm"
+    name: "auto: 徐工机械 (XCMG) 主要海外市场"
+    description: "Auto-discovered from 徐工机械 (XCMG) 主要海外市场 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械 (XCMG)"]
+
+  - url: "https://xueqiu.com/1372312379/314401949"
+    name: "auto: 徐工机械 (XCMG) 海外仓库存容量"
+    description: "Auto-discovered from 徐工机械 (XCMG) 海外仓库存容量 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械 (XCMG)"]
+
+  - url: "https://xueqiu.com/3207053190/356896950"
+    name: "auto: 徐工机械 (XCMG) 主要分销模式"
+    description: "Auto-discovered from 徐工机械 (XCMG) 主要分销模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械 (XCMG)"]
+
+  - url: "https://tlang.com/"
+    name: "auto: 徐工机械 (XCMG) 电商直销平台"
+    description: "Auto-discovered from 徐工机械 (XCMG) 电商直销平台 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械 (XCMG)"]
+
+  - url: "https://www.machrental.com/projects/index.html"
+    name: "auto: 徐工机械 (XCMG) 租赁与以租代售"
+    description: "Auto-discovered from 徐工机械 (XCMG) 租赁与以租代售 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["徐工机械 (XCMG)"]
+
+  - url: "https://www.zoomlion-ag.com/"
+    name: "auto: 中联重科 (Zoomlion) 整机交付模式"
+    description: "Auto-discovered from 中联重科 (Zoomlion) 整机交付模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["中联重科 (Zoomlion)"]
+
+  - url: "https://zoomlionmall.com/equipment/index.html"
+    name: "auto: 中联重科 (Zoomlion) 配件供应履单方式"
+    description: "Auto-discovered from 中联重科 (Zoomlion) 配件供应履单方式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["中联重科 (Zoomlion)"]
+
+  - url: "http://www.zoomlion.com/investor/report.html"
+    name: "auto: 中联重科 (Zoomlion) 海外仓库存容量"
+    description: "Auto-discovered from 中联重科 (Zoomlion) 海外仓库存容量 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["中联重科 (Zoomlion)"]
+
+  - url: "https://static.cninfo.com.cn/finalpage/2026-03-31/1225055609.PDF"
+    name: "auto: 中联重科 (Zoomlion) 主要分销模式"
+    description: "Auto-discovered from 中联重科 (Zoomlion) 主要分销模式 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["中联重科 (Zoomlion)"]
+
+  - url: "https://zoomlionmall.com/m.html"
+    name: "auto: 中联重科 (Zoomlion) 电商直销平台"
+    description: "Auto-discovered from 中联重科 (Zoomlion) 电商直销平台 analysis"
+    skills: ["business"]
+    tags: ["auto-discovered"]
+    competitors: ["中联重科 (Zoomlion)"]

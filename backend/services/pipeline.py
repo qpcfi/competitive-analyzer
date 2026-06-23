@@ -317,12 +317,29 @@ async def process_agent_pipeline(
         elif snapshot_data and "raw_materials" in snapshot_data:
             raw_materials = snapshot_data["raw_materials"]
         elif start_from != "collector":
-            raw_materials = await load_source_materials(
-                session,
-                task_id,
-                collection_run_id=current_collection_run_id,
-                schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
-            )
+            material_ids = db_task.current_material_ids or []
+            if material_ids:
+                raw_materials = await load_source_materials(
+                    session,
+                    task_id,
+                    material_ids=material_ids,
+                    collection_run_id=current_collection_run_id,
+                    schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
+                )
+            elif current_collection_run_id:
+                raw_materials = await load_source_materials(
+                    session,
+                    task_id,
+                    collection_run_id=current_collection_run_id,
+                    schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
+                )
+            else:
+                # Fallback: no material_ids and no collection_run_id
+                raw_materials = await load_source_materials(
+                    session,
+                    task_id,
+                    schema=schema_record.schema_json if schema_record else (db_task.dynamic_schema or {}),
+                )
             if not raw_materials:
                 raw_materials = list(db_task.raw_materials or [])
         else:
@@ -402,6 +419,7 @@ async def process_agent_pipeline(
                 task.current_collection_run_id = run_id
                 await _with_timeout(task_id, run_id, "save_source_materials", save_source_materials(session, task_id, materials, collection_run_id=run_id))
                 material_ids = [m.get("id") for m in materials if m.get("id")]
+                task.current_material_ids = material_ids
 
                 # ── Post-collection snapshot ──
                 await _with_timeout(task_id, run_id, "write_checkpoint(post_collection)", write_checkpoint(
@@ -629,6 +647,10 @@ async def run_schema_calibration(task_id: str, run_id: str, state: dict[str, Any
         collection_run_id = task.current_collection_run_id or run_id
         task.current_collection_run_id = collection_run_id
         await save_source_materials(session, task_id, new_materials, collection_run_id=collection_run_id)
+        new_ids = [m.get("id") for m in new_materials if m.get("id")]
+        current_ids = list(task.current_material_ids or [])
+        current_ids.extend(item for item in new_ids if item not in current_ids)
+        task.current_material_ids = current_ids
         await session.commit()
     await publish_event(task_id, "raw_materials_updated", {"data": state["raw_materials"], "source_stats": source_stats(state["raw_materials"])}, run_id=run_id)
 
@@ -707,12 +729,22 @@ async def calibration_reject(task_id: str, run_id: str):
                 return
             schema_record = await latest_schema(session, task_id)
             dynamic_schema = schema_record.schema_json if schema_record else (db_task.dynamic_schema or {})
-            raw_materials = await load_source_materials(
-                session,
-                task_id,
-                collection_run_id=db_task.current_collection_run_id,
-                schema=dynamic_schema,
-            )
+            material_ids = db_task.current_material_ids or []
+            if material_ids:
+                raw_materials = await load_source_materials(
+                    session,
+                    task_id,
+                    material_ids=material_ids,
+                    collection_run_id=db_task.current_collection_run_id,
+                    schema=dynamic_schema,
+                )
+            else:
+                raw_materials = await load_source_materials(
+                    session,
+                    task_id,
+                    collection_run_id=db_task.current_collection_run_id,
+                    schema=dynamic_schema,
+                )
             if not raw_materials:
                 raw_materials = db_task.raw_materials or []
 
@@ -844,12 +876,22 @@ async def run_critic_retry(
                 return
             schema_record = await latest_schema(session, task_id)
             current_schema = schema_record.schema_json if schema_record else (db_task.dynamic_schema or {})
-            raw_materials = await load_source_materials(
-                session,
-                task_id,
-                collection_run_id=db_task.current_collection_run_id,
-                schema=current_schema,
-            )
+            material_ids = db_task.current_material_ids or []
+            if material_ids:
+                raw_materials = await load_source_materials(
+                    session,
+                    task_id,
+                    material_ids=material_ids,
+                    collection_run_id=db_task.current_collection_run_id,
+                    schema=current_schema,
+                )
+            else:
+                raw_materials = await load_source_materials(
+                    session,
+                    task_id,
+                    collection_run_id=db_task.current_collection_run_id,
+                    schema=current_schema,
+                )
             if not raw_materials:
                 raw_materials = db_task.raw_materials or []
             existing_analysis = db_task.analysis_results or {}
@@ -1002,6 +1044,10 @@ async def run_critic_retry(
                 collection_run_id = task.current_collection_run_id or run_id
                 task.current_collection_run_id = collection_run_id
                 await save_source_materials(session, task_id, new_materials, collection_run_id=collection_run_id)
+                new_ids = [m.get("id") for m in new_materials if m.get("id")]
+                current_ids = list(task.current_material_ids or [])
+                current_ids.extend(item for item in new_ids if item not in current_ids)
+                task.current_material_ids = current_ids
                 await session.commit()
             await publish_event(task_id, "debug_log", {"agent": "Collector", "event": "end", "message": f"Re-collected {len(new_materials)} materials."}, run_id=run_id)
             await publish_event(task_id, "raw_materials_updated", {"data": all_materials, "source_stats": source_stats(all_materials), "retry": True}, run_id=run_id)

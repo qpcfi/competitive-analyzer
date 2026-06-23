@@ -121,13 +121,28 @@ async def load_rerun_context(task_id: str) -> RerunContext:
 
         schema_record = await latest_schema(session, task_id)
         dynamic_schema = schema_record.schema_json if schema_record else {}
-        raw_materials = await load_source_materials(
-            session,
-            task_id,
-            collection_run_id=task.current_collection_run_id,
-            schema=dynamic_schema,
-        )
-        if not raw_materials:
+        material_ids = task.current_material_ids or []
+        if material_ids:
+            raw_materials = await load_source_materials(
+                session,
+                task_id,
+                material_ids=material_ids,
+                collection_run_id=task.current_collection_run_id,
+                schema=dynamic_schema,
+            )
+        elif task.current_collection_run_id:
+            raw_materials = await load_source_materials(
+                session,
+                task_id,
+                collection_run_id=task.current_collection_run_id,
+                schema=dynamic_schema,
+            )
+        else:
+            raw_materials = await load_source_materials(
+                session,
+                task_id,
+                schema=dynamic_schema,
+            )
             raw_materials = list(task.raw_materials or [])
 
         return RerunContext(

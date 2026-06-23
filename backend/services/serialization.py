@@ -17,6 +17,7 @@ def serialize_task(db_task: TaskRecord) -> dict[str, Any]:
         "progress": db_task.progress or 0,
         "run_id": db_task.active_run_id,
         "current_collection_run_id": db_task.current_collection_run_id,
+        "current_material_ids": db_task.current_material_ids or [],
         "dynamic_schema": db_task.dynamic_schema or {},
         "raw_materials": db_task.raw_materials or [],
         "analysis_results": db_task.analysis_results or {},

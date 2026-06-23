@@ -65,7 +65,10 @@ async def refresh_report_with_survey(
             ]
             schema_record = await latest_schema(session, task_id)
             source_stmt = select(SourceMaterialRecord).where(SourceMaterialRecord.task_id == task_id)
-            if task.current_collection_run_id:
+            material_ids = task.current_material_ids or []
+            if material_ids:
+                source_stmt = source_stmt.where(SourceMaterialRecord.id.in_(material_ids))
+            elif task.current_collection_run_id:
                 source_stmt = source_stmt.where(SourceMaterialRecord.collection_run_id == task.current_collection_run_id)
             source_result = await session.execute(source_stmt)
             existing_materials = [serialize_source(item) for item in source_result.scalars()]
@@ -114,6 +117,10 @@ async def refresh_report_with_survey(
                 task.current_collection_run_id = collection_run_id
             if survey_materials:
                 await save_source_materials(session, task_id, survey_materials, collection_run_id=collection_run_id)
+                survey_ids = [m.get("id") for m in survey_materials if m.get("id")]
+                current_ids = list(task.current_material_ids or [])
+                current_ids.extend(item for item in survey_ids if item not in current_ids)
+                task.current_material_ids = current_ids
             await update_survey_campaign(session, campaign.id, status="synthesized")
             await session.commit()
 

@@ -13,8 +13,8 @@ collector_skills:
       Instructions:
       1. Extract only the concise, relevant company information answering the field for the competitor.
       2. If the information is not present, reply with exactly: "NOT_FOUND".
-      3. Do not include extra conversational text.
-      4. IMPORTANT: Write the extracted information in Chinese (except for domain-specific terminology).
+      3. Do not include extra  text.
+      4. IMPORTANT: Write the extracconversationalted information in Chinese (except for domain-specific terminology).
   product:
     system_prompt: |
       You are a Product Feature Extraction Expert.
