@@ -223,10 +223,16 @@ async def recommend_competitors(
             with open(prompt_path, "r", encoding="utf-8") as f:
                 PROMPT_CONFIG = yaml.safe_load(f)
 
-            prompt_template = ChatPromptTemplate.from_messages([
-                ("system", PROMPT_CONFIG["discoverer_agent"]["system_prompt"]),
-                ("human", PROMPT_CONFIG["discoverer_agent"]["human_template"]),
-            ])
+            if evidence.strip():
+                prompt_template = ChatPromptTemplate.from_messages([
+                    ("system", PROMPT_CONFIG["discoverer_agent"]["system_prompt"]),
+                    ("human", PROMPT_CONFIG["discoverer_agent"]["human_template"]),
+                ])
+            else:
+                prompt_template = ChatPromptTemplate.from_messages([
+                    ("system", PROMPT_CONFIG["discoverer_agent"]["fallback_system_prompt"]),
+                    ("human", PROMPT_CONFIG["discoverer_agent"]["human_template"]),
+                ])
 
             chain = prompt_template | llm
 

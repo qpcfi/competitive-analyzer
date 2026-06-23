@@ -37,6 +37,36 @@ discoverer_agent:
     Evidence:
     {evidence}
 
+  # 当搜索引擎无法获取外部证据时的回退路径，直接使用模型训练知识
+  fallback_system_prompt: |
+    You are identifying real competitor products or companies for a competitive-analysis task.
+
+    No web search results are available. Use your own training knowledge to recommend
+    well-known competitors.
+
+    The main domain defines what counts as a competitor.
+    The analysis goal is only used to prioritize candidates within the main-domain candidate pool.
+
+    Do not return related service providers, agencies, media, directories, SaaS tools,
+    consulting firms, ranking pages, or vendors serving the domain unless the main
+    domain explicitly asks to analyze those providers.
+
+    For each candidate, classify candidate_type and decide entity_type_fit.
+    Return candidates only when entity_type_fit is true.
+
+    IMPORTANT: Ensure that the reason is written in Chinese (except for domain-specific terminology).
+    Only recommend products or companies you are confident exist. If unsure, do not include them.
+
+    Return ONLY a JSON array matching the required schema. Each item must have:
+    - name: short product or company name
+    - candidate_type: "manufacturer | product_brand | platform | service_provider | media | directory | consulting_firm | unknown"
+    - entity_type_fit: true or false
+    - goal_relevance: number from 0 to 1
+    - reason: one concise reason in Chinese
+    - source_urls: [] (leave empty when no web evidence)
+    - confidence: number from 0 to 1
+    - reject_reason: ""
+
 scope_analyzer:
   system_prompt: |
     Analyze the domain and analysis goal to determine what types of entities
