@@ -12,7 +12,9 @@ class Chunk(TypedDict):
 
 # ── Noise cleaning ──────────────────────────────────────────────────────────
 
+# Line-level: entire lines matching these patterns are removed
 NOISE_PATTERNS = [
+    # English boilerplate
     r"(copyright|©|\(c\)|all rights reserved)",
     r"(sign\s*up|subscribe|newsletter)",
     r"(cookie|privacy\s*policy|terms\s*of\s*service)",
@@ -23,19 +25,71 @@ NOISE_PATTERNS = [
     r"(search\b.*\b(results|the\s*site))",
     r"(related\s*posts|popular\s*posts|you\s*may\s*also\s*like)",
     r"(footer|©\s*\d{4})",
+    # Chinese — copyright / legal
+    r"(版权所有|保留所有权利|侵权必究|本网站所有)",
+    r"(免责声明|免责条款|用户协议|服务条款|隐私政策|隐私声明)",
+    r"(未经.*许可.*转载|转载.*请联系)",
+    # Chinese — subscription / registration
+    r"(免费订阅|邮件订阅|订阅我们|订阅\s*(周刊|邮件|资讯))",
+    r"(免费注册|立即注册|注册\s*(即|账号|会员|帐号))",
+    # Chinese — comments
+    r"(发表评论|提交评论|查看全部评论)",
+    # Chinese — navigation / chrome
+    r"(网站导航|站点导航|主导航|面包屑)",
+    r"(关于我们|联系我们|商务合作|加入我们|诚聘英才)",
+    r"(友情链接|合作伙伴|相关推荐|猜你喜欢|为您推荐)",
+    r"(热门文章|推荐文章|最新文章|相关文章)",
+    r"(下一页|上一页|返回顶部|加载更多|更多\s*(文章|资讯))",
+    r"(分享到|一键分享|转发到|分享至)",
+    r"(意见反馈|投诉建议|帮助中心|常见问题)",
+    # Chinese — follow / QR code
+    r"(扫码\s*(关注|阅读)|长按\s*(识别|扫码)|关注\s*(我们|公众号))",
+    # Chinese — ads
+    r"(广告投放|广告合作|招商)",
+    # Markdown artifact lines
+    r"^\|[\s:-]+\|[\s:-]+.*$",         # table separator |---|---|
+    r"^\[\d+\]:\s+https?://",           # reference link [1]: url
+]
+
+# Inline: patterns applied to the text of surviving lines
+INLINE_PATTERNS: list[tuple[re.Pattern, str]] = [
+    # markdown image ![alt](url) → remove entirely (must come before link pattern)
+    (re.compile(r"!\[([^\]]*)\]\(https?://[^)]+\)"), ""),
+    # autolink <https://...>
+    (re.compile(r"<https?://[^>]+>"), ""),
+    # markdown link [text](url) → keep text only
+    (re.compile(r"\[([^\]]*)\]\(https?://[^)]+\)"), r"\1"),
+    # bare URL (with Chinese punctuation as additional boundaries)
+    (re.compile(r"https?://[^\s\)\]\"'>，。、；：]+"), ""),
+    # heading markers
+    (re.compile(r"^#{1,6}\s+"), ""),
 ]
 
 
 def clean_noise(text: str, min_line_length: int = 15) -> str:
-    """Remove navigation, copyright, ads, and other noisy lines."""
+    """Remove navigation, copyright, ads, URLs, and other noisy content."""
+    if not text:
+        return ""
+
     lines = text.split("\n")
     cleaned: list[str] = []
     for line in lines:
         line = line.strip()
         if not line or len(line) < min_line_length:
             continue
+
+        # Remove entire line if it matches noise patterns
         if any(re.search(p, line, re.IGNORECASE) for p in NOISE_PATTERNS):
             continue
+
+        # Clean inline noise (URLs, markdown syntax)
+        for pattern, repl in INLINE_PATTERNS:
+            line = pattern.sub(repl, line)
+
+        line = line.strip()
+        if not line or len(line) < min_line_length:
+            continue
+
         cleaned.append(line)
     return "\n".join(cleaned)
 
@@ -175,12 +229,14 @@ def build_excerpt(ranked_chunks: list[Chunk], max_chars: int = 12000) -> str:
 def process_page(text: str, query: str, max_chars: int = 4000) -> str:
     """Full pipeline: clean → chunk → retrieve → build excerpt.
 
-    Short pages bypass retrieval and return the full text directly.
+    Noise cleaning always runs. Short pages skip chunk+retrieval.
     """
-    if len(text) <= max_chars:
-        return text
-
     cleaned = clean_noise(text)
+    if not cleaned:
+        return ""
+    if len(cleaned) <= max_chars:
+        return cleaned
+
     chunks = chunk_text(cleaned)
     retrieval = get_retrieval()
     ranked = retrieval.rank_chunks(chunks, query)
