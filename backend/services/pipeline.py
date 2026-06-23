@@ -959,36 +959,21 @@ async def run_critic_retry(
 
             field_index = build_field_index(current_schema)
             for f in feedback_records:
-                retry_analysis_context.append({
-                    "issue": f.message,
-                    "target": f.target_id,
-                    "action": f.suggested_action,
-                    "module_id": f.module_id,
-                    "severity": f.severity,
-                    "code": f.code,
-                })
                 if f.suggested_action == "retry_collection":
                     matched_ids = _match_feedback_field_ids(f, field_index)
                     if matched_ids:
                         retry_collection_fields.extend(matched_ids)
                     else:
                         collection_unmatched_feedback_ids.append(f.id)
-                continue
-                if f.suggested_action == "retry_collection":
-                    msg = f.message or ""
-                    target = ""
-                    for prefix in ("field_name:", "字段:", "维度:"):
-                        if prefix in msg:
-                            target = msg.split(prefix)[-1].strip().split(",")[0].strip()
-                            break
-                    if not target:
-                        target = f.target_id or ""
-                    for fl in field_index:
-                        fn = fl.get("field_name") or fl.get("name") or ""
-                        if (target and target in fn) or (target == fl.get("id")):
-                            retry_collection_fields.append(fl.get("id") or "")
-                elif f.suggested_action in ("retry_analysis", "extend_schema"):
-                    retry_analysis_context.append({"issue": f.message, "target": f.target_id})
+                else:
+                    retry_analysis_context.append({
+                        "issue": f.message,
+                        "target": f.target_id,
+                        "action": f.suggested_action,
+                        "module_id": f.module_id,
+                        "severity": f.severity,
+                        "code": f.code,
+                    })
 
             await publish_event(task_id, "debug_log", {
                 "agent": "CriticRetry",

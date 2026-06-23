@@ -25,6 +25,11 @@ from core.callbacks import RealtimeDebugCallbackHandler
 llm = create_chat_llm(timeout=90)
 
 
+def field_key(field: dict) -> str:
+    """Normalize a schema field dict to a comparable key (lowercased name)."""
+    return (field.get("name") or field.get("id") or "").lower().strip()
+
+
 @dataclass(slots=True)
 class CompetitorCandidate:
     name: str
