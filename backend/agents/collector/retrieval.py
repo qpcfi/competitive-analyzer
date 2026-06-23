@@ -67,30 +67,51 @@ INLINE_PATTERNS: list[tuple[re.Pattern, str]] = [
 
 
 def clean_noise(text: str, min_line_length: int = 15) -> str:
-    """Remove navigation, copyright, ads, URLs, and other noisy content."""
+    """Remove navigation, copyright, ads, URLs, and other noisy content.
+
+    Preserves paragraph boundaries (``\\n\\n``) so downstream ``chunk_text``
+    can still split on meaningful section breaks.
+    """
     if not text:
         return ""
 
     lines = text.split("\n")
     cleaned: list[str] = []
+    gap = False  # whether we just passed a removed/empty line
     for line in lines:
-        line = line.strip()
-        if not line or len(line) < min_line_length:
+        raw = line.strip()
+
+        # Track gaps (blank lines, short lines, noise) without consuming them
+        if not raw:
+            gap = True
             continue
 
-        # Remove entire line if it matches noise patterns
-        if any(re.search(p, line, re.IGNORECASE) for p in NOISE_PATTERNS):
+        if len(raw) < min_line_length:
+            gap = True
+            continue
+
+        if any(re.search(p, raw, re.IGNORECASE) for p in NOISE_PATTERNS):
+            gap = True
             continue
 
         # Clean inline noise (URLs, markdown syntax)
         for pattern, repl in INLINE_PATTERNS:
-            line = pattern.sub(repl, line)
+            raw = pattern.sub(repl, raw)
 
-        line = line.strip()
-        if not line or len(line) < min_line_length:
+        raw = raw.strip()
+        if not raw or len(raw) < min_line_length:
+            gap = True
             continue
 
-        cleaned.append(line)
+        # Insert paragraph separator when a gap preceded this content
+        if gap and cleaned:
+            cleaned.append("")  # becomes \n\n when joined
+        cleaned.append(raw)
+        gap = False
+
+    # Strip trailing empty lines
+    while cleaned and cleaned[-1] == "":
+        cleaned.pop()
     return "\n".join(cleaned)
 
 
@@ -114,6 +135,29 @@ def chunk_text(text: str, chunk_size: int = 512, overlap: int = 128) -> list[Chu
     if buffer.strip():
         chunks.append({"text": buffer.strip(), "index": len(chunks)})
     return chunks
+
+
+# ── CJK-aware tokenization ──────────────────────────────────────────────────
+
+
+def _tokenize(text: str) -> list[str]:
+    """Tokenize text with CJK character-bigram support.
+
+    Chinese text lacks word boundaries, so plain ``.split()`` treats an entire
+    sentence as a single token — useless for BM25 term matching.
+    This function detects CJK-dominant words and splits them into overlapping
+    character bigrams, giving meaningful term overlap without an external
+    Chinese segmenter.
+    """
+    tokens: list[str] = []
+    for word in text.lower().split():
+        cjk_count = sum(1 for c in word if "一" <= c <= "鿿")
+        if cjk_count > len(word) * 0.5 and len(word) > 1:
+            for i in range(len(word) - 1):
+                tokens.append(word[i : i + 2])
+        elif word:
+            tokens.append(word)
+    return tokens
 
 
 # ── Embedding retrieval ─────────────────────────────────────────────────────
@@ -171,11 +215,11 @@ class ContentRetrieval:
 
     def _rank_bm25(self, chunks: list[Chunk], query: str, top_k: int) -> list[Chunk]:
         k1, b = 1.5, 0.75
-        query_terms = query.lower().split()
+        query_terms = _tokenize(query)
         if not query_terms:
             return chunks[:top_k]
 
-        chunk_terms = [c["text"].lower().split() for c in chunks]
+        chunk_terms = [_tokenize(c["text"]) for c in chunks]
         avg_dl = sum(len(t) for t in chunk_terms) / max(len(chunk_terms), 1)
         n_chunks = len(chunks)
 
